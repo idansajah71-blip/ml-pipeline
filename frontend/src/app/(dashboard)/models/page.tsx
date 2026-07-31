@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus, Trash2, Rocket, Brain, Loader2, Eye } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -8,18 +8,17 @@ import Pagination from '@/components/Pagination';
 import SearchInput from '@/components/SearchInput';
 import { CardSkeleton } from '@/components/Skeleton';
 import { useToast } from '@/components/Toast';
-import { models, datasets, algorithms } from '@/lib/api';
-import { MLModel, Dataset } from '@/types';
+import { models, datasets as datasetsApi, algorithms } from '@/lib/api';
+import { useModels, useDatasets, useAlgorithms } from '@/lib/hooks';
 import Link from 'next/link';
 
 const ITEMS_PER_PAGE = 9;
 
 export default function ModelsPage() {
   const { toast } = useToast();
-  const [modelsList, setModelsList] = useState<MLModel[]>([]);
-  const [datasetsList, setDatasetsList] = useState<Dataset[]>([]);
-  const [algorithmsList, setAlgorithmsList] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { models: modelsList, isLoading, mutate } = useModels();
+  const { datasets: datasetsList } = useDatasets();
+  const { algorithms: algorithmsList } = useAlgorithms();
   const [showCreate, setShowCreate] = useState(false);
   const [training, setTraining] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState({ name: '', algorithm: 'random_forest', target_column: '', description: '' });
@@ -41,36 +40,16 @@ export default function ModelsPage() {
     currentPage * ITEMS_PER_PAGE
   );
 
-  const fetchData = async () => {
-    try {
-      const [modelsRes, datasetsRes, algRes] = await Promise.all([
-        models.list(),
-        datasets.list(),
-        algorithms.list().catch(() => ({ data: { algorithms: [] } })),
-      ]);
-      setModelsList(modelsRes.data.items);
-      setDatasetsList(Array.isArray(datasetsRes.data) ? datasetsRes.data : []);
-      setAlgorithmsList(algRes.data.algorithms);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
-
   const handleCreate = async () => {
     try {
       await models.create(createForm);
       setShowCreate(false);
       setCreateForm({ name: '', algorithm: 'random_forest', target_column: '', description: '' });
-      fetchData();
+      mutate();
       toast('success', 'Model created successfully');
-    } catch (err: any) {
-      toast('error', err.response?.data?.detail || 'Create failed');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Create failed';
+      toast('error', message);
     }
   };
 
@@ -81,10 +60,11 @@ export default function ModelsPage() {
         dataset_id: trainForm.dataset_id,
         algorithm: trainForm.algorithm,
       });
-      fetchData();
+      mutate();
       toast('success', 'Training completed successfully');
-    } catch (err: any) {
-      toast('error', err.response?.data?.detail || 'Training failed');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Training failed';
+      toast('error', message);
     } finally {
       setTraining(null);
     }
@@ -93,17 +73,18 @@ export default function ModelsPage() {
   const handleDeploy = async (modelId: string) => {
     try {
       await models.deploy(modelId);
-      fetchData();
+      mutate();
       toast('success', 'Model deployed successfully');
-    } catch (err: any) {
-      toast('error', err.response?.data?.detail || 'Deploy failed');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Deploy failed';
+      toast('error', message);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this model?')) return;
     await models.delete(id);
-    fetchData();
+    mutate();
     toast('success', 'Model deleted successfully');
   };
 
@@ -167,7 +148,7 @@ export default function ModelsPage() {
         </div>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <CardSkeleton key={i} />
