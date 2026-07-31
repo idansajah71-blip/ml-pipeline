@@ -1,55 +1,37 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { FlaskConical, Plus, Play, Pause, Square } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { abTests, models } from '@/lib/api';
-import { ABTest, MLModel } from '@/types';
+import { abTests } from '@/lib/api';
+import { useABTests, useModels } from '@/lib/hooks';
 
 export default function ABTestsPage() {
-  const [tests, setTests] = useState<ABTest[]>([]);
-  const [modelsList, setModelsList] = useState<MLModel[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { tests, isLoading, mutate } = useABTests();
+  const { models: modelsList } = useModels();
   const [showCreate, setShowCreate] = useState(false);
   const [createForm, setCreateForm] = useState({ name: '', model_a_id: '', model_b_id: '', traffic_split: 50 });
-
-  const fetchData = async () => {
-    try {
-      const [testsRes, modelsRes] = await Promise.all([
-        abTests.list(),
-        models.list(),
-      ]);
-      setTests(testsRes.data.items);
-      setModelsList(modelsRes.data.items);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   const handleCreate = async () => {
     try {
       await abTests.create(createForm);
       setShowCreate(false);
       setCreateForm({ name: '', model_a_id: '', model_b_id: '', traffic_split: 50 });
-      fetchData();
-    } catch (err: any) {
-      alert(err.response?.data?.detail || 'Create failed');
+      mutate();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Create failed';
+      alert(message);
     }
   };
 
   const handleUpdateStatus = async (id: string, status: string) => {
     try {
-      await abTests.update(id, { status: status as any });
-      fetchData();
-    } catch (err: any) {
-      alert(err.response?.data?.detail || 'Update failed');
+      await abTests.update(id, { status: status as 'draft' | 'active' | 'paused' | 'completed' });
+      mutate();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Update failed';
+      alert(message);
     }
   };
 
@@ -122,7 +104,7 @@ export default function ABTestsPage() {
         </div>
       )}
 
-      {loading ? (
+      {isLoading ? (
         <LoadingSpinner size="lg" className="mx-auto" />
       ) : tests.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-16">
