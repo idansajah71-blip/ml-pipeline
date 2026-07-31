@@ -1,35 +1,25 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { BarChart3, Cpu, HardDrive, MemoryStick } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { monitoring } from '@/lib/api';
+import { useStats, useSystem } from '@/lib/hooks';
 
 const COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#6366F1'];
 
-export default function MonitoringPage() {
-  const [stats, setStats] = useState<any>(null);
-  const [system, setSystem] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+interface SystemData {
+  cpu_percent?: number;
+  memory?: { percent?: number; available?: number; total?: number };
+  disk?: { percent?: number; used?: number; total?: number };
+  platform?: string;
+  python_version?: string;
+}
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [statsRes, systemRes] = await Promise.all([
-          monitoring.stats().catch(() => ({ data: null })),
-          monitoring.system().catch(() => ({ data: null })),
-        ]);
-        setStats(statsRes.data);
-        setSystem(systemRes.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+export default function MonitoringPage() {
+  const { stats, isLoading: statsLoading } = useStats();
+  const { system, isLoading: systemLoading } = useSystem();
+
+  const loading = statsLoading || systemLoading;
 
   if (loading) {
     return (
@@ -39,6 +29,8 @@ export default function MonitoringPage() {
     );
   }
 
+  const systemData = system as SystemData | null;
+
   const statsChartData = stats
     ? Object.entries(stats).map(([key, value]) => ({
         name: key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase()),
@@ -46,11 +38,11 @@ export default function MonitoringPage() {
       }))
     : [];
 
-  const systemChartData = system
+  const systemChartData = systemData
     ? [
-        { name: 'CPU', value: system.cpu_percent || 0, color: '#3B82F6' },
-        { name: 'Memory', value: system.memory?.percent || 0, color: '#8B5CF6' },
-        { name: 'Disk', value: system.disk?.percent || 0, color: '#10B981' },
+        { name: 'CPU', value: systemData.cpu_percent || 0, color: '#3B82F6' },
+        { name: 'Memory', value: systemData.memory?.percent || 0, color: '#8B5CF6' },
+        { name: 'Disk', value: systemData.disk?.percent || 0, color: '#10B981' },
       ]
     : [];
 
@@ -86,7 +78,7 @@ export default function MonitoringPage() {
         </div>
       )}
 
-      {system && (
+      {systemData && (
         <div className="rounded-xl border border-gray-200 bg-white p-6">
           <h2 className="mb-4 text-lg font-semibold">System Resources</h2>
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -95,12 +87,12 @@ export default function MonitoringPage() {
                 <div className="mb-2 flex items-center gap-2">
                   <Cpu className="h-5 w-5 text-blue-600" />
                   <p className="text-sm font-medium text-gray-700">CPU</p>
-                  <span className="ml-auto text-lg font-semibold">{system.cpu_percent}%</span>
+                  <span className="ml-auto text-lg font-semibold">{systemData.cpu_percent}%</span>
                 </div>
                 <div className="h-2 rounded-full bg-gray-200">
                   <div
-                    className={`h-2 rounded-full transition-all ${system.cpu_percent > 80 ? 'bg-red-500' : system.cpu_percent > 60 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                    style={{ width: `${system.cpu_percent}%` }}
+                    className={`h-2 rounded-full transition-all ${(systemData.cpu_percent ?? 0) > 80 ? 'bg-red-500' : (systemData.cpu_percent ?? 0) > 60 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                    style={{ width: `${systemData.cpu_percent ?? 0}%` }}
                   />
                 </div>
               </div>
@@ -109,16 +101,16 @@ export default function MonitoringPage() {
                 <div className="mb-2 flex items-center gap-2">
                   <MemoryStick className="h-5 w-5 text-purple-600" />
                   <p className="text-sm font-medium text-gray-700">Memory</p>
-                  <span className="ml-auto text-lg font-semibold">{system.memory?.percent}%</span>
+                  <span className="ml-auto text-lg font-semibold">{systemData.memory?.percent}%</span>
                 </div>
                 <div className="h-2 rounded-full bg-gray-200">
                   <div
-                    className={`h-2 rounded-full transition-all ${system.memory?.percent > 80 ? 'bg-red-500' : system.memory?.percent > 60 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                    style={{ width: `${system.memory?.percent || 0}%` }}
+                    className={`h-2 rounded-full transition-all ${(systemData.memory?.percent ?? 0) > 80 ? 'bg-red-500' : (systemData.memory?.percent ?? 0) > 60 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                    style={{ width: `${systemData.memory?.percent || 0}%` }}
                   />
                 </div>
                 <p className="mt-1 text-xs text-gray-500">
-                  {((system.memory?.available || 0) / 1073741824).toFixed(1)} GB available of {((system.memory?.total || 0) / 1073741824).toFixed(1)} GB
+                  {((systemData.memory?.available || 0) / 1073741824).toFixed(1)} GB available of {((systemData.memory?.total || 0) / 1073741824).toFixed(1)} GB
                 </p>
               </div>
 
@@ -126,16 +118,16 @@ export default function MonitoringPage() {
                 <div className="mb-2 flex items-center gap-2">
                   <HardDrive className="h-5 w-5 text-green-600" />
                   <p className="text-sm font-medium text-gray-700">Disk</p>
-                  <span className="ml-auto text-lg font-semibold">{system.disk?.percent}%</span>
+                  <span className="ml-auto text-lg font-semibold">{systemData.disk?.percent}%</span>
                 </div>
                 <div className="h-2 rounded-full bg-gray-200">
                   <div
-                    className={`h-2 rounded-full transition-all ${system.disk?.percent > 80 ? 'bg-red-500' : system.disk?.percent > 60 ? 'bg-yellow-500' : 'bg-green-500'}`}
-                    style={{ width: `${system.disk?.percent || 0}%` }}
+                    className={`h-2 rounded-full transition-all ${(systemData.disk?.percent ?? 0) > 80 ? 'bg-red-500' : (systemData.disk?.percent ?? 0) > 60 ? 'bg-yellow-500' : 'bg-green-500'}`}
+                    style={{ width: `${systemData.disk?.percent || 0}%` }}
                   />
                 </div>
                 <p className="mt-1 text-xs text-gray-500">
-                  {((system.disk?.used || 0) / 1073741824).toFixed(1)} / {((system.disk?.total || 0) / 1073741824).toFixed(1)} GB
+                  {((systemData.disk?.used || 0) / 1073741824).toFixed(1)} / {((systemData.disk?.total || 0) / 1073741824).toFixed(1)} GB
                 </p>
               </div>
 
@@ -144,8 +136,8 @@ export default function MonitoringPage() {
                   <BarChart3 className="h-5 w-5 text-orange-600" />
                   <p className="text-sm font-medium text-gray-700">Platform</p>
                 </div>
-                <p className="mt-2 font-medium text-gray-900">{system.platform}</p>
-                <p className="text-xs text-gray-500">Python {system.python_version}</p>
+                <p className="mt-2 font-medium text-gray-900">{systemData.platform}</p>
+                <p className="text-xs text-gray-500">Python {systemData.python_version}</p>
               </div>
             </div>
 
@@ -181,7 +173,7 @@ export default function MonitoringPage() {
         </div>
       )}
 
-      {!stats && !system && (
+      {!stats && !systemData && (
         <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-16">
           <BarChart3 className="mb-4 h-12 w-12 text-gray-300" />
           <p className="text-gray-500">Monitoring data requires admin access and running server</p>
