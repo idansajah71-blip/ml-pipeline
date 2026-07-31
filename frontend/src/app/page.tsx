@@ -1,38 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Database, Brain, FlaskConical, Zap, Activity, Rocket } from 'lucide-react';
 import StatsCard from '@/components/StatsCard';
 import StatusBadge from '@/components/StatusBadge';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { monitoring, models, datasets } from '@/lib/api';
-import { Stats, MLModel, Dataset } from '@/types';
+import { useStats, useModels, useDatasets } from '@/lib/hooks';
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [recentModels, setRecentModels] = useState<MLModel[]>([]);
-  const [recentDatasets, setRecentDatasets] = useState<Dataset[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { stats, isLoading: statsLoading } = useStats();
+  const { models: modelsList, isLoading: modelsLoading } = useModels();
+  const { datasets: datasetsList, isLoading: datasetsLoading } = useDatasets();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [statsRes, modelsRes, datasetsRes] = await Promise.all([
-          monitoring.stats().catch(() => ({ data: { total_models: 0, total_datasets: 0, total_experiments: 0, total_predictions: 0, active_models: 0, training_experiments: 0 } })),
-          models.list().catch(() => ({ data: { items: [] } })),
-          datasets.list().catch(() => ({ data: [] })),
-        ]);
-        setStats(statsRes.data);
-        setRecentModels(modelsRes.data.items.slice(0, 5));
-        setRecentDatasets((Array.isArray(datasetsRes.data) ? datasetsRes.data : []).slice(0, 5));
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
-  }, []);
+  const loading = statsLoading || modelsLoading || datasetsLoading;
 
   if (loading) {
     return (
@@ -41,6 +20,9 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  const recentModels = modelsList.slice(0, 5);
+  const recentDatasets = datasetsList.slice(0, 5);
 
   return (
     <div className="space-y-8">
