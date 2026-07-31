@@ -1,38 +1,36 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Database, Trash2, BarChart3 } from 'lucide-react';
+import { ArrowLeft, Database, Trash2 } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { datasets } from '@/lib/api';
-import { Dataset } from '@/types';
+import { useDataset, useDatasetPreview } from '@/lib/hooks';
+
+interface PreviewStatistics {
+  [key: string]: {
+    dtype?: string;
+    mean?: number;
+    std?: number;
+    min?: number;
+    max?: number;
+  };
+}
+
+interface PreviewData {
+  head?: Record<string, unknown>[];
+  statistics?: PreviewStatistics;
+}
 
 export default function DatasetDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const [dataset, setDataset] = useState<Dataset | null>(null);
-  const [preview, setPreview] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const id = params.id as string;
+  const { dataset, isLoading: dsLoading } = useDataset(id);
+  const { preview, isLoading: previewLoading } = useDatasetPreview(id);
   const [activeTab, setActiveTab] = useState<'preview' | 'stats' | 'columns'>('preview');
 
-  useEffect(() => {
-    fetchData();
-  }, [params.id]);
-
-  const fetchData = async () => {
-    try {
-      const [dsRes, previewRes] = await Promise.all([
-        datasets.get(params.id as string),
-        datasets.preview(params.id as string).catch(() => ({ data: null })),
-      ]);
-      setDataset(dsRes.data);
-      setPreview(previewRes.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = dsLoading || previewLoading;
 
   const handleDelete = async () => {
     if (!dataset) return;
@@ -55,6 +53,8 @@ export default function DatasetDetailPage() {
       </div>
     );
   }
+
+  const previewData = preview as PreviewData | null;
 
   return (
     <div className="space-y-6">
@@ -108,7 +108,7 @@ export default function DatasetDetailPage() {
         </div>
       </div>
 
-      {preview && (
+      {previewData && (
         <div className="rounded-xl border border-gray-200 bg-white">
           <div className="flex border-b border-gray-200">
             {(['preview', 'stats', 'columns'] as const).map((tab) => (
@@ -127,12 +127,12 @@ export default function DatasetDetailPage() {
           </div>
 
           <div className="p-6">
-            {activeTab === 'preview' && preview.head && (
+            {activeTab === 'preview' && previewData.head && (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      {Object.keys(preview.head[0] || {}).map((col) => (
+                      {Object.keys(previewData.head[0] || {}).map((col) => (
                         <th key={col} className="px-4 py-2 text-left font-medium text-gray-600">
                           {col}
                         </th>
@@ -140,9 +140,9 @@ export default function DatasetDetailPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {preview.head.map((row: any, i: number) => (
+                    {previewData.head.map((row: Record<string, unknown>, i: number) => (
                       <tr key={i} className="border-b border-gray-100">
-                        {Object.values(row).map((val: any, j: number) => (
+                        {Object.values(row).map((val: unknown, j: number) => (
                           <td key={j} className="px-4 py-2 text-gray-900">
                             {String(val)}
                           </td>
@@ -154,7 +154,7 @@ export default function DatasetDetailPage() {
               </div>
             )}
 
-            {activeTab === 'stats' && preview.statistics && (
+            {activeTab === 'stats' && previewData.statistics && (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -168,7 +168,7 @@ export default function DatasetDetailPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(preview.statistics).map(([col, stats]: [string, any]) => (
+                    {Object.entries(previewData.statistics).map(([col, stats]) => (
                       <tr key={col} className="border-b border-gray-100">
                         <td className="px-4 py-2 font-medium text-gray-900">{col}</td>
                         <td className="px-4 py-2 text-gray-600">{stats.dtype || '-'}</td>
