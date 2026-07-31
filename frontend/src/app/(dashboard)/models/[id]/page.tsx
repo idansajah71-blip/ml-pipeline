@@ -1,43 +1,28 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { ArrowLeft, Brain, Trash2, Rocket, BarChart3, Loader2 } from 'lucide-react';
+import { ArrowLeft, Brain, Trash2, Rocket } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { models } from '@/lib/api';
-import { MLModel } from '@/types';
+import { useModel } from '@/lib/hooks';
 
 export default function ModelDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const [model, setModel] = useState<MLModel | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [training, setTraining] = useState(false);
+  const id = params.id as string;
+  const { model, isLoading, mutate } = useModel(id);
   const [activeTab, setActiveTab] = useState<'metrics' | 'parameters' | 'features'>('metrics');
-
-  useEffect(() => {
-    fetchModel();
-  }, [params.id]);
-
-  const fetchModel = async () => {
-    try {
-      const res = await models.get(params.id as string);
-      setModel(res.data);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleDeploy = async () => {
     if (!model) return;
     try {
       await models.deploy(model.id);
-      fetchModel();
-    } catch (err: any) {
-      alert(err.response?.data?.detail || 'Deploy failed');
+      mutate();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Deploy failed';
+      alert(message);
     }
   };
 
@@ -48,7 +33,7 @@ export default function ModelDetailPage() {
     router.push('/models');
   };
 
-  if (loading) {
+  if (isLoading) {
     return <LoadingSpinner size="lg" className="mx-auto mt-20" />;
   }
 
