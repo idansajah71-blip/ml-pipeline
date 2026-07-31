@@ -1,32 +1,29 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Zap, Loader2 } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { models } from '@/lib/api';
-import { MLModel } from '@/types';
+import { useModels } from '@/lib/hooks';
+
+interface PredictionResult {
+  predictions?: Array<{
+    prediction: string | number;
+    probability?: number;
+    probabilities?: Record<string, number>;
+  }>;
+  latency_ms?: number;
+  error?: string;
+}
 
 export default function PredictionsPage() {
-  const [modelsList, setModelsList] = useState<MLModel[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { models: modelsList, isLoading } = useModels();
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [inputData, setInputData] = useState('');
   const [predicting, setPredicting] = useState(false);
-  const [results, setResults] = useState<any>(null);
+  const [results, setResults] = useState<PredictionResult | null>(null);
 
-  useEffect(() => {
-    const fetchModels = async () => {
-      try {
-        const res = await models.list();
-        setModelsList(res.data.items.filter((m) => m.status === 'deployed' || m.status === 'trained'));
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchModels();
-  }, []);
+  const deployableModels = modelsList.filter((m) => m.status === 'deployed' || m.status === 'trained');
 
   const handlePredict = async () => {
     if (!selectedModel || !inputData) return;
@@ -36,14 +33,15 @@ export default function PredictionsPage() {
       const data = JSON.parse(inputData);
       const res = await models.predict(selectedModel, { data: Array.isArray(data) ? data : [data] });
       setResults(res.data);
-    } catch (err: any) {
-      setResults({ error: err.response?.data?.detail || err.message });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Prediction failed';
+      setResults({ error: message });
     } finally {
       setPredicting(false);
     }
   };
 
-  const model = modelsList.find((m) => m.id === selectedModel);
+  const model = deployableModels.find((m) => m.id === selectedModel);
 
   return (
     <div className="space-y-6">
@@ -64,7 +62,7 @@ export default function PredictionsPage() {
               className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             >
               <option value="">Choose a model...</option>
-              {modelsList.map((m) => (
+              {deployableModels.map((m) => (
                 <option key={m.id} value={m.id}>{m.name} ({m.algorithm} v{m.version})</option>
               ))}
             </select>
@@ -111,7 +109,7 @@ export default function PredictionsPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {results.predictions?.map((pred: any, i: number) => (
+              {results.predictions?.map((pred, i) => (
                 <div key={i} className="rounded-lg border border-gray-100 p-4">
                   <div className="mb-2 flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-500">Prediction {i + 1}</span>
@@ -124,7 +122,7 @@ export default function PredictionsPage() {
                   <p className="text-2xl font-bold text-primary-600">{pred.prediction}</p>
                   {pred.probabilities && (
                     <div className="mt-2 space-y-1">
-                      {Object.entries(pred.probabilities).map(([cls, prob]: [string, any]) => (
+                      {Object.entries(pred.probabilities).map(([cls, prob]) => (
                         <div key={cls} className="flex items-center gap-2">
                           <span className="w-20 text-xs text-gray-500">{cls}</span>
                           <div className="flex-1 rounded-full bg-gray-200">
