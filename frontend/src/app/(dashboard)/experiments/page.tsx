@@ -1,31 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { FlaskConical } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { experiments } from '@/lib/api';
+import { useExperiments } from '@/lib/hooks';
 import { Experiment } from '@/types';
 import { format } from 'date-fns';
 
 export default function ExperimentsPage() {
-  const [experimentsList, setExperimentsList] = useState<Experiment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { experiments: experimentsList, isLoading } = useExperiments();
   const [selected, setSelected] = useState<Experiment | null>(null);
-
-  useEffect(() => {
-    const fetchExperiments = async () => {
-      try {
-        const res = await experiments.list();
-        setExperimentsList(res.data.items);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchExperiments();
-  }, []);
 
   return (
     <div className="space-y-6">
@@ -34,7 +19,7 @@ export default function ExperimentsPage() {
         <p className="text-gray-500">Track your model training experiments</p>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <LoadingSpinner size="lg" className="mx-auto" />
       ) : experimentsList.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-16">
