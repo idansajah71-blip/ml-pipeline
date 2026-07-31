@@ -1,34 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Upload, Trash2, Eye, Database } from 'lucide-react';
-import StatusBadge from '@/components/StatusBadge';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { datasets } from '@/lib/api';
-import { Dataset } from '@/types';
+import { useDatasets } from '@/lib/hooks';
 import Link from 'next/link';
 
 export default function DatasetsPage() {
-  const [datasetsList, setDatasetsList] = useState<Dataset[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { datasets: datasetsList, isLoading, mutate } = useDatasets();
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({ name: '', description: '', target_column: '' });
-
-  const fetchDatasets = async () => {
-    try {
-      const res = await datasets.list();
-      setDatasetsList(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchDatasets();
-  }, []);
 
   const handleUpload = async () => {
     if (!selectedFile || !formData.name) return;
@@ -42,9 +25,10 @@ export default function DatasetsPage() {
       await datasets.upload(fd);
       setSelectedFile(null);
       setFormData({ name: '', description: '', target_column: '' });
-      fetchDatasets();
-    } catch (err: any) {
-      alert(err.response?.data?.detail || 'Upload failed');
+      mutate();
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Upload failed';
+      alert(message);
     } finally {
       setUploading(false);
     }
@@ -53,7 +37,7 @@ export default function DatasetsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this dataset?')) return;
     await datasets.delete(id);
-    fetchDatasets();
+    mutate();
   };
 
   return (
@@ -108,7 +92,7 @@ export default function DatasetsPage() {
         </div>
       </div>
 
-      {loading ? (
+      {isLoading ? (
         <LoadingSpinner size="lg" className="mx-auto" />
       ) : datasetsList.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-16">
