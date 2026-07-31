@@ -1,0 +1,80 @@
+version: '3.9'
+
+services:
+  # Locust Master
+  locust-master:
+    image: locustio/locust:2.20.1
+    container_name: ml-pipeline-locust-master
+    ports:
+      - "8089:8089"
+    volumes:
+      - ./loadtest:/mnt/locust
+    command: -f /mnt/locust/locustfile.py --master --host=http://host.docker.internal:8000
+    networks:
+      - ml-network
+
+  # Locust Workers
+  locust-worker:
+    image: locustio/locust:2.20.1
+    container_name: ml-pipeline-locust-worker
+    volumes:
+      - ./loadtest:/mnt/locust
+    command: -f /mnt/locust/locustfile.py --worker --master-host=locust-master
+    networks:
+      - ml-network
+    deploy:
+      replicas: 4
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:v2.48.1
+    container_name: ml-pipeline-loadtest-prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./loadtest/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - ml-network
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: ml-pipeline-loadtest-grafana
+    ports:
+      - "3002:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - loadtest_grafana_data:/var/lib/grafana
+      - ./loadtest/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./loadtest/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - ml-network
+
+  # InfluxDB for storing load test metrics
+  influxdb:
+    image: influxdb:2.7
+    container_name: ml-pipeline-influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=admin
+      - DOCKER_INFLUXDB_INIT_PASSWORD=admin123
+      - DOCKER_INFLUXDB_INIT_ORG=loadtest
+      - DOCKER_INFLUXDB_INIT_BUCKET=locust
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=my-super-secret-token
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    networks:
+      - ml-network
+
+volumes:
+  loadtest_grafana_data:
+  influxdb_data:
+
+networks:
+  ml-network:
+    driver: bridge

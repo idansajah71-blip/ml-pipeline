@@ -1,0 +1,95 @@
+from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import time
+import uuid
+from contextlib import asynccontextmanager
+
+from app.core.config import get_settings
+from app.core.database import init_db
+from app.api import auth, datasets, models, experiments, monitoring, ab_testing, notifications
+from app.core.security_middleware import (
+    RateLimitMiddleware,
+    SecurityHeadersMiddleware,
+    RequestLoggingMiddleware,
+    InputSanitizationMiddleware,
+)
+
+settings = get_settings()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if settings.ENVIRONMENT == "development":
+        await init_db()
+    yield
+
+
+app = FastAPI(
+    title=settings.APP_NAME,
+    version=settings.APP_VERSION,
+    description="Production-ready ML Pipeline API with FastAPI, scikit-learn, and PostgreSQL",
+    docs_url="/docs" if settings.DEBUG else None,
+    redoc_url="/redoc" if settings.DEBUG else None,
+    lifespan=lifespan,
+)
+
+cors_origins = [origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(InputSanitizationMiddleware)
+app.add_middleware(RateLimitMiddleware, default_limit=100, default_window=60)
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    detail = str(exc) if settings.DEBUG else "Internal server error"
+    return JSONResponse(
+        status_code=500,
+        content={"detail": detail},
+    )
+
+
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(datasets.router, prefix="/api/v1")
+app.include_router(models.router, prefix="/api/v1")
+app.include_router(experiments.router, prefix="/api/v1")
+app.include_router(monitoring.router, prefix="/api/v1")
+app.include_router(ab_testing.router, prefix="/api/v1")
+app.include_router(notifications.router, prefix="/api/v1")
+
+
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "app": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+    }
+
+
+@app.get("/")
+async def root():
+    return {
+        "name": settings.APP_NAME,
+        "version": settings.APP_VERSION,
+        "docs": "/docs",
+        "health": "/health",
+    }
+
+
+@app.get("/api/v1/algorithms")
+async def list_algorithms():
+    from app.ml.trainer import ModelTrainer
+    return {
+        "algorithms": list(ModelTrainer.ALGORITHMS.keys()),
+        "default_params": ModelTrainer.DEFAULT_PARAMS,
+    }

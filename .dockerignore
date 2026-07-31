@@ -1,0 +1,91 @@
+# Git
+.git/
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+venv/
+ENV/
+env/
+
+# Virtual Environment
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# Logs
+*.log
+logs/
+
+# ML Artifacts (will be mounted as volume)
+ml_artifacts/datasets/
+ml_artifacts/model_*/
+*.joblib
+*.pkl
+*.h5
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Docker
+docker-compose*.yml
+Dockerfile
+.dockerignore
+
+# Documentation
+docs/
+*.md
+LICENSE
+
+# Load testing
+loadtest/
+
+# Kubernetes
+k8s/
+
+# Deploy scripts
+deploy/
+
+# Nginx
+nginx/
+
+# Frontend (if monorepo)
+frontend/
+node_modules/
+.next/
+
+# OS
+.DS_Store
+Thumbs.db

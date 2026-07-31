@@ -1,0 +1,20 @@
+# Code Owners for ML Pipeline
+# These owners will be automatically requested for review
+# when someone opens a pull request.
+
+# Default owner for everything
+* @your-username
+
+# Backend
+/app/ @your-username
+
+# Frontend
+/frontend/ @your-username
+
+# DevOps
+/docker-compose* @your-username
+/.github/ @your-username
+/nginx/ @your-username
+
+# ML
+/app/ml/ @your-username

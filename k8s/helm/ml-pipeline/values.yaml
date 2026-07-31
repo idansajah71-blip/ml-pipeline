@@ -1,0 +1,153 @@
+# Default values for ml-pipeline
+
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# Application settings
+app:
+  name: ml-pipeline
+  environment: development
+  replicas: 2
+  
+  image:
+    repository: ghcr.io/your-username/ml-pipeline-backend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 8000
+  
+  ingress:
+    enabled: false
+    className: nginx
+    annotations: {}
+    hosts:
+      - host: ml-pipeline.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+  
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  
+  env:
+    ENVIRONMENT: production
+    DEBUG: "false"
+    PORT: "8000"
+    ML_ARTIFACTS_DIR: ./ml_artifacts
+    MAX_UPLOAD_SIZE_MB: "100"
+    TRAINING_TIMEOUT_SECONDS: "300"
+    ENABLE_METRICS: "true"
+    LOG_LEVEL: INFO
+  
+  secrets:
+    JWT_SECRET_KEY: ""
+    POSTGRES_PASSWORD: ""
+  
+  healthCheck:
+    enabled: true
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# Frontend settings
+frontend:
+  enabled: true
+  replicas: 2
+  
+  image:
+    repository: ghcr.io/your-username/ml-pipeline-frontend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 3000
+  
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  env:
+    NEXT_PUBLIC_API_URL: /api/v1
+
+# PostgreSQL settings
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: ""
+    username: ml_user
+    password: ""
+    database: ml_pipeline_db
+  primary:
+    persistence:
+      size: 10Gi
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
+# Redis settings
+redis:
+  enabled: true
+  auth:
+    enabled: false
+  master:
+    persistence:
+      size: 2Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+# Nginx Ingress settings
+nginx:
+  enabled: true
+  replicaCount: 2
+  service:
+    type: LoadBalancer
+    ports:
+      http: 80
+      https: 443
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# Prometheus settings
+prometheus:
+  enabled: false
+
+# Grafana settings
+grafana:
+  enabled: false

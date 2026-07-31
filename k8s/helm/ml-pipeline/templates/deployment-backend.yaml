@@ -1,0 +1,82 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ml-pipeline.fullname" . }}-backend
+  labels:
+    {{- include "ml-pipeline.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  {{- if not .Values.app.autoscaling.enabled }}
+  replicas: {{ .Values.app.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "ml-pipeline.backend.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ml-pipeline.backend.selectorLabels" . | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "ml-pipeline.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: backend
+          image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}"
+          imagePullPolicy: {{ .Values.app.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.app.service.port }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "ml-pipeline.fullname" . }}-config
+            - secretRef:
+                name: {{ include "ml-pipeline.fullname" . }}-secret
+          {{- if .Values.app.healthCheck.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.app.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.app.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.app.healthCheck.periodSeconds }}
+            timeoutSeconds: {{ .Values.app.healthCheck.timeoutSeconds }}
+            failureThreshold: {{ .Values.app.healthCheck.failureThreshold }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.app.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.app.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.app.healthCheck.periodSeconds }}
+            timeoutSeconds: {{ .Values.app.healthCheck.timeoutSeconds }}
+            failureThreshold: {{ .Values.app.healthCheck.failureThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.app.resources | nindent 12 }}
+          volumeMounts:
+            - name: ml-artifacts
+              mountPath: /app/ml_artifacts
+      volumes:
+        - name: ml-artifacts
+          emptyDir: {}
+      {{- with .Values.app.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.app.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.app.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

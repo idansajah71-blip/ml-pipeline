@@ -1,0 +1,58 @@
+# Staging environment values
+
+app:
+  replicas: 1
+  
+  image:
+    tag: "staging-latest"
+  
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  autoscaling:
+    enabled: false
+  
+  env:
+    ENVIRONMENT: staging
+    DEBUG: "true"
+    LOG_LEVEL: DEBUG
+
+frontend:
+  replicas: 1
+  
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+postgresql:
+  primary:
+    persistence:
+      size: 5Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 250m
+        memory: 256Mi
+
+redis:
+  master:
+    persistence:
+      size: 1Gi
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 200m
+        memory: 128Mi
