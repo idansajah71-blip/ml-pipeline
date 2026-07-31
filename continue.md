@@ -401,6 +401,35 @@ CORS_ORIGINS      # Comma-separated origins
 
 **Proyek ini SUDAH SELESAI dan SIAP DIGUNAKAN.**
 
+### Status Lokal (31 Jul 2026)
+- ✅ Backend FastAPI berhasil dijalankan di http://localhost:8000
+- ✅ PostgreSQL 17 running, database `ml_pipeline_db` ada
+- ✅ Redis running di localhost:6379
+- ✅ Database sudah ter-seed (3 user, 1 dataset iris, 1 model)
+- ⚠️ Frontend belum dijalankan (perlu `cd frontend && npm run dev`)
+- ⚠️ Docker tidak terinstall di mesin ini
+
+### Jalankan Lokal
+```bash
+# Backend (port 8000)
+python run.py
+
+# Frontend (port 3000) - di terminal baru
+cd frontend
+npm run dev
+```
+
+### API Docs
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+
+### Default Users
+| Email | Password | Role |
+|-------|----------|------|
+| admin@mlpipeline.com | admin123 | Admin |
+| datascientist@mlpipeline.com | ds123456 | Data Scientist |
+| user@mlpipeline.com | user1234 | User |
+
 Jika ada error atau bug, periksa log terlebih dahulu:
 ```bash
 docker compose logs -f app
