@@ -9,6 +9,16 @@ from app.core.config import get_settings
 settings = get_settings()
 
 
+def publish_progress(experiment_id: str, data: dict):
+    try:
+        import redis as sync_redis
+        r = sync_redis.from_url(settings.REDIS_URL, decode_responses=True)
+        r.publish(f"training:{experiment_id}", json.dumps(data, default=str))
+        r.close()
+    except Exception:
+        pass
+
+
 @celery_app.task(bind=True, name="ml.train_model")
 def train_model_task(
     self,
@@ -27,15 +37,18 @@ def train_model_task(
 
     try:
         self.update_state(state="STARTED", meta={"step": "loading_data", "progress": 5})
+        publish_progress(experiment_id, {"step": "loading_data", "progress": 5, "status": "started"})
 
         with open(dataset_path, "rb") as f:
             file_content = f.read()
 
         self.update_state(state="STARTED", meta={"step": "preprocessing", "progress": 15})
+        publish_progress(experiment_id, {"step": "preprocessing", "progress": 15, "status": "started"})
 
         pipeline = MLPipeline()
 
-        self.update_state(state="STARTED", meta={"step": "training", "progress": 30})
+        self.update_state(state="STARTED", meta={"step": "training", "progress": 30, "algorithm": algorithm})
+        publish_progress(experiment_id, {"step": "training", "progress": 30, "algorithm": algorithm, "status": "started"})
 
         result = pipeline.run_training(
             file_content=file_content,
@@ -46,6 +59,7 @@ def train_model_task(
         )
 
         self.update_state(state="STARTED", meta={"step": "saving_artifacts", "progress": 85})
+        publish_progress(experiment_id, {"step": "saving_artifacts", "progress": 85, "status": "started"})
 
         if result["status"] == "completed":
             model_dir = os.path.join(
@@ -55,6 +69,7 @@ def train_model_task(
             result["artifacts"] = artifacts
 
         self.update_state(state="STARTED", meta={"step": "completed", "progress": 100})
+        publish_progress(experiment_id, {"step": "completed", "progress": 100, "status": "completed", "metrics": result.get("metrics", {})})
 
         duration = (datetime.utcnow() - start_time).total_seconds()
         result["duration_seconds"] = round(duration, 2)
@@ -64,6 +79,7 @@ def train_model_task(
 
     except Exception as e:
         duration = (datetime.utcnow() - start_time).total_seconds()
+        publish_progress(experiment_id, {"step": "failed", "progress": 0, "status": "failed", "error": str(e)})
         error_result = {
             "experiment_id": experiment_id,
             "model_id": model_id,
@@ -109,6 +125,14 @@ def automl_task(
                     "total": total,
                 },
             )
+            publish_progress(experiment_id, {
+                "step": f"training_{algo}",
+                "progress": progress,
+                "current_algorithm": algo,
+                "completed": i,
+                "total": total,
+                "status": "started",
+            })
 
             pipeline = MLPipeline()
             result = pipeline.run_training(
@@ -125,6 +149,13 @@ def automl_task(
         )
 
         duration = (datetime.utcnow() - start_time).total_seconds()
+        publish_progress(experiment_id, {
+            "step": "completed",
+            "progress": 100,
+            "status": "completed",
+            "best_algorithm": results[0]["algorithm"] if results else None,
+            "results_count": len(results),
+        })
         return {
             "experiment_id": experiment_id,
             "model_id": model_id,
@@ -138,6 +169,7 @@ def automl_task(
 
     except Exception as e:
         duration = (datetime.utcnow() - start_time).total_seconds()
+        publish_progress(experiment_id, {"step": "failed", "progress": 0, "status": "failed", "error": str(e)})
         return {
             "experiment_id": experiment_id,
             "model_id": model_id,

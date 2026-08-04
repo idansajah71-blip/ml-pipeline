@@ -586,8 +586,97 @@ curl http://localhost:8000/api/v1/datasets/{dataset_id}/profile?target_column=sp
 ### Next Steps (Fase 7-10)
 | Fase | Fitur | Estimasi |
 |------|-------|----------|
-| 7 | Data Drift Detection | 2-3 jam |
-| 8 | WebSocket Real-time Training Progress | 3-4 jam |
+| 7 | Data Drift Detection | ✅ SELESAI |
+| 8 | WebSocket Real-time Training Progress | ✅ SELESAI |
+| 9 | Frontend MLOps Integration | 4-6 jam |
+| 10 | Testing & Coverage | 3-4 jam |
+
+---
+
+## 📋 UPDATE PHASE 7-8 - DRIFT DETECTION & WEBSOCKET (5 Agustus 2026)
+
+### Yang Sudah Dikerjakan
+
+| # | Fitur | File | Status |
+|---|-------|------|--------|
+| 56 | Data Drift Detection (PSI + KS Test) | `app/ml/drift.py` | ✅ SELESAI |
+| 57 | Data Drift API Endpoint | `app/api/notifications.py` | ✅ SELESAI |
+| 58 | WebSocket Real-time Training Progress | `app/core/websocket.py` | ✅ SELESAI |
+| 59 | WebSocket Training Endpoint | `app/main.py` | ✅ SELESAI |
+| 60 | Redis Progress Publishing | `app/ml/tasks.py` | ✅ SELESAI |
+
+### File Baru
+| File | Deskripsi |
+|------|-----------|
+| `app/ml/drift.py` | DriftDetector: PSI, KS test, distribution shift, severity assessment |
+| `app/core/websocket.py` | WebSocket ConnectionManager dengan Redis pub/sub listener |
+
+### File yang Diupdate
+| File | Perubahan |
+|------|-----------|
+| `app/main.py` | Tambah WebSocket endpoint `/ws/training/{experiment_id}` |
+| `app/ml/tasks.py` | Tambah `publish_progress()` untuk real-time updates ke Redis |
+| `app/api/notifications.py` | Tambah endpoint `/data-drift` untuk dataset drift detection |
+
+### Endpoint Baru
+
+#### Notifications/Drift
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| POST | `/api/v1/notifications/data-drift` | Data drift detection antara 2 dataset (PSI + KS test) |
+
+#### WebSocket
+| Protocol | Path | Deskripsi |
+|----------|------|-----------|
+| WS | `/ws/training/{experiment_id}` | Real-time training progress via WebSocket |
+
+### Cara Penggunaan WebSocket
+```javascript
+// Frontend JavaScript
+const ws = new WebSocket(`ws://localhost:8000/ws/training/${experimentId}`);
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log(`Progress: ${data.progress}% - ${data.step}`);
+  
+  // Update UI
+  updateProgressBar(data.progress);
+  updateStatusText(data.step);
+  
+  if (data.status === 'completed') {
+    showMetrics(data.metrics);
+  }
+};
+
+ws.onclose = () => {
+  console.log('Training stream ended');
+};
+```
+
+### Fitur Drift Detection
+- **PSI (Population Stability Index)**: Mengukur perubahan distribusi antara reference dan current data
+- **KS Test (Kolmogorov-Smirnov)**: Statistical test untuk mendeteksi perbedaan distribusi
+- **Distribution Shift**: Mean dan std deviation comparison
+- **Severity Assessment**: Low/Medium/High berdasarkan jumlah fitur yang drift
+- **Threshold Configurable**: PSI threshold (default 0.2), KS threshold (default 0.05)
+
+### Contoh Data Drift Check
+```bash
+curl -X POST http://localhost:8000/api/v1/notifications/data-drift \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "reference_dataset_id": "xxx",
+    "current_dataset_id": "yyy",
+    "target_column": "species",
+    "threshold_psi": 0.2,
+    "threshold_ks": 0.05
+  }'
+```
+
+### Next Steps (Fase 9-10)
+| Fase | Fitur | Estimasi |
+|------|-------|----------|
 | 9 | Frontend MLOps Integration | 4-6 jam |
 | 10 | Testing & Coverage | 3-4 jam |
 

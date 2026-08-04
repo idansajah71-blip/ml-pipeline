@@ -234,3 +234,64 @@ async def check_concept_drift(
             "recommendation": "Consider retraining the model" if drift_detected else "Model performance stable",
         },
     )
+
+
+class DataDriftRequest(BaseModel):
+    reference_dataset_id: UUID
+    current_dataset_id: UUID
+    target_column: Optional[str] = None
+    threshold_psi: float = 0.2
+    threshold_ks: float = 0.05
+
+
+class DataDriftResponse(BaseModel):
+    drift_detected: bool
+    severity: str
+    summary: Dict[str, Any]
+    psi: Dict[str, Any]
+    ks_test: Dict[str, Any]
+    distribution_shift: Dict[str, Any]
+    drifted_features: List[Dict[str, Any]]
+
+
+@router.post("/data-drift", response_model=DataDriftResponse)
+async def check_data_drift(
+    request: DataDriftRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.models.dataset import Dataset
+    from app.ml.drift import DriftDetector
+
+    ref_result = await db.execute(
+        select(Dataset).where(Dataset.id == request.reference_dataset_id)
+    )
+    ref_dataset = ref_result.scalar_one_or_none()
+    if not ref_dataset:
+        raise HTTPException(status_code=404, detail="Reference dataset not found")
+
+    curr_result = await db.execute(
+        select(Dataset).where(Dataset.id == request.current_dataset_id)
+    )
+    curr_dataset = curr_result.scalar_one_or_none()
+    if not curr_dataset:
+        raise HTTPException(status_code=404, detail="Current dataset not found")
+
+    try:
+        with open(ref_dataset.file_path, "rb") as f:
+            ref_content = f.read()
+        with open(curr_dataset.file_path, "rb") as f:
+            curr_content = f.read()
+
+        detector = DriftDetector()
+        result = detector.detect(
+            reference_content=ref_content,
+            current_content=curr_content,
+            filename=ref_dataset.file_path.split("/")[-1],
+            target_column=request.target_column,
+            threshold_psi=request.threshold_psi,
+            threshold_ks=request.threshold_ks,
+        )
+        return DataDriftResponse(**result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Drift detection failed: {str(e)}")

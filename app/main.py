@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import time
@@ -22,7 +22,9 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     if settings.ENVIRONMENT == "development":
         await init_db()
+    from app.core.websocket import manager
     yield
+    await manager.stop_redis_listener()
 
 
 app = FastAPI(
@@ -118,3 +120,18 @@ async def list_algorithms():
         "algorithms": list(ModelTrainer.ALGORITHMS.keys()),
         "default_params": ModelTrainer.DEFAULT_PARAMS,
     }
+
+
+@app.websocket("/ws/training/{experiment_id}")
+async def websocket_training(websocket: WebSocket, experiment_id: str):
+    from app.core.websocket import manager
+
+    channel = f"training:{experiment_id}"
+    await manager.connect(websocket, channel)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_json({"type": "pong"})
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, channel)
