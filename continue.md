@@ -737,7 +737,90 @@ curl -X POST http://localhost:8000/api/v1/notifications/data-drift \
 ### Next Steps (Fase 10)
 | Fase | Fitur | Estimasi |
 |------|-------|----------|
-| 10 | Testing & Coverage | 3-4 jam |
+| 10 | Testing & Coverage | ✅ SELESAI |
+
+---
+
+## 📋 UPDATE PHASE 10 - TESTING & COVERAGE (5 Agustus 2026)
+
+### Yang Sudah Dikerjakan
+
+| # | Fitur | File | Status |
+|---|-------|------|--------|
+| 70 | Dataset Profiler Tests | `app/tests/test_profiler.py` | ✅ SELESAI |
+| 71 | Drift Detection Tests | `app/tests/test_drift.py` | ✅ SELESAI |
+| 72 | WebSocket Tests | `app/tests/test_websocket.py` | ✅ SELESAI |
+| 73 | Coverage Config | `pyproject.toml` | ✅ SELESAI |
+
+### File Baru
+| File | Deskripsi |
+|------|-----------|
+| `app/tests/test_profiler.py` | 14 unit tests untuk DatasetProfiler |
+| `app/tests/test_drift.py` | 10 unit tests untuk DriftDetector |
+| `app/tests/test_websocket.py` | 7 unit tests untuk WebSocket ConnectionManager |
+
+### File yang Diupdate
+| File | Perubahan |
+|------|-----------|
+| `pyproject.toml` | Tambah `pytest-cov`, addopts `--cov=app --cov-report=term-missing --cov-fail-under=60` |
+| `requirements.txt` | Tambah `pytest-cov==4.1.0` |
+
+### Cara Jalankan Tests
+```bash
+# Semua tests
+pytest app/tests/ -v
+
+# Dengan coverage
+pytest app/tests/ -v --cov=app --cov-report=html
+
+# Tests spesifik
+pytest app/tests/test_profiler.py -v
+pytest app/tests/test_drift.py -v
+pytest app/tests/test_websocket.py -v
+
+# Hanya ML tests
+pytest app/tests/test_ml_pipeline.py -v
+
+# Hanya integration tests
+pytest app/tests/ -v -k "integration"
+```
+
+### Coverage Target
+- Minimum: 60% (configured di `pyproject.toml`)
+- Target ideal: 80%+
+
+### Total Tests
+- ML Pipeline: 31 tests
+- Profiler: 14 tests
+- Drift: 10 tests
+- WebSocket: 7 tests
+- Security: 28 tests
+- Auth: 6 tests
+- Datasets: 4 tests
+- Models: 4 tests
+- Integration: ~40 tests
+- **Total: ~144 tests**
+
+---
+
+## 🎯 RINGKASAN SEMUA PHASE
+
+| Phase | Fitur | Status |
+|-------|-------|--------|
+| 1 | Celery Async Training | ✅ SELESAI |
+| 2 | Dataset Profiling | ✅ SELESAI |
+| 3 | Experiment Tracking | ✅ SELESAI |
+| 4 | Model Registry | ✅ SELESAI |
+| 5 | Explainable AI (SHAP) | ✅ SELESAI |
+| 6 | AutoML | ✅ SELESAI |
+| 7 | Data Drift Detection | ✅ SELESAI |
+| 8 | WebSocket Real-time | ✅ SELESAI |
+| 9 | Frontend MLOps Integration | ✅ SELESAI |
+| 10 | Testing & Coverage | ✅ SELESAI |
+
+**Total file baru: 12 files**
+**Total file diupdate: 20+ files**
+**Total baris kode baru: ~2500+ lines**
 
 ---
 
