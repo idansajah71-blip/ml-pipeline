@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -21,6 +22,16 @@ celery_app.conf.update(
     result_expires=3600,
     task_soft_time_limit=settings.TRAINING_TIMEOUT_SECONDS,
     task_time_limit=settings.TRAINING_TIMEOUT_SECONDS + 30,
+    beat_schedule={
+        "check-model-performance": {
+            "task": "ml.check_model_performance",
+            "schedule": crontab(minute="0", hour="*/6"),
+        },
+        "daily-retraining-check": {
+            "task": "ml.scheduled_retraining_check",
+            "schedule": crontab(minute="0", hour="2"),
+        },
+    },
 )
 
 celery_app.autodiscover_tasks(["app.ml"])

@@ -110,6 +110,25 @@ services:
       - ml-network
     restart: unless-stopped
 
+  celery_beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ml-pipeline-celery-beat
+    command: celery -A app.core.celery_app:celery_app beat --loglevel=info
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app
+    networks:
+      - ml-network
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:

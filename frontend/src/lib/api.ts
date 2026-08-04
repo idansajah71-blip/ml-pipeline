@@ -108,6 +108,24 @@ export const monitoring = {
   stats: () => api.get<Stats>('/monitoring/stats'),
   system: () => api.get('/monitoring/system'),
   modelMetrics: (id: string) => api.get(`/monitoring/model/${id}/metrics`),
+  modelPerformance: (id: string, hours: number = 24) =>
+    api.get(`/monitoring/model/${id}/performance?hours=${hours}`),
+  predictionHistory: (data: {
+    model_id?: string;
+    start_date?: string;
+    end_date?: string;
+    prediction_value?: string;
+    min_confidence?: number;
+    skip?: number;
+    limit?: number;
+  }) => api.post('/monitoring/predictions/history', data),
+  predictionStats: (modelId?: string, hours: number = 24) => {
+    const params = new URLSearchParams({ hours: String(hours) });
+    if (modelId) params.set('model_id', modelId);
+    return api.get(`/monitoring/predictions/stats?${params.toString()}`);
+  },
+  alerts: () => api.get('/monitoring/alerts'),
+  retrain: (modelId: string) => api.post(`/monitoring/retrain/${modelId}`),
 };
 
 export const notifications = {

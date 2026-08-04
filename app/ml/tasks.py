@@ -1,7 +1,7 @@
 import os
 import json
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from celery import current_task
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
@@ -17,6 +17,13 @@ def publish_progress(experiment_id: str, data: dict):
         r.close()
     except Exception:
         pass
+
+
+def get_sync_session():
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    engine = create_engine(settings.SYNC_DATABASE_URL)
+    return sessionmaker(bind=engine)()
 
 
 @celery_app.task(bind=True, name="ml.train_model")
@@ -179,3 +186,183 @@ def automl_task(
             "duration_seconds": round(duration, 2),
             "task_id": task_id,
         }
+
+
+@celery_app.task(name="ml.check_model_performance")
+def check_model_performance():
+    from app.models.model import MLModel, ModelStatus
+    from app.models.prediction import Prediction
+    from sqlalchemy import func
+
+    session = get_sync_session()
+    try:
+        deployed_models = session.query(MLModel).filter(
+            MLModel.status == ModelStatus.DEPLOYED
+        ).all()
+
+        alerts = []
+        for model in deployed_models:
+            recent_cutoff = datetime.utcnow() - timedelta(hours=24)
+            recent_preds = session.query(Prediction).filter(
+                Prediction.model_id == model.id,
+                Prediction.created_at >= recent_cutoff,
+            ).all()
+
+            if not recent_preds:
+                continue
+
+            avg_confidence = sum(p.confidence or 0 for p in recent_preds) / len(recent_preds)
+            avg_latency = sum(p.latency_ms or 0 for p in recent_preds) / len(recent_preds)
+
+            if avg_confidence < 0.5:
+                alerts.append({
+                    "model_id": str(model.id),
+                    "model_name": model.name,
+                    "alert": "low_confidence",
+                    "value": round(avg_confidence, 4),
+                    "threshold": 0.5,
+                    "prediction_count": len(recent_preds),
+                })
+
+            if avg_latency > 1000:
+                alerts.append({
+                    "model_id": str(model.id),
+                    "model_name": model.name,
+                    "alert": "high_latency",
+                    "value": round(avg_latency, 2),
+                    "threshold": 1000,
+                    "prediction_count": len(recent_preds),
+                })
+
+        return {
+            "status": "completed",
+            "models_checked": len(deployed_models),
+            "alerts": alerts,
+            "checked_at": datetime.utcnow().isoformat(),
+        }
+
+    finally:
+        session.close()
+
+
+@celery_app.task(name="ml.scheduled_retraining_check")
+def scheduled_retraining_check():
+    from app.models.model import MLModel, ModelStatus
+    from app.models.experiment import Experiment
+
+    session = get_sync_session()
+    try:
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+
+        stale_models = session.query(MLModel).filter(
+            MLModel.status == ModelStatus.DEPLOYED,
+            MLModel.updated_at < thirty_days_ago,
+        ).all()
+
+        retrain_candidates = []
+        for model in stale_models:
+            latest_experiment = session.query(Experiment).filter(
+                Experiment.model_id == model.id,
+                Experiment.status == "completed",
+            ).order_by(Experiment.created_at.desc()).first()
+
+            retrain_candidates.append({
+                "model_id": str(model.id),
+                "model_name": model.name,
+                "algorithm": model.algorithm,
+                "last_updated": model.updated_at.isoformat() if model.updated_at else None,
+                "last_experiment": latest_experiment.id if latest_experiment else None,
+                "days_stale": (datetime.utcnow() - model.updated_at).days if model.updated_at else None,
+            })
+
+        return {
+            "status": "completed",
+            "stale_models": len(retrain_candidates),
+            "candidates": retrain_candidates,
+            "checked_at": datetime.utcnow().isoformat(),
+        }
+
+    finally:
+        session.close()
+
+
+@celery_app.task(bind=True, name="ml.retrain_model")
+def retrain_model_task(self, model_id: str, owner_id: str):
+    from app.models.model import MLModel
+    from app.models.dataset import Dataset
+    from app.models.experiment import Experiment, ExperimentStatus
+    from app.ml.pipeline import MLPipeline
+
+    session = get_sync_session()
+    try:
+        model = session.query(MLModel).filter(MLModel.id == model_id).first()
+        if not model:
+            return {"status": "failed", "error": "Model not found"}
+
+        dataset = session.query(Dataset).filter(Dataset.id == model.target_column).first()
+        if not dataset:
+            experiments = session.query(Experiment).filter(
+                Experiment.model_id == model_id
+            ).order_by(Experiment.created_at.desc()).all()
+            if experiments and experiments[0].dataset_id:
+                dataset = session.query(Dataset).filter(Dataset.id == experiments[0].dataset_id).first()
+
+        if not dataset:
+            return {"status": "failed", "error": "No dataset found for retraining"}
+
+        experiment = Experiment(
+            name=f"Retraining {model.name} v{model.version + 1}",
+            status=ExperimentStatus.RUNNING,
+            parameters=model.parameters or {},
+            dataset_id=dataset.id,
+            model_id=model.id,
+            owner_id=model.owner_id,
+        )
+        session.add(experiment)
+        session.commit()
+
+        with open(dataset.file_path, "rb") as f:
+            file_content = f.read()
+
+        pipeline = MLPipeline()
+        result = pipeline.run_training(
+            file_content=file_content,
+            filename=os.path.basename(dataset.file_path),
+            target_column=model.target_column or "target",
+            algorithm=model.algorithm,
+            parameters=model.parameters,
+        )
+
+        if result["status"] == "completed":
+            model.version += 1
+            model_dir = os.path.join(settings.ML_ARTIFACTS_DIR, f"model_{model.id}_v{model.version}")
+            artifacts = pipeline.save_artifacts(model_dir)
+            model.file_path = artifacts["model_path"]
+            model.metrics = result.get("metrics", {})
+            model.status = ModelStatus.TRAINED
+            experiment.status = ExperimentStatus.COMPLETED
+            experiment.results = result
+            experiment.duration_seconds = str(result.get("duration_seconds", 0))
+        else:
+            model.status = ModelStatus.FAILED
+            experiment.status = ExperimentStatus.FAILED
+            experiment.results = result
+
+        session.commit()
+
+        return {
+            "status": result["status"],
+            "model_id": model_id,
+            "new_version": model.version,
+            "metrics": result.get("metrics", {}),
+        }
+
+    except Exception as e:
+        session.rollback()
+        return {
+            "status": "failed",
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+        }
+    finally:
+        session.close()

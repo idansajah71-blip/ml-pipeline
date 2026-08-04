@@ -154,6 +154,33 @@ export function useSystem() {
   return { system: data ?? null, isLoading, isError: error };
 }
 
+export function useModelPerformance(modelId: string | undefined, hours: number = 24) {
+  const { data, error, isLoading } = useSWR(
+    modelId ? `model-performance-${modelId}-${hours}` : null,
+    () => monitoring.modelPerformance(modelId!, hours).then((r) => r.data),
+    { revalidateOnFocus: true, refreshInterval: 60000 }
+  );
+  return { performance: data ?? null, isLoading, isError: error };
+}
+
+export function usePredictionStats(modelId?: string, hours: number = 24) {
+  const { data, error, isLoading } = useSWR(
+    `prediction-stats-${modelId || 'all'}-${hours}`,
+    () => monitoring.predictionStats(modelId, hours).then((r) => r.data),
+    { revalidateOnFocus: true, refreshInterval: 30000 }
+  );
+  return { stats: data ?? null, isLoading, isError: error };
+}
+
+export function useAlerts() {
+  const { data, error, isLoading, mutate } = useSWR(
+    'alerts',
+    () => monitoring.alerts().then((r) => r.data),
+    { revalidateOnFocus: true, refreshInterval: 60000 }
+  );
+  return { alerts: data ?? null, isLoading, isError: error, mutate };
+}
+
 export function useAlgorithms() {
   const { data, error, isLoading } = useSWR('algorithms', algorithmsFetcher, {
     revalidateOnFocus: false,

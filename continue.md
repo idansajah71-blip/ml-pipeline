@@ -817,10 +817,102 @@ pytest app/tests/ -v -k "integration"
 | 8 | WebSocket Real-time | ✅ SELESAI |
 | 9 | Frontend MLOps Integration | ✅ SELESAI |
 | 10 | Testing & Coverage | ✅ SELESAI |
+| 11 | Scheduled Retraining | ✅ SELESAI |
+| 12 | Model Performance Monitoring | ✅ SELESAI |
+| 13 | Prediction History & Alerts | ✅ SELESAI |
 
-**Total file baru: 12 files**
-**Total file diupdate: 20+ files**
-**Total baris kode baru: ~2500+ lines**
+**Total file baru: 15+ files**
+**Total file diupdate: 25+ files**
+**Total baris kode baru: ~3000+ lines**
+
+---
+
+## 📋 UPDATE PHASE 11-13 - SCHEDULED RETRAINING, MONITORING, PREDICTION HISTORY (5 Agustus 2026)
+
+### Yang Sudah Dikerjakan
+
+| # | Fitur | File | Status |
+|---|-------|------|--------|
+| 74 | Celery Beat Schedule | `app/core/celery_app.py` | ✅ SELESAI |
+| 75 | Scheduled Retraining Check | `app/ml/tasks.py` | ✅ SELESAI |
+| 76 | Model Performance Check | `app/ml/tasks.py` | ✅ SELESAI |
+| 77 | Retrain Model Task | `app/ml/tasks.py` | ✅ SELESAI |
+| 78 | Model Performance API | `app/api/monitoring.py` | ✅ SELESAI |
+| 79 | Prediction History API | `app/api/monitoring.py` | ✅ SELESAI |
+| 80 | Prediction Stats API | `app/api/monitoring.py` | ✅ SELESAI |
+| 81 | Model Alerts API | `app/api/monitoring.py` | ✅ SELESAI |
+| 82 | Retrain Trigger API | `app/api/monitoring.py` | ✅ SELESAI |
+| 83 | Celery Beat Docker Service | `docker-compose.yml` | ✅ SELESAI |
+| 84 | Frontend Monitoring Hooks | `frontend/src/lib/hooks.ts` | ✅ SELESAI |
+| 85 | Frontend Monitoring API | `frontend/src/lib/api.ts` | ✅ SELESAI |
+
+### File yang Diupdate
+| File | Perubahan |
+|------|-----------|
+| `app/core/celery_app.py` | Tambah `beat_schedule` untuk performance check (6 jam) dan retraining check (harian jam 2) |
+| `app/ml/tasks.py` | Tambah `check_model_performance`, `scheduled_retraining_check`, `retrain_model_task` |
+| `app/api/monitoring.py` | Tambah: `/model/{id}/performance`, `/predictions/history`, `/predictions/stats`, `/alerts`, `/retrain/{id}` |
+| `docker-compose.yml` | Tambah service `celery_beat` |
+| `frontend/src/lib/api.ts` | Tambah: `monitoring.modelPerformance`, `monitoring.predictionHistory`, `monitoring.predictionStats`, `monitoring.alerts`, `monitoring.retrain` |
+| `frontend/src/lib/hooks.ts` | Tambah: `useModelPerformance`, `usePredictionStats`, `useAlerts` |
+
+### Endpoint Baru
+
+#### Monitoring
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| GET | `/api/v1/monitoring/model/{id}/performance?hours=24` | Model performance over time (hourly breakdown) |
+| POST | `/api/v1/monitoring/predictions/history` | Prediction history dengan filter |
+| GET | `/api/v1/monitoring/predictions/stats?hours=24` | Prediction statistics |
+| GET | `/api/v1/monitoring/alerts` | Model alerts (low confidence, high latency, no predictions) |
+| POST | `/api/v1/monitoring/retrain/{id}` | Trigger model retraining |
+
+### Celery Beat Schedule
+| Task | Schedule | Deskripsi |
+|------|----------|-----------|
+| `check_model_performance` | Setiap 6 jam | Cek confidence dan latency semua deployed models |
+| `scheduled_retraining_check` | Harian jam 2 pagi | Cek model yang sudah stale (>30 hari) |
+
+### Cara Jalankan Celery Beat
+```bash
+# Local development
+celery -A app.core.celery_app:celery_app beat --loglevel=info
+
+# Docker
+docker compose up celery_beat
+
+# Worker + Beat bersamaan
+celery -A app.core.celery_app:celery_app worker --loglevel=info &
+celery -A app.core.celery_app:celery_app beat --loglevel=info &
+```
+
+### Contoh Prediction History
+```bash
+curl -X POST http://localhost:8000/api/v1/monitoring/predictions/history \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model_id": "xxx",
+    "start_date": "2026-08-01T00:00:00",
+    "min_confidence": 0.8,
+    "limit": 50
+  }'
+```
+
+### Contoh Model Alerts
+```bash
+curl http://localhost:8000/api/v1/monitoring/alerts \
+  -H "Authorization: Bearer $TOKEN"
+
+# Response:
+# {
+#   "total_alerts": 2,
+#   "alerts": [
+#     {"model_name": "iris-model", "alert_type": "low_confidence", "severity": "critical"},
+#     {"model_name": "spam-detector", "alert_type": "high_latency", "severity": "warning"}
+#   ]
+# }
+```
 
 ---
 
