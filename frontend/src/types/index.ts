@@ -106,3 +106,67 @@ export interface TokenResponse {
   token_type: string;
   user: User;
 }
+
+export type UserRole = 'admin' | 'data_scientist' | 'user';
+
+export type ModelStatus = MLModel['status'];
+export type ExperimentStatus = Experiment['status'];
+export type ABTestStatus = ABTest['status'];
+
+export type SortDirection = 'asc' | 'desc';
+
+export interface SortConfig {
+  field: string;
+  direction: SortDirection;
+}
+
+export interface FilterConfig {
+  field: string;
+  value: string | number | boolean;
+  operator: 'eq' | 'neq' | 'gt' | 'lt' | 'contains' | 'in';
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  per_page: number;
+  pages: number;
+}
+
+export interface ApiError {
+  detail: string;
+  status_code: number;
+}
+
+export interface SystemInfo {
+  cpu_percent: number;
+  memory: {
+    percent: number;
+    available: number;
+    total: number;
+  };
+  disk: {
+    percent: number;
+    used: number;
+    total: number;
+  };
+  platform: string;
+  python_version: string;
+}
+
+export interface PredictionResult {
+  predictions: Array<{
+    prediction: string | number;
+    probability?: number;
+    probabilities?: Record<string, number>;
+  }>;
+  latency_ms: number;
+}
+
+export interface ColumnInfo {
+  name: string;
+  dtype: string;
+  null_count: number;
+  unique_count: number;
+}
