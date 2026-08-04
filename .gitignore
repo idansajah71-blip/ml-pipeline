@@ -59,3 +59,13 @@ docker-compose.override.yml
 # OS
 .DS_Store
 Thumbs.db
+
+# Node.js
+node_modules/
+.next/
+out/
+frontend/.next/
+frontend/tsconfig.tsbuildinfo
+frontend/next-env.d.ts
+frontend/frontend_err.log
+frontend/frontend_out.log

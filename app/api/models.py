@@ -6,7 +6,7 @@ import time
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user, require_data_scientist
-from app.core.redis import cache_get, cache_delete
+from app.core.redis import cache_get, cache_set, cache_delete
 from app.models.user import User
 from app.models.prediction import Prediction
 from app.schemas.model import (
@@ -55,9 +55,6 @@ async def list_models(
     import json
     await cache_set(cache_key, response.model_dump_json(), expire=300)
     return response
-
-
-from app.core.redis import cache_set
 
 
 @router.get("/{model_id}", response_model=ModelResponse)

@@ -8,6 +8,7 @@ from app.core.database import async_session_factory, init_db
 from app.core.security import get_password_hash
 from app.models import User, UserRole, Dataset, MLModel, ModelStatus
 from app.ml.processor import DataProcessor
+from app.ml.pipeline import MLPipeline
 import pandas as pd
 import numpy as np
 from uuid import uuid4
@@ -85,14 +86,41 @@ async def seed_database():
         session.add(dataset)
         await session.flush()
 
+        model_id = uuid4()
+        model_dir = os.path.join("ml_artifacts", f"model_{model_id}_v1")
+
+        pipeline = MLPipeline()
+        with open(iris_path, "rb") as f:
+            file_content = f.read()
+
+        result = pipeline.run_training(
+            file_content=file_content,
+            filename="iris_dataset.csv",
+            target_column="species",
+            algorithm="random_forest",
+            parameters={"n_estimators": 100, "random_state": 42},
+        )
+
+        if result['status'] == 'completed':
+            artifacts = pipeline.save_artifacts(model_dir)
+            model_file_path = artifacts['model_path']
+            metrics = result.get('metrics', {})
+        else:
+            model_file_path = None
+            metrics = {}
+            print(f"WARNING: Training failed: {result.get('error', 'unknown error')}")
+
         sample_model = MLModel(
+            id=model_id,
             name="Iris Classifier",
             description="Random Forest classifier for iris species prediction",
             algorithm="random_forest",
             version=1,
-            status=ModelStatus.TRAINED,
+            status=ModelStatus.TRAINED if model_file_path else ModelStatus.FAILED,
+            file_path=model_file_path,
             target_column="species",
-            parameters={"n_estimators": 100, "random_state": 42},
+            parameters=result.get('parameters', {}),
+            metrics=metrics,
             feature_names=iris_df.columns[:-1].tolist(),
             tags=["classification", "random_forest", "iris"],
             owner_id=ds_user.id,
@@ -110,6 +138,11 @@ async def seed_database():
         print(f"  User:          user@mlpipeline.com / user1234")
         print(f"\nDataset: Iris Dataset ({iris_df.shape[0]} rows, {iris_df.shape[1]} columns)")
         print(f"Target column: species")
+        if model_file_path:
+            print(f"\nModel trained successfully!")
+            print(f"  Algorithm: random_forest")
+            print(f"  Accuracy: {metrics.get('accuracy', 'N/A'):.4f}")
+            print(f"  Artifacts: {model_dir}")
         print("=" * 50)
 
 

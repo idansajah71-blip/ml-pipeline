@@ -3,18 +3,18 @@
 # when someone opens a pull request.
 
 # Default owner for everything
-* @your-username
+* @idansajah71-blip
 
 # Backend
-/app/ @your-username
+/app/ @idansajah71-blip
 
 # Frontend
-/frontend/ @your-username
+/frontend/ @idansajah71-blip
 
 # DevOps
-/docker-compose* @your-username
-/.github/ @your-username
-/nginx/ @your-username
+/docker-compose* @idansajah71-blip
+/.github/ @idansajah71-blip
+/nginx/ @idansajah71-blip
 
 # ML
-/app/ml/ @your-username
+/app/ml/ @idansajah71-blip

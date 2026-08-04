@@ -95,6 +95,6 @@ ML Pipeline is a comprehensive platform for building, training, and deploying ma
 
 ## Community
 
-- [GitHub](https://github.com/your-username/ml-pipeline)
+- [GitHub](https://github.com/idansajah71-blip/ml-pipeline)
 - [Discord](https://discord.gg/ml-pipeline)
 - [Twitter](https://twitter.com/ml-pipeline)

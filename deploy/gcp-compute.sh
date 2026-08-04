@@ -71,7 +71,7 @@ if [ -d "ml-pipeline" ]; then
     cd ml-pipeline
     git pull origin main
 else
-    sudo git clone https://github.com/your-username/ml-pipeline.git
+    sudo git clone https://github.com/idansajah71-blip/ml-pipeline.git
     sudo chown -R $USER:$USER ml-pipeline
     cd ml-pipeline
 fi

@@ -6,10 +6,10 @@ This directory contains deployment scripts for various cloud providers.
 
 ```bash
 # SSH into your EC2 instance
-ssh -i your-key.pem ubuntu@your-ec2-ip
+ssh -i your-key.pem ubuntu@YOUR_EC2_IP
 
 # Run the deployment script
-curl -sL https://raw.githubusercontent.com/your-username/ml-pipeline/main/deploy/aws-ec2.sh | bash
+curl -sL https://raw.githubusercontent.com/idansajah71-blip/ml-pipeline/main/deploy/aws-ec2.sh | bash
 ```
 
 ## GCP Compute Engine
@@ -19,7 +19,7 @@ curl -sL https://raw.githubusercontent.com/your-username/ml-pipeline/main/deploy
 gcloud compute ssh ml-pipeline-vm
 
 # Run the deployment script
-curl -sL https://raw.githubusercontent.com/your-username/ml-pipeline/main/deploy/gcp-compute.sh | bash
+curl -sL https://raw.githubusercontent.com/idansajah71-blip/ml-pipeline/main/deploy/gcp-compute.sh | bash
 ```
 
 ## Backup & Restore

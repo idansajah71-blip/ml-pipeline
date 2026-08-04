@@ -25,11 +25,11 @@ const config = {
       ({
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
-          editUrl: 'https://github.com/your-username/ml-pipeline/tree/main/docs/',
+          editUrl: 'https://github.com/idansajah71-blip/ml-pipeline/tree/main/docs/',
         },
         blog: {
           showReadingTime: true,
-          editUrl: 'https://github.com/your-username/ml-pipeline/tree/main/docs/',
+          editUrl: 'https://github.com/idansajah71-blip/ml-pipeline/tree/main/docs/',
         },
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
@@ -71,7 +71,7 @@ const config = {
             dropdownActiveClassDisabled: true,
           },
           {
-            href: 'https://github.com/your-username/ml-pipeline',
+            href: 'https://github.com/idansajah71-blip/ml-pipeline',
             label: 'GitHub',
             position: 'right',
           },
@@ -102,7 +102,7 @@ const config = {
             items: [
               {
                 label: 'GitHub',
-                href: 'https://github.com/your-username/ml-pipeline',
+                href: 'https://github.com/idansajah71-blip/ml-pipeline',
               },
               {
                 label: 'Discord',
@@ -140,8 +140,8 @@ const config = {
         additionalLanguages: ['python', 'bash', 'json', 'yaml', 'typescript'],
       },
       algolia: {
-        appId: 'YOUR_APP_ID',
-        apiKey: 'YOUR_API_KEY',
+        appId: process.env.ALGOLIA_APP_ID || '',
+        apiKey: process.env.ALGOLIA_API_KEY || '',
         indexName: 'ml-pipeline',
         contextualSearch: true,
       },

@@ -21,7 +21,7 @@ This is the fastest way to get started.
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/your-username/ml-pipeline.git
+git clone https://github.com/idansajah71-blip/ml-pipeline.git
 cd ml-pipeline
 ```
 

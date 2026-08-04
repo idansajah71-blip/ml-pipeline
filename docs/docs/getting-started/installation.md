@@ -37,7 +37,7 @@ The easiest way to install ML Pipeline.
 
 ```bash
 # Clone repository
-git clone https://github.com/your-username/ml-pipeline.git
+git clone https://github.com/idansajah71-blip/ml-pipeline.git
 cd ml-pipeline
 
 # Setup environment

@@ -2,7 +2,7 @@ version: '3.9'
 
 services:
   app:
-    image: ghcr.io/your-username/ml-pipeline-backend:latest
+    image: ghcr.io/idansajah71-blip/ml-pipeline-backend:latest
     container_name: ml-pipeline-api
     ports:
       - "8000:8000"
@@ -40,7 +40,7 @@ services:
         max-file: "3"
 
   frontend:
-    image: ghcr.io/your-username/ml-pipeline-frontend:latest
+    image: ghcr.io/idansajah71-blip/ml-pipeline-frontend:latest
     container_name: ml-pipeline-frontend
     ports:
       - "3000:3000"

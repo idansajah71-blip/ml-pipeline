@@ -17,7 +17,7 @@ router = APIRouter(prefix="/monitoring", tags=["Monitoring"])
 
 @router.get("/stats")
 async def get_stats(
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     models_count = await db.execute(select(func.count(MLModel.id)))
