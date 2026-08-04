@@ -47,8 +47,21 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE_MB: int = 100
     TRAINING_TIMEOUT_SECONDS: int = 300
 
+    CELERY_BROKER_URL: str = ""
+    CELERY_RESULT_BACKEND: str = ""
+
+    SHAP_MAX_SAMPLES: int = 100
+
     ENABLE_METRICS: bool = True
     LOG_LEVEL: str = "INFO"
+
+    @property
+    def CELERY_BROKER(self) -> str:
+        return self.CELERY_BROKER_URL or self.REDIS_URL
+
+    @property
+    def CELERY_BACKEND(self) -> str:
+        return self.CELERY_RESULT_BACKEND or self.REDIS_URL
 
     model_config = {
         "env_file": ".env",

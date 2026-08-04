@@ -446,7 +446,7 @@ Jika ingin lanjut, berikut fitur optional yang belum dikerjakan:
 | # | Fitur | Prioritas | Status |
 |---|-------|-----------|--------|
 | 36 | SWR/React Query | Medium | ✅ SELESAI - SWR hooks + refactor 8 halaman |
-| 37 | Next.js middleware auth | Low | |
+| 37 | Next.js middleware auth | Low | ✅ SELESAI |
 | 38 | Server Components | Low | |
 | 39 | TypeScript fixes | Low | ✅ SELESAI - Fix `any` di monitoring, predictions, dataset detail |
 | 40 | Alertmanager deploy | Low | |
@@ -461,6 +461,138 @@ Jika ingin lanjut, berikut fitur optional yang belum dikerjakan:
 
 ---
 
+## 📋 UPDATE PHASE 6 - MLOPS IMPROVEMENTS (5 Agustus 2026)
+
+### Yang Sudah Dikerjakan
+
+| # | Fitur | File | Status |
+|---|-------|------|--------|
+| 49 | Celery Async Training | `app/core/celery_app.py`, `app/ml/tasks.py` | ✅ SELESAI |
+| 50 | Dataset Profiling | `app/ml/profiler.py` | ✅ SELESAI |
+| 51 | Enhanced Experiment Tracking | `app/api/experiments.py` | ✅ SELESAI |
+| 52 | Model Registry (Stage, Rollback, Model Card) | `app/services/model_service.py`, `app/api/models.py` | ✅ SELESAI |
+| 53 | AutoML (Otomatis Compare Algoritma) | `app/api/models.py`, `app/ml/tasks.py` | ✅ SELESAI |
+| 54 | Explainable AI (SHAP) | `app/api/models.py` | ✅ SELESAI |
+| 55 | Task Status Tracking | `app/api/models.py` | ✅ SELESAI |
+
+### File Baru
+| File | Deskripsi |
+|------|-----------|
+| `app/core/celery_app.py` | Celery app configuration dengan Redis broker |
+| `app/ml/tasks.py` | Celery tasks untuk async training dan AutoML |
+| `app/ml/profiler.py` | Dataset profiler (missing values, outliers, correlations, class distribution) |
+
+### File yang Diupdate
+| File | Perubahan |
+|------|-----------|
+| `app/core/config.py` | Tambah `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`, `SHAP_MAX_SAMPLES` |
+| `app/models/model.py` | Tambah `task_id`, `stage`, `parent_model_id`, `model_card` |
+| `app/schemas/model.py` | Tambah `ModelStageUpdate`, `ModelCardUpdate`, `AutoMLRequest/Response`, `ExplainRequest/Response`, `TaskStatusResponse` |
+| `app/schemas/dataset.py` | Tambah `DatasetProfileResponse` |
+| `app/services/model_service.py` | Tambah `_dispatch_async_training()`, `update_stage()`, `rollback_model()`, `update_model_card()` |
+| `app/api/models.py` | Tambah endpoints: `/stage`, `/rollback`, `/card`, `/explain`, `/automl`, `/tasks/{id}` |
+| `app/api/datasets.py` | Tambah endpoint `/{id}/profile` |
+| `app/api/experiments.py` | Tambah `/{id}/metrics`, `/{id}/logs`, `/compare`, filter by algorithm/status |
+| `requirements.txt` | Tambah `shap==0.44.1`, `celery[redis]==5.3.6` |
+| `docker-compose.yml` | Tambah service `celery_worker` |
+| `.env.example` | Tambah `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND` |
+
+### Endpoint Baru
+
+#### Models
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| POST | `/api/v1/models/{id}/stage` | Update model stage (development/staging/production/archived) |
+| POST | `/api/v1/models/{id}/rollback` | Rollback ke version sebelumnya |
+| GET | `/api/v1/models/{id}/card` | Get Model Card |
+| PUT | `/api/v1/models/{id}/card` | Update Model Card |
+| POST | `/api/v1/models/automl` | Jalankan AutoML (compare semua algoritma) |
+| POST | `/api/v1/models/{id}/explain` | SHAP explanation untuk prediksi |
+| GET | `/api/v1/models/tasks/{task_id}` | Cek status Celery task |
+
+#### Datasets
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| GET | `/api/v1/datasets/{id}/profile` | Full dataset profiling |
+
+#### Experiments
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| GET | `/api/v1/experiments/{id}/metrics` | Detail metrics experiment |
+| GET | `/api/v1/experiments/{id}/logs` | Logs experiment |
+| POST | `/api/v1/experiments/compare` | Bandingkan multiple experiments |
+| GET | `/api/v1/experiments?algorithm=xxx&status=xxx` | Filter experiments |
+
+### Cara Jalankan Celery Worker
+```bash
+# Local development
+celery -A app.core.celery_app:celery_app worker --loglevel=info --concurrency=2
+
+# Docker
+docker compose up celery_worker
+
+# Check Celery status
+celery -A app.core.celery_app:celery_app inspect active
+```
+
+### Contoh Penggunaan Async Training
+```bash
+# Sync training (default)
+curl -X POST http://localhost:8000/api/v1/models/{model_id}/train \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"dataset_id": "xxx", "algorithm": "random_forest"}'
+
+# Async training
+curl -X POST http://localhost:8000/api/v1/models/{model_id}/train \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"dataset_id": "xxx", "algorithm": "random_forest", "async_training": true}'
+
+# Check task status
+curl http://localhost:8000/api/v1/models/tasks/{task_id} \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Contoh Penggunaan AutoML
+```bash
+curl -X POST http://localhost:8000/api/v1/models/automl \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataset_id": "xxx",
+    "target_column": "species",
+    "algorithms": ["random_forest", "gradient_boosting", "svm"]
+  }'
+```
+
+### Contoh Penggunaan SHAP Explain
+```bash
+curl -X POST http://localhost:8000/api/v1/models/{model_id}/explain \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "data": [{"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2}],
+    "top_k": 10
+  }'
+```
+
+### Contoh Dataset Profiling
+```bash
+curl http://localhost:8000/api/v1/datasets/{dataset_id}/profile?target_column=species \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Next Steps (Fase 7-10)
+| Fase | Fitur | Estimasi |
+|------|-------|----------|
+| 7 | Data Drift Detection | 2-3 jam |
+| 8 | WebSocket Real-time Training Progress | 3-4 jam |
+| 9 | Frontend MLOps Integration | 4-6 jam |
+| 10 | Testing & Coverage | 3-4 jam |
+
+---
+
 *File ini dibuat pada: 2026-07-30*  
-*Terakhir diupdate: 2026-07-31*  
+*Terakhir diupdate: 2026-08-05*  
 *GitHub: https://github.com/idansajah71-blip/ml-pipeline*

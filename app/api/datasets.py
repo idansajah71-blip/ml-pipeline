@@ -6,7 +6,7 @@ from uuid import UUID
 from app.core.database import get_db
 from app.core.security import get_current_active_user
 from app.models.user import User
-from app.schemas.dataset import DatasetResponse, DatasetCreate, DatasetPreview
+from app.schemas.dataset import DatasetResponse, DatasetCreate, DatasetPreview, DatasetProfileResponse
 from app.services.dataset_service import DatasetService
 
 router = APIRouter(prefix="/datasets", tags=["Datasets"])
@@ -98,3 +98,31 @@ async def delete_dataset(
     if not deleted:
         raise HTTPException(status_code=404, detail="Dataset not found")
     return {"message": "Dataset deleted successfully"}
+
+
+@router.get("/{dataset_id}/profile", response_model=DatasetProfileResponse)
+async def profile_dataset(
+    dataset_id: UUID,
+    target_column: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = DatasetService(db)
+    dataset = await service.get_dataset(dataset_id)
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    try:
+        with open(dataset.file_path, "rb") as f:
+            file_content = f.read()
+
+        from app.ml.profiler import DatasetProfiler
+        profiler = DatasetProfiler()
+        profile = profiler.profile(
+            file_content=file_content,
+            filename=dataset.file_path.split("/")[-1],
+            target_column=target_column or dataset.target_column,
+        )
+        return DatasetProfileResponse(**profile)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Profiling failed: {str(e)}")

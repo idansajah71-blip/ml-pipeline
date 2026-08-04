@@ -59,12 +59,14 @@ class TrainRequest(BaseModel):
     algorithm: str = Field(default="random_forest")
     parameters: Dict[str, Any] = {}
     target_column: Optional[str] = None
+    async_training: bool = False
 
 
 class TrainResponse(BaseModel):
     experiment_id: UUID
     message: str
     status: str
+    task_id: Optional[str] = None
 
 
 class PredictRequest(BaseModel):
@@ -87,3 +89,42 @@ class BatchPredictResponse(BaseModel):
     model_version: int
     latency_ms: int
     total: int
+
+
+class ModelStageUpdate(BaseModel):
+    stage: str = Field(..., pattern="^(development|staging|production|archived)$")
+
+
+class ModelCardUpdate(BaseModel):
+    model_card: Dict[str, Any]
+
+
+class AutoMLRequest(BaseModel):
+    dataset_id: UUID
+    target_column: str
+    algorithms: Optional[List[str]] = None
+
+
+class AutoMLResponse(BaseModel):
+    task_id: Optional[str] = None
+    experiment_id: UUID
+    message: str
+    status: str
+
+
+class ExplainRequest(BaseModel):
+    data: List[Dict[str, Any]]
+    top_k: int = Field(default=10, ge=1, le=50)
+
+
+class ExplainResponse(BaseModel):
+    explanations: List[Dict[str, Any]]
+    global_importance: Dict[str, float]
+    feature_names: List[str]
+
+
+class TaskStatusResponse(BaseModel):
+    task_id: str
+    status: str
+    progress: Optional[int] = None
+    result: Optional[Dict[str, Any]] = None

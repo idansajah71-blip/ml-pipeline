@@ -22,6 +22,29 @@ class ModelService:
         self.db = db
         self.artifacts_dir = settings.ML_ARTIFACTS_DIR
 
+    def _dispatch_async_training(
+        self,
+        model_id: str,
+        experiment_id: str,
+        dataset_path: str,
+        algorithm: str,
+        parameters: dict,
+        target_column: str,
+        owner_id: str,
+    ) -> str:
+        from app.ml.tasks import train_model_task
+
+        result = train_model_task.delay(
+            model_id=str(model_id),
+            experiment_id=str(experiment_id),
+            dataset_path=dataset_path,
+            algorithm=algorithm,
+            parameters=parameters or {},
+            target_column=target_column,
+            owner_id=str(owner_id),
+        )
+        return result.id
+
     async def create_model(self, model_data: ModelCreate, owner_id: UUID) -> MLModel:
         model = MLModel(
             name=model_data.name,
@@ -69,6 +92,10 @@ class ModelService:
         if not dataset:
             raise HTTPException(status_code=404, detail="Dataset not found")
 
+        target_col = train_request.target_column or dataset.target_column
+        if not target_col:
+            raise HTTPException(status_code=400, detail="Target column required")
+
         experiment = Experiment(
             name=f"Training {model.name} v{model.version}",
             status=ExperimentStatus.RUNNING,
@@ -80,13 +107,25 @@ class ModelService:
         self.db.add(experiment)
         await self.db.flush()
 
+        if train_request.async_training:
+            task_id = self._dispatch_async_training(
+                model_id=str(model.id),
+                experiment_id=str(experiment.id),
+                dataset_path=dataset.file_path,
+                algorithm=train_request.algorithm,
+                parameters=train_request.parameters,
+                target_column=target_col,
+                owner_id=str(owner_id),
+            )
+            model.task_id = task_id
+            model.status = ModelStatus.TRAINING
+            await self.db.flush()
+            await self.db.refresh(experiment)
+            return experiment
+
         try:
             with open(dataset.file_path, "rb") as f:
                 file_content = f.read()
-
-            target_col = train_request.target_column or dataset.target_column
-            if not target_col:
-                raise HTTPException(status_code=400, detail="Target column required")
 
             pipeline = MLPipeline()
             result = pipeline.run_training(
@@ -97,19 +136,21 @@ class ModelService:
                 parameters=train_request.parameters,
             )
 
-            if result['status'] == 'completed':
-                model_dir = os.path.join(self.artifacts_dir, f"model_{model.id}_v{model.version}")
+            if result["status"] == "completed":
+                model_dir = os.path.join(
+                    self.artifacts_dir, f"model_{model.id}_v{model.version}"
+                )
                 artifacts = pipeline.save_artifacts(model_dir)
 
                 model.status = ModelStatus.TRAINED
-                model.file_path = artifacts['model_path']
-                model.metrics = result.get('metrics', {})
-                model.parameters = result.get('parameters', {})
-                model.feature_names = result.get('data_info', {}).get('features', [])
+                model.file_path = artifacts["model_path"]
+                model.metrics = result.get("metrics", {})
+                model.parameters = result.get("parameters", {})
+                model.feature_names = result.get("data_info", {}).get("features", [])
 
                 experiment.status = ExperimentStatus.COMPLETED
                 experiment.results = result
-                experiment.duration_seconds = str(result.get('duration_seconds', 0))
+                experiment.duration_seconds = str(result.get("duration_seconds", 0))
             else:
                 experiment.status = ExperimentStatus.FAILED
                 experiment.results = result
@@ -121,7 +162,7 @@ class ModelService:
 
         except Exception as e:
             experiment.status = ExperimentStatus.FAILED
-            experiment.results = {'error': str(e)}
+            experiment.results = {"error": str(e)}
             model.status = ModelStatus.FAILED
             await self.db.flush()
             raise HTTPException(status_code=500, detail=f"Training failed: {str(e)}")
@@ -188,3 +229,65 @@ class ModelService:
             select(MLModel).where(MLModel.status == ModelStatus.DEPLOYED)
         )
         return list(result.scalars().all())
+
+    async def update_stage(self, model_id: UUID, stage: str, owner_id: UUID) -> MLModel:
+        model = await self.get_model(model_id)
+        if not model:
+            raise HTTPException(status_code=404, detail="Model not found")
+        if model.owner_id != owner_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+
+        model.stage = stage
+        if stage == "production":
+            model.status = ModelStatus.DEPLOYED
+        elif stage == "archived":
+            model.status = ModelStatus.ARCHIVED
+
+        await self.db.flush()
+        await self.db.refresh(model)
+        return model
+
+    async def rollback_model(self, model_id: UUID, owner_id: UUID) -> MLModel:
+        model = await self.get_model(model_id)
+        if not model:
+            raise HTTPException(status_code=404, detail="Model not found")
+        if model.owner_id != owner_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+
+        result = await self.db.execute(
+            select(MLModel)
+            .where(
+                MLModel.name == model.name,
+                MLModel.owner_id == owner_id,
+                MLModel.version < model.version,
+            )
+            .order_by(MLModel.version.desc())
+            .limit(1)
+        )
+        previous_version = result.scalar_one_or_none()
+
+        if not previous_version:
+            raise HTTPException(status_code=400, detail="No previous version to rollback to")
+
+        model.version = previous_version.version + 1
+        model.file_path = previous_version.file_path
+        model.metrics = previous_version.metrics
+        model.parameters = previous_version.parameters
+        model.feature_names = previous_version.feature_names
+        model.status = ModelStatus.TRAINED
+
+        await self.db.flush()
+        await self.db.refresh(model)
+        return model
+
+    async def update_model_card(self, model_id: UUID, model_card: dict, owner_id: UUID) -> MLModel:
+        model = await self.get_model(model_id)
+        if not model:
+            raise HTTPException(status_code=404, detail="Model not found")
+        if model.owner_id != owner_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+
+        model.model_card = model_card
+        await self.db.flush()
+        await self.db.refresh(model)
+        return model

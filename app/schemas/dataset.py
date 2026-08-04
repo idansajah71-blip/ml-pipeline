@@ -43,3 +43,12 @@ class DatasetPreview(BaseModel):
     head: List[Dict[str, Any]]
     shape: tuple[int, int]
     statistics: Dict[str, Any]
+
+
+class DatasetProfileResponse(BaseModel):
+    summary: Dict[str, Any]
+    column_profiles: Dict[str, Dict[str, Any]]
+    missing_values: Dict[str, Any]
+    outliers: Dict[str, Any]
+    correlations: Dict[str, Any]
+    class_distribution: Optional[Dict[str, Any]] = None
