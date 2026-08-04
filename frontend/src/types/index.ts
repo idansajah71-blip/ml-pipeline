@@ -170,3 +170,112 @@ export interface ColumnInfo {
   null_count: number;
   unique_count: number;
 }
+
+export interface DatasetProfile {
+  summary: {
+    rows: number;
+    columns: number;
+    numeric_columns: number;
+    categorical_columns: number;
+    memory_usage_bytes: number;
+    duplicated_rows: number;
+    total_missing: number;
+    missing_percentage: number;
+    column_names: string[];
+  };
+  column_profiles: Record<string, {
+    dtype: string;
+    non_null_count: number;
+    null_count: number;
+    null_percentage: number;
+    unique_count: number;
+    statistics: Record<string, any>;
+  }>;
+  missing_values: {
+    total_missing: number;
+    total_cells: number;
+    missing_percentage: number;
+    columns_with_missing: string[];
+    missing_by_column: Record<string, { count: number; percentage: number }>;
+    complete_rows: number;
+    complete_rows_percentage: number;
+  };
+  outliers: Record<string, {
+    q1: number;
+    q3: number;
+    iqr: number;
+    lower_bound: number;
+    upper_bound: number;
+    outlier_count: number;
+    outlier_percentage: number;
+  }>;
+  correlations: {
+    matrix: Record<string, Record<string, number>>;
+    strong_correlations: Array<{
+      feature_1: string;
+      feature_2: string;
+      correlation: number;
+      strength: string;
+    }>;
+  };
+  class_distribution?: {
+    column: string;
+    num_classes: number;
+    distribution: Record<string, { count: number; percentage: number }>;
+    imbalance_ratio: number;
+    is_imbalanced: boolean;
+    majority_class: string;
+    minority_class: string;
+  };
+}
+
+export interface DataDriftResult {
+  drift_detected: boolean;
+  severity: string;
+  summary: {
+    total_features: number;
+    drifted_features: number;
+    drift_percentage: number;
+  };
+  psi: Record<string, { psi: number; bins: number; drifted: boolean }>;
+  ks_test: Record<string, { statistic: number; p_value: number; drifted: boolean }>;
+  distribution_shift: Record<string, {
+    ref_mean: number;
+    curr_mean: number;
+    mean_shift: number;
+    ref_std: number;
+    curr_std: number;
+    std_shift: number;
+  }>;
+  drifted_features: Array<{ feature: string; metric: string; value: number }>;
+}
+
+export interface TaskStatus {
+  task_id: string;
+  status: string;
+  progress?: number;
+  result?: Record<string, any>;
+}
+
+export interface ExplainResult {
+  explanations: Array<{
+    prediction: string;
+    confidence: number | null;
+    feature_contributions: Array<{
+      feature: string;
+      value: number;
+      contribution: number;
+      direction: 'positive' | 'negative';
+    }>;
+    base_value: number;
+  }>;
+  global_importance: Record<string, number>;
+  feature_names: string[];
+}
+
+export interface AutoMLResult {
+  task_id: string | null;
+  experiment_id: string;
+  message: string;
+  status: string;
+}

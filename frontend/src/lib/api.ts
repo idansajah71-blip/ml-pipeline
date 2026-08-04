@@ -46,6 +46,10 @@ export const datasets = {
       headers: { 'Content-Type': 'multipart/form-data' },
     }),
   preview: (id: string) => api.get(`/datasets/${id}/preview`),
+  profile: (id: string, targetColumn?: string) => {
+    const params = targetColumn ? `?target_column=${targetColumn}` : '';
+    return api.get(`/datasets/${id}/profile${params}`);
+  },
   delete: (id: string) => api.delete(`/datasets/${id}`),
 };
 
@@ -54,17 +58,42 @@ export const models = {
   get: (id: string) => api.get<MLModel>(`/models/${id}`),
   create: (data: { name: string; algorithm: string; target_column: string; description?: string }) =>
     api.post<MLModel>('/models', data),
-  train: (id: string, data: { dataset_id: string; algorithm: string; parameters?: Record<string, any> }) =>
+  train: (id: string, data: { dataset_id: string; algorithm: string; parameters?: Record<string, any>; async_training?: boolean }) =>
     api.post(`/models/${id}/train`, data),
   predict: (id: string, data: { data: Record<string, any>[] }) =>
     api.post(`/models/${id}/predict`, data),
+  batchPredict: (id: string, data: { data: Record<string, any>[] }) =>
+    api.post(`/models/${id}/predict/batch`, data),
   deploy: (id: string) => api.post(`/models/${id}/deploy`),
   delete: (id: string) => api.delete(`/models/${id}`),
+  stage: (id: string, data: { stage: string }) =>
+    api.post(`/models/${id}/stage`, data),
+  rollback: (id: string) => api.post(`/models/${id}/rollback`),
+  card: (id: string) => api.get(`/models/${id}/card`),
+  updateCard: (id: string, data: { model_card: Record<string, any> }) =>
+    api.put(`/models/${id}/card`, data),
+  explain: (id: string, data: { data: Record<string, any>[]; top_k?: number }) =>
+    api.post(`/models/${id}/explain`, data),
+  taskStatus: (taskId: string) => api.get(`/models/tasks/${taskId}`),
+  automl: (data: { dataset_id: string; target_column: string; algorithms?: string[] }) =>
+    api.post('/models/automl', data),
+  compare: (modelAId: string, modelBId: string) =>
+    api.get(`/models/compare/${modelAId}/${modelBId}`),
 };
 
 export const experiments = {
-  list: () => api.get<{ total: number; items: Experiment[] }>('/experiments'),
+  list: (params?: { algorithm?: string; status?: string }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.algorithm) searchParams.set('algorithm', params.algorithm);
+    if (params?.status) searchParams.set('status', params.status);
+    const query = searchParams.toString();
+    return api.get<{ total: number; items: Experiment[] }>(`/experiments${query ? `?${query}` : ''}`);
+  },
   get: (id: string) => api.get<Experiment>(`/experiments/${id}`),
+  metrics: (id: string) => api.get(`/experiments/${id}/metrics`),
+  logs: (id: string) => api.get(`/experiments/${id}/logs`),
+  compare: (experimentIds: string[]) =>
+    api.post('/experiments/compare', { experiment_ids: experimentIds }),
 };
 
 export const abTests = {
@@ -81,8 +110,22 @@ export const monitoring = {
   modelMetrics: (id: string) => api.get(`/monitoring/model/${id}/metrics`),
 };
 
+export const notifications = {
+  dataDrift: (data: { reference_dataset_id: string; current_dataset_id: string; target_column?: string; threshold_psi?: number; threshold_ks?: number }) =>
+    api.post('/notifications/data-drift', data),
+  driftCheck: (data: { model_id: string; reference_window?: number; current_window?: number; threshold?: number }) =>
+    api.post('/notifications/drift-check', data),
+};
+
 export const algorithms = {
   list: () => api.get<{ algorithms: string[]; default_params: Record<string, any> }>('/algorithms'),
+};
+
+export const websocket = {
+  training: (experimentId: string): WebSocket => {
+    const wsUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/^http/, 'ws');
+    return new WebSocket(`${wsUrl}/ws/training/${experimentId}`);
+  },
 };
 
 export default api;

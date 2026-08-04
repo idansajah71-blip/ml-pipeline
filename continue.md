@@ -677,7 +677,66 @@ curl -X POST http://localhost:8000/api/v1/notifications/data-drift \
 ### Next Steps (Fase 9-10)
 | Fase | Fitur | Estimasi |
 |------|-------|----------|
-| 9 | Frontend MLOps Integration | 4-6 jam |
+| 9 | Frontend MLOps Integration | ✅ SELESAI |
+| 10 | Testing & Coverage | 3-4 jam |
+
+---
+
+## 📋 UPDATE PHASE 9 - FRONTEND MLOPS INTEGRATION (5 Agustus 2026)
+
+### Yang Sudah Dikerjakan
+
+| # | Fitur | File | Status |
+|---|-------|------|--------|
+| 61 | AutoML Page | `frontend/src/app/(dashboard)/models/automl/page.tsx` | ✅ SELESAI |
+| 62 | Dataset Profile Page | `frontend/src/app/(dashboard)/datasets/[id]/profile/page.tsx` | ✅ SELESAI |
+| 63 | Model Detail - Explain Tab | `frontend/src/app/(dashboard)/models/[id]/page.tsx` | ✅ SELESAI |
+| 64 | Model Detail - Stage Management | `frontend/src/app/(dashboard)/models/[id]/page.tsx` | ✅ SELESAI |
+| 65 | Model Detail - Rollback | `frontend/src/app/(dashboard)/models/[id]/page.tsx` | ✅ SELESAI |
+| 66 | Model Detail - Model Card Tab | `frontend/src/app/(dashboard)/models/[id]/page.tsx` | ✅ SELESAI |
+| 67 | API Client Updates | `frontend/src/lib/api.ts` | ✅ SELESAI |
+| 68 | Hooks Updates | `frontend/src/lib/hooks.ts` | ✅ SELESAI |
+| 69 | TypeScript Types Updates | `frontend/src/types/index.ts` | ✅ SELESAI |
+
+### File Baru
+| File | Deskripsi |
+|------|-----------|
+| `frontend/src/app/(dashboard)/models/automl/page.tsx` | AutoML page - compare semua algoritma dengan progress bar |
+| `frontend/src/app/(dashboard)/datasets/[id]/profile/page.tsx` | Dataset profile - missing values, outliers, correlations, class distribution |
+
+### File yang Diupdate
+| File | Perubahan |
+|------|-----------|
+| `frontend/src/lib/api.ts` | Tambah: `datasets.profile`, `models.stage`, `models.rollback`, `models.card`, `models.updateCard`, `models.explain`, `models.taskStatus`, `models.automl`, `models.compare`, `notifications.dataDrift`, `notifications.driftCheck`, `websocket.training` |
+| `frontend/src/lib/hooks.ts` | Tambah: `useDatasetProfile`, `useExperimentMetrics`, update `useExperiments` dengan filter params |
+| `frontend/src/types/index.ts` | Tambah: `DatasetProfile`, `DataDriftResult`, `TaskStatus`, `ExplainResult`, `AutoMLResult` |
+| `frontend/src/app/(dashboard)/models/[id]/page.tsx` | Tambah tabs: explain, card; Tambah buttons: rollback, stage management; Tambah explain UI dengan SHAP visualization |
+
+### Fitur Frontend Baru
+
+#### AutoML Page (`/models/automl`)
+- Pilih dataset dan target column
+- Pilih algoritma (atau jalankan semua)
+- Real-time progress bar via polling task status
+- Hasil perbandingan dengan ranking dan metrics
+
+#### Dataset Profile Page (`/datasets/[id]/profile`)
+- Summary: rows, columns, numeric/categorical counts
+- Missing values analysis dengan visual
+- Outlier detection (IQR method) per kolom
+- Class distribution dengan bar chart
+- Strong correlations (|r| > 0.7)
+- Column profiles table dengan statistics
+
+#### Model Detail Updates
+- **Explain Tab**: Input JSON data, dapatkan SHAP explanation dengan feature importance bar chart
+- **Card Tab**: Tampilkan Model Card
+- **Stage Management**: Button untuk ubah stage (development/staging/production/archived)
+- **Rollback**: Button untuk rollback ke version sebelumnya
+
+### Next Steps (Fase 10)
+| Fase | Fitur | Estimasi |
+|------|-------|----------|
 | 10 | Testing & Coverage | 3-4 jam |
 
 ---

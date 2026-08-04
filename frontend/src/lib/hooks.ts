@@ -47,6 +47,11 @@ const datasetPreviewFetcher = async (id: string) => {
   return res.data;
 };
 
+const datasetProfileFetcher = async (id: string, targetColumn?: string) => {
+  const res = await datasets.profile(id, targetColumn);
+  return res.data;
+};
+
 const modelFetcher = async (id: string) => {
   const res = await models.get(id);
   return res.data;
@@ -78,6 +83,15 @@ export function useDatasetPreview(id: string | undefined) {
   return { preview: data ?? null, isLoading, isError: error };
 }
 
+export function useDatasetProfile(id: string | undefined, targetColumn?: string) {
+  const { data, error, isLoading } = useSWR(
+    id ? `dataset-profile-${id}-${targetColumn || 'none'}` : null,
+    () => datasetProfileFetcher(id!, targetColumn),
+    { revalidateOnFocus: false }
+  );
+  return { profile: data ?? null, isLoading, isError: error };
+}
+
 export function useModels() {
   const { data, error, isLoading, mutate } = useSWR<MLModel[]>('models', modelsFetcher, {
     revalidateOnFocus: true,
@@ -95,12 +109,25 @@ export function useModel(id: string | undefined) {
   return { model: data ?? null, isLoading, isError: error, mutate };
 }
 
-export function useExperiments() {
-  const { data, error, isLoading, mutate } = useSWR<Experiment[]>('experiments', experimentsFetcher, {
-    revalidateOnFocus: true,
-    revalidateOnReconnect: true,
-  });
+export function useExperiments(params?: { algorithm?: string; status?: string }) {
+  const key = params?.algorithm || params?.status
+    ? `experiments-${params.algorithm || ''}-${params.status || ''}`
+    : 'experiments';
+  const { data, error, isLoading, mutate } = useSWR<Experiment[]>(
+    key,
+    () => experiments.list(params).then((r) => r.data.items),
+    { revalidateOnFocus: true, revalidateOnReconnect: true }
+  );
   return { experiments: data ?? [], isLoading, isError: error, mutate };
+}
+
+export function useExperimentMetrics(id: string | undefined) {
+  const { data, error, isLoading } = useSWR(
+    id ? `experiment-metrics-${id}` : null,
+    () => experiments.metrics(id!).then((r) => r.data),
+    { revalidateOnFocus: false }
+  );
+  return { metrics: data ?? null, isLoading, isError: error };
 }
 
 export function useABTests() {
