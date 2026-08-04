@@ -69,10 +69,35 @@ app.include_router(notifications.router, prefix="/api/v1")
 
 @app.get("/health")
 async def health_check():
+    checks = {}
+
+    try:
+        from app.core.database import async_session_factory
+        async with async_session_factory() as session:
+            await session.execute(__import__("sqlalchemy").text("SELECT 1"))
+        checks["database"] = "ok"
+    except Exception as e:
+        checks["database"] = f"error: {str(e)[:100]}"
+
+    try:
+        from app.core.redis import get_redis
+        client = await get_redis()
+        if client:
+            await client.ping()
+            checks["redis"] = "ok"
+        else:
+            checks["redis"] = "unavailable"
+    except Exception as e:
+        checks["redis"] = f"error: {str(e)[:100]}"
+
+    healthy = all(v == "ok" or v == "unavailable" for v in checks.values())
+
     return {
-        "status": "healthy",
+        "status": "healthy" if healthy else "degraded",
         "app": settings.APP_NAME,
         "version": settings.APP_VERSION,
+        "environment": settings.ENVIRONMENT,
+        "checks": checks,
     }
 
 
