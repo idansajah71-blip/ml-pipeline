@@ -2,6 +2,36 @@
 
 Production-ready Machine Learning Pipeline with FastAPI backend and Next.js dashboard.
 
+## Architecture
+
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│   Frontend   │────▶│   Backend    │────▶│   Database   │
+│  Next.js 14  │     │   FastAPI    │     │  PostgreSQL  │
+│  Tailwind    │     │  scikit-learn│     │              │
+└──────────────┘     └──────┬───────┘     └──────────────┘
+                            │
+                     ┌──────▼───────┐
+                     │    Redis     │
+                     │  Cache/Sess  │
+                     └──────────────┘
+
+┌──────────────────────────────────────────────────────────┐
+│                    CI/CD Pipeline                        │
+│  GitHub Actions → Docker Build → Deploy (AWS/GCP/K8s)   │
+└──────────────────────────────────────────────────────────┘
+```
+
+### Data Flow
+
+1. **User** uploads dataset via Frontend Dashboard
+2. **Backend** validates, stores in PostgreSQL, caches metadata in Redis
+3. **User** creates model, selects algorithm and dataset
+4. **ML Pipeline** trains model using scikit-learn, stores artifacts in filesystem
+5. **Model Registry** tracks versions, metrics, and deployment status
+6. **Predictions** served via REST API with optional A/B testing
+7. **Monitoring** tracks system metrics and model performance
+
 ## Features
 
 ### Backend
@@ -59,44 +89,6 @@ npm install
 npm run dev
 ```
 
-## CI/CD Pipeline
-
-### Workflows
-
-| Workflow | Trigger | Description |
-|----------|---------|-------------|
-| `ci.yml` | Push/PR to main/develop | Run tests, linting, Docker build |
-| `docker-publish.yml` | Push tag v*.*.* | Build and push Docker images |
-| `deploy-staging.yml` | Push to develop | Deploy to staging server |
-
-### Setup Secrets
-
-Add these secrets in GitHub Settings > Secrets:
-
-```
-PRODUCTION_HOST=your-server-ip
-PRODUCTION_USER=deploy
-PRODUCTION_SSH_KEY=your-ssh-private-key
-
-STAGING_HOST=your-staging-server-ip
-STAGING_USER=deploy
-STAGING_SSH_KEY=your-ssh-private-key
-```
-
-### Release Process
-
-```bash
-# Update version
-git tag v1.0.0
-git push origin v1.0.0
-
-# GitHub Actions will:
-# 1. Run tests
-# 2. Build Docker images
-# 3. Push to GitHub Container Registry
-# 4. Deploy to production server
-```
-
 ## Dashboard Pages
 
 | Page | Description |
@@ -115,7 +107,6 @@ git push origin v1.0.0
 - `POST /api/v1/auth/register` - Register new user
 - `POST /api/v1/auth/login` - Login
 - `GET /api/v1/auth/me` - Get current user
-- `POST /api/v1/auth/api-key` - Generate API key
 
 ### Datasets
 - `POST /api/v1/datasets` - Upload dataset (CSV/Excel)
@@ -171,41 +162,9 @@ git push origin v1.0.0
 - **CI/CD**: GitHub Actions
 - **Deployment**: Docker, Nginx
 
-## Project Structure
-
-```
-ml-pipeline/
-├── .github/workflows/       # CI/CD workflows
-│   ├── ci.yml              # Main CI pipeline
-│   ├── docker-publish.yml  # Docker build & push
-│   └── deploy-staging.yml  # Staging deployment
-├── app/                    # FastAPI backend
-│   ├── api/               # API routes
-│   ├── core/              # Config, database, security
-│   ├── ml/                # ML pipeline
-│   ├── models/            # SQLAlchemy models
-│   ├── schemas/           # Pydantic schemas
-│   ├── services/          # Business logic
-│   └── tests/             # Unit tests
-├── frontend/              # Next.js dashboard
-│   └── src/
-│       ├── app/           # Pages (App Router)
-│       ├── components/    # React components
-│       ├── lib/           # API client, auth
-│       └── types/         # TypeScript types
-├── nginx/                 # Nginx config
-├── scripts/               # Database scripts
-├── docker-compose.yml     # Development
-├── docker-compose.prod.yml # Production
-└── requirements.txt
-```
-
 ## Contributing
 
-1. Create a feature branch (`git checkout -b feature/amazing-feature`)
-2. Commit your changes (`git commit -m 'Add amazing feature'`)
-3. Push to the branch (`git push origin feature/amazing-feature`)
-4. Open a Pull Request
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 ## License
 
