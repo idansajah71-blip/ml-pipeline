@@ -1,10 +1,19 @@
 'use client';
 
-import { Database, Brain, FlaskConical, Zap, Activity, Rocket } from 'lucide-react';
-import StatsCard from '@/components/StatsCard';
+import { Database, Brain, FlaskConical, Zap, Activity, Rocket, ArrowRight } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useModels, useDatasets, useExperiments } from '@/lib/hooks';
+import Link from 'next/link';
+
+const stats = [
+  { key: 'models', title: 'Total Models', icon: Brain, color: 'bg-blue-50 text-blue-600', href: '/models' },
+  { key: 'datasets', title: 'Total Datasets', icon: Database, color: 'bg-green-50 text-green-600', href: '/datasets' },
+  { key: 'experiments', title: 'Experiments', icon: FlaskConical, color: 'bg-purple-50 text-purple-600', href: '/experiments' },
+  { key: 'predictions', title: 'Predictions', icon: Zap, color: 'bg-yellow-50 text-yellow-600', href: '/predictions' },
+  { key: 'active', title: 'Active Models', icon: Rocket, color: 'bg-indigo-50 text-indigo-600', href: '/models' },
+  { key: 'training', title: 'Training', icon: Activity, color: 'bg-orange-50 text-orange-600', href: '/experiments' },
+] as const;
 
 export default function DashboardPage() {
   const { models: modelsList, isLoading: modelsLoading } = useModels();
@@ -21,11 +30,14 @@ export default function DashboardPage() {
     );
   }
 
-  const totalModels = modelsList.length;
-  const totalDatasets = datasetsList.length;
-  const totalExperiments = experimentsList.length;
-  const activeModels = modelsList.filter((m) => m.status === 'deployed').length;
-  const trainingModels = modelsList.filter((m) => m.status === 'training').length;
+  const values: Record<string, number> = {
+    models: modelsList.length,
+    datasets: datasetsList.length,
+    experiments: experimentsList.length,
+    predictions: 0,
+    active: modelsList.filter((m) => m.status === 'deployed').length,
+    training: modelsList.filter((m) => m.status === 'training').length,
+  };
 
   const recentModels = modelsList.slice(0, 5);
   const recentDatasets = datasetsList.slice(0, 5);
@@ -38,53 +50,78 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StatsCard title="Total Models" value={totalModels} icon={Brain} iconColor="text-blue-600" />
-        <StatsCard title="Total Datasets" value={totalDatasets} icon={Database} iconColor="text-green-600" />
-        <StatsCard title="Experiments" value={totalExperiments} icon={FlaskConical} iconColor="text-purple-600" />
-        <StatsCard title="Predictions" value={0} icon={Zap} iconColor="text-yellow-600" />
-        <StatsCard title="Active Models" value={activeModels} icon={Rocket} iconColor="text-indigo-600" />
-        <StatsCard title="Training" value={trainingModels} icon={Activity} iconColor="text-orange-600" />
+        {stats.map((s) => (
+          <Link
+            key={s.key}
+            href={s.href}
+            className="rounded-xl border border-gray-200 bg-white p-5 transition-colors hover:bg-gray-50"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">{s.title}</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900">{values[s.key]}</p>
+              </div>
+              <div className={`rounded-lg p-3 ${s.color}`}>
+                <s.icon className="h-5 w-5" />
+              </div>
+            </div>
+          </Link>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Recent Models</h2>
-          {recentModels.length === 0 ? (
-            <p className="text-sm text-gray-500">No models yet. Create your first model!</p>
-          ) : (
-            <div className="space-y-3">
-              {recentModels.map((model) => (
-                <div key={model.id} className="flex items-center justify-between rounded-lg border border-gray-100 p-3">
-                  <div>
-                    <p className="font-medium text-gray-900">{model.name}</p>
-                    <p className="text-xs text-gray-500">{model.algorithm} v{model.version}</p>
+        <div className="rounded-xl border border-gray-200 bg-white">
+          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+            <h2 className="text-lg font-semibold text-gray-900">Recent Models</h2>
+            <Link href="/models" className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700">
+              View all <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <div className="p-6">
+            {recentModels.length === 0 ? (
+              <p className="text-sm text-gray-500">No models yet. Create your first model!</p>
+            ) : (
+              <div className="space-y-3">
+                {recentModels.map((model) => (
+                  <div key={model.id} className="flex items-center justify-between rounded-lg border border-gray-100 p-3">
+                    <div>
+                      <p className="font-medium text-gray-900">{model.name}</p>
+                      <p className="text-xs text-gray-500">{model.algorithm} v{model.version}</p>
+                    </div>
+                    <StatusBadge status={model.status} />
                   </div>
-                  <StatusBadge status={model.status} />
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-lg font-semibold text-gray-900">Recent Datasets</h2>
-          {recentDatasets.length === 0 ? (
-            <p className="text-sm text-gray-500">No datasets yet. Upload your first dataset!</p>
-          ) : (
-            <div className="space-y-3">
-              {recentDatasets.map((ds) => (
-                <div key={ds.id} className="flex items-center justify-between rounded-lg border border-gray-100 p-3">
-                  <div>
-                    <p className="font-medium text-gray-900">{ds.name}</p>
-                    <p className="text-xs text-gray-500">{ds.rows_count} rows, {ds.columns_count} columns</p>
+        <div className="rounded-xl border border-gray-200 bg-white">
+          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+            <h2 className="text-lg font-semibold text-gray-900">Recent Datasets</h2>
+            <Link href="/datasets" className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700">
+              View all <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <div className="p-6">
+            {recentDatasets.length === 0 ? (
+              <p className="text-sm text-gray-500">No datasets yet. Upload your first dataset!</p>
+            ) : (
+              <div className="space-y-3">
+                {recentDatasets.map((ds) => (
+                  <div key={ds.id} className="flex items-center justify-between rounded-lg border border-gray-100 p-3">
+                    <div>
+                      <p className="font-medium text-gray-900">{ds.name}</p>
+                      <p className="text-xs text-gray-500">{ds.rows_count} rows, {ds.columns_count} columns</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500">{ds.target_column}</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-gray-500">{ds.target_column}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
