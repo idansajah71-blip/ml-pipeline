@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Float, Integer
+from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Float, Integer, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -20,3 +20,8 @@ class Prediction(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     model = relationship("MLModel", back_populates="predictions")
+
+    __table_args__ = (
+        Index("ix_predictions_model_id", "model_id"),
+        Index("ix_predictions_created_at", "created_at"),
+    )

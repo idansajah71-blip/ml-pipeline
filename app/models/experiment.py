@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Text, Enum
+from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Text, Enum, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
@@ -35,3 +35,11 @@ class Experiment(Base):
     dataset = relationship("Dataset", back_populates="experiments")
     model = relationship("MLModel", back_populates="experiments")
     owner = relationship("User", back_populates="experiments")
+
+    __table_args__ = (
+        Index("ix_experiments_status", "status"),
+        Index("ix_experiments_owner_id", "owner_id"),
+        Index("ix_experiments_model_id", "model_id"),
+        Index("ix_experiments_dataset_id", "dataset_id"),
+        Index("ix_experiments_created_at", "created_at"),
+    )

@@ -5,9 +5,11 @@ from typing import Dict, Any, Optional, List
 from uuid import UUID
 from datetime import datetime, timedelta
 from pydantic import BaseModel
+import json
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user, require_admin
+from app.core.redis import cache_get, cache_set
 from app.models.user import User
 from app.models.model import MLModel, ModelStatus
 from app.models.dataset import Dataset
@@ -22,6 +24,10 @@ async def get_stats(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
+    cached = await cache_get("monitoring:stats")
+    if cached:
+        return json.loads(cached)
+
     models_count = await db.execute(select(func.count(MLModel.id)))
     datasets_count = await db.execute(select(func.count(Dataset.id)))
     experiments_count = await db.execute(select(func.count(Experiment.id)))
@@ -35,7 +41,7 @@ async def get_stats(
         select(func.count(Experiment.id)).where(Experiment.status == ExperimentStatus.RUNNING)
     )
 
-    return {
+    result = {
         "total_models": models_count.scalar(),
         "total_datasets": datasets_count.scalar(),
         "total_experiments": experiments_count.scalar(),
@@ -43,6 +49,10 @@ async def get_stats(
         "active_models": active_models.scalar(),
         "training_experiments": training_experiments.scalar(),
     }
+
+    await cache_set("monitoring:stats", json.dumps(result, default=str), expire=60)
+
+    return result
 
 
 @router.get("/model/{model_id}/metrics")
@@ -371,4 +381,62 @@ async def trigger_retrain(
         "message": f"Retraining started for {model.name}",
         "task_id": task.id,
         "model_id": str(model_id),
+    }
+
+
+class LatencySLARequest(BaseModel):
+    model_id: UUID
+    sla_threshold_ms: float = 500.0
+    window_hours: int = 24
+
+
+@router.post("/latency-sla")
+async def check_latency_sla(
+    req: LatencySLARequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(select(MLModel).where(MLModel.id == req.model_id))
+    model = result.scalar_one_or_none()
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    cutoff = datetime.utcnow() - timedelta(hours=req.window_hours)
+
+    avg_result = await db.execute(
+        select(func.avg(Prediction.latency_ms)).where(
+            Prediction.model_id == req.model_id,
+            Prediction.created_at >= cutoff,
+        )
+    )
+    avg_latency = float(avg_result.scalar() or 0)
+
+    p95_result = await db.execute(
+        select(Prediction.latency_ms).where(
+            Prediction.model_id == req.model_id,
+            Prediction.created_at >= cutoff,
+        ).order_by(Prediction.latency_ms)
+    )
+    all_latencies = [r[0] for r in p95_result.all() if r[0] is not None]
+    p95 = all_latencies[int(len(all_latencies) * 0.95)] if all_latencies else 0
+    p99 = all_latencies[int(len(all_latencies) * 0.99)] if all_latencies else 0
+
+    violations = len([l for l in all_latencies if l > req.sla_threshold_ms])
+    violation_pct = (violations / len(all_latencies) * 100) if all_latencies else 0
+
+    return {
+        "model_id": str(req.model_id),
+        "model_name": model.name,
+        "window_hours": req.window_hours,
+        "sla_threshold_ms": req.sla_threshold_ms,
+        "metrics": {
+            "avg_latency_ms": round(avg_latency, 2),
+            "p95_latency_ms": round(p95, 2),
+            "p99_latency_ms": round(p99, 2),
+            "total_predictions": len(all_latencies),
+            "violations": violations,
+            "violation_percentage": round(violation_pct, 2),
+        },
+        "sla_met": violation_pct < 5.0,
+        "checked_at": datetime.utcnow().isoformat(),
     }

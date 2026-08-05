@@ -8,6 +8,7 @@ from datetime import datetime
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
+from app.core.notifications import send_alert_email
 from app.models.user import User
 from app.models.feature_monitoring import FeatureDriftAlert, FeatureStats
 
@@ -135,6 +136,20 @@ async def check_feature_drift(
         )
         db.add(alert)
         await db.flush()
+
+        if severity in ("critical", "warning"):
+            send_alert_email(
+                subject=f"Drift Alert: {feature_name}",
+                body=(
+                    f"Feature: {feature_name}\n"
+                    f"Severity: {severity}\n"
+                    f"Z-Score: {z_score:.4f}\n"
+                    f"Current: {current_value}\n"
+                    f"Baseline Mean: {baseline_mean}\n"
+                    f"Baseline Std: {baseline_std}\n"
+                ),
+                alert_type=severity,
+            )
 
     return {
         "feature": feature_name,

@@ -53,6 +53,13 @@ class Settings(BaseSettings):
 
     SHAP_MAX_SAMPLES: int = 100
 
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = "noreply@mlpipeline.com"
+    ALERT_EMAIL_TO: str = ""
+
     ENABLE_METRICS: bool = True
     LOG_LEVEL: str = "INFO"
 

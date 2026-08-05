@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, JSON, Text
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, JSON, Text, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -27,3 +27,9 @@ class Dataset(Base):
 
     owner = relationship("User", back_populates="datasets")
     experiments = relationship("Experiment", back_populates="dataset")
+
+    __table_args__ = (
+        Index("ix_datasets_owner_id", "owner_id"),
+        Index("ix_datasets_created_at", "created_at"),
+        Index("ix_datasets_name", "name"),
+    )

@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Integer, Boolean, Enum
+from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Integer, Boolean, Enum, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
@@ -36,3 +36,9 @@ class ABTest(Base):
 
     model_a = relationship("MLModel", foreign_keys=[model_a_id])
     model_b = relationship("MLModel", foreign_keys=[model_b_id])
+
+    __table_args__ = (
+        Index("ix_ab_tests_status", "status"),
+        Index("ix_ab_tests_model_a_id", "model_a_id"),
+        Index("ix_ab_tests_model_b_id", "model_b_id"),
+    )
