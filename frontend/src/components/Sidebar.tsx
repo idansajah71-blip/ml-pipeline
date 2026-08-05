@@ -35,28 +35,28 @@ import ThemeToggle from '@/components/ThemeToggle';
 import clsx from 'clsx';
 
 const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Training Wizard', href: '/training-wizard', icon: Wand2 },
-  { name: 'Datasets', href: '/datasets', icon: Database },
-  { name: 'Models', href: '/models', icon: Brain },
-  { name: 'Model Versions', href: '/model-versions', icon: GitBranch },
-  { name: 'Ensembles', href: '/ensemble', icon: Blend },
+  { name: 'Dasbor', href: '/', icon: LayoutDashboard, tour: 'dashboard' },
+  { name: 'Training Wizard', href: '/training-wizard', icon: Wand2, tour: 'wizard' },
+  { name: 'Dataset', href: '/datasets', icon: Database, tour: 'datasets' },
+  { name: 'Model', href: '/models', icon: Brain, tour: 'models' },
+  { name: 'Versi Model', href: '/model-versions', icon: GitBranch },
+  { name: 'Ensemble', href: '/ensemble', icon: Blend },
   { name: 'Explainability', href: '/explain', icon: PieChart },
-  { name: 'Experiments', href: '/experiments', icon: FlaskConical },
-  { name: 'Compare', href: '/experiment-compare', icon: ArrowRightLeft },
-  { name: 'Predictions', href: '/predictions', icon: Zap },
-  { name: 'A/B Tests', href: '/ab-tests', icon: BarChart3 },
-  { name: 'Data Quality', href: '/data-quality', icon: Shield },
-  { name: 'Batch Jobs', href: '/batch-jobs', icon: Layers },
+  { name: 'Eksperimen', href: '/experiments', icon: FlaskConical, tour: 'experiments' },
+  { name: 'Perbandingan', href: '/experiment-compare', icon: ArrowRightLeft },
+  { name: 'Prediksi', href: '/predictions', icon: Zap },
+  { name: 'A/B Testing', href: '/ab-tests', icon: BarChart3 },
+  { name: 'Kualitas Data', href: '/data-quality', icon: Shield },
+  { name: 'Batch Job', href: '/batch-jobs', icon: Layers },
   { name: 'Feature Store', href: '/feature-store', icon: Store },
-  { name: 'Feature Monitoring', href: '/feature-monitoring', icon: Activity },
+  { name: 'Monitoring Fitur', href: '/feature-monitoring', icon: Activity },
   { name: 'Serving', href: '/serving', icon: Rocket },
-  { name: 'Webhooks', href: '/webhooks', icon: Bell },
-  { name: 'Organizations', href: '/organizations', icon: Users },
-  { name: 'Costs', href: '/costs', icon: DollarSign },
+  { name: 'Webhook', href: '/webhooks', icon: Bell },
+  { name: 'Organisasi', href: '/organizations', icon: Users },
+  { name: 'Biaya', href: '/costs', icon: DollarSign },
   { name: 'Monitoring', href: '/monitoring', icon: Settings },
-  { name: 'Audit Logs', href: '/audit-logs', icon: History },
-  { name: 'Settings', href: '/settings', icon: UserCircle },
+  { name: 'Log Audit', href: '/audit-logs', icon: History },
+  { name: 'Pengaturan', href: '/settings', icon: UserCircle },
 ];
 
 export default function Sidebar() {
@@ -98,7 +98,7 @@ export default function Sidebar() {
               )}
             >
               <item.icon className={clsx('h-5 w-5', isActive ? 'text-primary-600' : 'text-gray-400 dark:text-gray-500')} />
-              {item.name}
+              <span data-tour={item.tour}>{item.name}</span>
             </Link>
           );
         })}
@@ -119,7 +119,7 @@ export default function Sidebar() {
           className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
         >
           <LogOut className="h-4 w-4" />
-          Logout
+          Keluar
         </button>
       </div>
     </>

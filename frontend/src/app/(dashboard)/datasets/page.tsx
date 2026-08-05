@@ -1,18 +1,27 @@
 'use client';
 
 import { useState } from 'react';
-import { Upload, Trash2, Eye, Database } from 'lucide-react';
+import { Upload, Trash2, Eye, Database, Download } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import DragDropUpload from '@/components/DragDropUpload';
+import EmptyState from '@/components/EmptyState';
+import ConfirmModal from '@/components/ConfirmModal';
 import { datasets } from '@/lib/api';
 import { useDatasets } from '@/lib/hooks';
 import Link from 'next/link';
+
+const SAMPLE_DATASETS = [
+  { name: 'Iris (Klasifikasi)', file: '/samples/iris.csv', desc: '150 baris, 4 fitur, 3 kelas' },
+  { name: 'Housing (Regresi)', file: '/samples/housing.csv', desc: '506 baris, 13 fitur, harga rumah' },
+  { name: 'Titanic (Klasifikasi)', file: '/samples/titanic.csv', desc: '891 baris, 12 fitur, survive/tidak' },
+];
 
 export default function DatasetsPage() {
   const { datasets: datasetsList, isLoading, mutate } = useDatasets();
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({ name: '', description: '', target_column: '' });
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const handleUpload = async () => {
     if (!selectedFile || !formData.name) return;
@@ -28,48 +37,66 @@ export default function DatasetsPage() {
       setFormData({ name: '', description: '', target_column: '' });
       mutate();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Upload failed';
+      const message = err instanceof Error ? err.message : 'Gagal mengunggah file';
       alert(message);
     } finally {
       setUploading(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this dataset?')) return;
-    await datasets.delete(id);
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    await datasets.delete(deleteTarget.id);
+    setDeleteTarget(null);
     mutate();
+  };
+
+  const handleLoadSample = async (sample: typeof SAMPLE_DATASETS[0]) => {
+    try {
+      const resp = await fetch(sample.file);
+      const blob = await resp.blob();
+      const file = new File([blob], `${sample.name.toLowerCase().replace(/[^a-z]/g, '_')}.csv`, { type: 'text/csv' });
+
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('name', sample.name);
+      fd.append('description', sample.desc);
+      await datasets.upload(fd);
+      mutate();
+    } catch {
+      alert('Gagal memuat dataset contoh');
+    }
   };
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Datasets</h1>
-          <p className="text-gray-500 dark:text-gray-400">Upload and manage your datasets</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dataset</h1>
+          <p className="text-gray-500 dark:text-gray-400">Unggah dan kelola dataset Anda</p>
         </div>
       </div>
 
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Upload Dataset</h2>
+        <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Unggah Dataset</h2>
         <div className="grid grid-cols-1 gap-4">
           <input
             type="text"
-            placeholder="Dataset Name"
+            placeholder="Nama Dataset"
             value={formData.name}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           />
           <input
             type="text"
-            placeholder="Target Column (optional)"
+            placeholder="Kolom Target (opsional)"
             value={formData.target_column}
             onChange={(e) => setFormData({ ...formData, target_column: e.target.value })}
             className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           />
           <input
             type="text"
-            placeholder="Description (optional)"
+            placeholder="Deskripsi (opsional)"
             value={formData.description}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
             className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
@@ -81,7 +108,7 @@ export default function DatasetsPage() {
             className="flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
           >
             <Upload className="h-4 w-4" />
-            {uploading ? 'Uploading...' : 'Upload'}
+            {uploading ? 'Mengunggah...' : 'Unggah'}
           </button>
         </div>
       </div>
@@ -89,21 +116,23 @@ export default function DatasetsPage() {
       {isLoading ? (
         <LoadingSpinner size="lg" className="mx-auto" />
       ) : datasetsList.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 py-16">
-          <Database className="mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" />
-          <p className="text-gray-500 dark:text-gray-400">No datasets yet. Upload your first dataset above!</p>
-        </div>
+        <EmptyState
+          icon={Database}
+          title="Belum ada dataset"
+          description="Unggah dataset pertama Anda atau coba dataset contoh untuk memulai."
+          action={{ label: 'Lihat Wizard', href: '/training-wizard' }}
+        />
       ) : (
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
-                <th className="px-6 py-4">Name</th>
-                <th className="px-6 py-4">Rows</th>
-                <th className="px-6 py-4">Columns</th>
+                <th className="px-6 py-4">Nama</th>
+                <th className="px-6 py-4">Baris</th>
+                <th className="px-6 py-4">Kolom</th>
                 <th className="px-6 py-4">Target</th>
-                <th className="px-6 py-4">Tags</th>
-                <th className="px-6 py-4">Actions</th>
+                <th className="px-6 py-4">Tag</th>
+                <th className="px-6 py-4">Aksi</th>
               </tr>
             </thead>
             <tbody>
@@ -111,7 +140,7 @@ export default function DatasetsPage() {
                 <tr key={ds.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
                   <td className="px-6 py-4">
                     <p className="font-medium text-gray-900 dark:text-white">{ds.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{ds.description || 'No description'}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{ds.description || 'Tanpa deskripsi'}</p>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">{ds.rows_count?.toLocaleString()}</td>
                   <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">{ds.columns_count}</td>
@@ -131,7 +160,10 @@ export default function DatasetsPage() {
                       >
                         <Eye className="h-4 w-4" />
                       </Link>
-                      <button onClick={() => handleDelete(ds.id)} className="text-red-500 hover:text-red-700">
+                      <button
+                        onClick={() => setDeleteTarget({ id: ds.id, name: ds.name })}
+                        className="text-red-500 hover:text-red-700"
+                      >
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
@@ -142,6 +174,36 @@ export default function DatasetsPage() {
           </table>
         </div>
       )}
+
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
+        <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">Dataset Contoh</h3>
+        <p className="mb-4 text-xs text-gray-500">Coba platform dengan dataset siap pakai:</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {SAMPLE_DATASETS.map((sample) => (
+            <button
+              key={sample.name}
+              onClick={() => handleLoadSample(sample)}
+              className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-600 p-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            >
+              <Download className="h-4 w-4 text-primary-500 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-gray-900 dark:text-white">{sample.name}</p>
+                <p className="text-xs text-gray-500">{sample.desc}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        title="Hapus Dataset"
+        message={`Anda yakin ingin menghapus "${deleteTarget?.name}"? Tindakan ini tidak dapat dibatalkan.`}
+        confirmLabel="Hapus"
+        danger
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

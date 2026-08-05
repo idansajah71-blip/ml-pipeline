@@ -7,11 +7,11 @@ import { useModels, useDatasets, useExperiments } from '@/lib/hooks';
 import Link from 'next/link';
 
 const stats = [
-  { key: 'models', title: 'Total Models', icon: Brain, color: 'bg-blue-50 text-blue-600', href: '/models' },
-  { key: 'datasets', title: 'Total Datasets', icon: Database, color: 'bg-green-50 text-green-600', href: '/datasets' },
-  { key: 'experiments', title: 'Experiments', icon: FlaskConical, color: 'bg-purple-50 text-purple-600', href: '/experiments' },
-  { key: 'predictions', title: 'Predictions', icon: Zap, color: 'bg-yellow-50 text-yellow-600', href: '/predictions' },
-  { key: 'active', title: 'Active Models', icon: Rocket, color: 'bg-indigo-50 text-indigo-600', href: '/models' },
+  { key: 'models', title: 'Total Model', icon: Brain, color: 'bg-blue-50 text-blue-600', href: '/models' },
+  { key: 'datasets', title: 'Total Dataset', icon: Database, color: 'bg-green-50 text-green-600', href: '/datasets' },
+  { key: 'experiments', title: 'Eksperimen', icon: FlaskConical, color: 'bg-purple-50 text-purple-600', href: '/experiments' },
+  { key: 'predictions', title: 'Prediksi', icon: Zap, color: 'bg-yellow-50 text-yellow-600', href: '/predictions' },
+  { key: 'active', title: 'Model Aktif', icon: Rocket, color: 'bg-indigo-50 text-indigo-600', href: '/models' },
   { key: 'training', title: 'Training', icon: Activity, color: 'bg-orange-50 text-orange-600', href: '/experiments' },
 ] as const;
 
@@ -45,8 +45,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500">Overview of your ML Pipeline</p>
+        <h1 className="text-2xl font-bold text-gray-900">Dasbor</h1>
+        <p className="text-gray-500">Ringkasan ML Pipeline Anda</p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -72,14 +72,14 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-xl border border-gray-200 bg-white">
           <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-            <h2 className="text-lg font-semibold text-gray-900">Recent Models</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Model Terbaru</h2>
             <Link href="/models" className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700">
-              View all <ArrowRight className="h-4 w-4" />
+              Lihat semua <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
           <div className="p-6">
             {recentModels.length === 0 ? (
-              <p className="text-sm text-gray-500">No models yet. Create your first model!</p>
+              <p className="text-sm text-gray-500">Belum ada model. Mulai training sekarang!</p>
             ) : (
               <div className="space-y-3">
                 {recentModels.map((model) => (
@@ -98,14 +98,14 @@ export default function DashboardPage() {
 
         <div className="rounded-xl border border-gray-200 bg-white">
           <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-            <h2 className="text-lg font-semibold text-gray-900">Recent Datasets</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Dataset Terbaru</h2>
             <Link href="/datasets" className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700">
-              View all <ArrowRight className="h-4 w-4" />
+              Lihat semua <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
           <div className="p-6">
             {recentDatasets.length === 0 ? (
-              <p className="text-sm text-gray-500">No datasets yet. Upload your first dataset!</p>
+              <p className="text-sm text-gray-500">Belum ada dataset. Unggah dataset pertama Anda!</p>
             ) : (
               <div className="space-y-3">
                 {recentDatasets.map((ds) => (
