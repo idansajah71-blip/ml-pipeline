@@ -15,6 +15,9 @@ import {
   UserCircle,
   Menu,
   X,
+  Shield,
+  Layers,
+  History,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -27,7 +30,10 @@ const navigation = [
   { name: 'Experiments', href: '/experiments', icon: FlaskConical },
   { name: 'Predictions', href: '/predictions', icon: Zap },
   { name: 'A/B Tests', href: '/ab-tests', icon: BarChart3 },
+  { name: 'Data Quality', href: '/data-quality', icon: Shield },
+  { name: 'Batch Jobs', href: '/batch-jobs', icon: Layers },
   { name: 'Monitoring', href: '/monitoring', icon: Settings },
+  { name: 'Audit Logs', href: '/audit-logs', icon: History },
   { name: 'Settings', href: '/settings', icon: UserCircle },
 ];
 

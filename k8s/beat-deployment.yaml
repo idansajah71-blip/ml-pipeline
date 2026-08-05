@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ml-pipeline-beat
+  labels:
+    app: ml-pipeline-beat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ml-pipeline-beat
+  template:
+    metadata:
+      labels:
+        app: ml-pipeline-beat
+    spec:
+      containers:
+        - name: beat
+          image: ml-pipeline-api:latest
+          command: ["celery", "-A", "app.core.celery_app", "beat", "--loglevel=info"]
+          env:
+            - name: POSTGRES_HOST
+              value: "postgres-service"
+            - name: REDIS_HOST
+              value: "redis-service"
+            - name: REDIS_PORT
+              value: "6379"
+            - name: ENVIRONMENT
+              value: "production"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

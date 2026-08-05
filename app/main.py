@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from app.core.config import get_settings
 from app.core.database import init_db
 from app.api import auth, datasets, models, experiments, monitoring, ab_testing, notifications
+from app.api import ml_ops, ab_testing_enhanced, model_optimization
 from app.core.security_middleware import (
     RateLimitMiddleware,
     SecurityHeadersMiddleware,
@@ -67,6 +68,9 @@ app.include_router(experiments.router, prefix="/api/v1")
 app.include_router(monitoring.router, prefix="/api/v1")
 app.include_router(ab_testing.router, prefix="/api/v1")
 app.include_router(notifications.router, prefix="/api/v1")
+app.include_router(ml_ops.router, prefix="/api/v1")
+app.include_router(ab_testing_enhanced.router, prefix="/api/v1")
+app.include_router(model_optimization.router, prefix="/api/v1")
 
 
 @app.get("/health")

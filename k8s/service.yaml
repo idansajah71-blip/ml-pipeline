@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ml-pipeline-api
+  labels:
+    app: ml-pipeline-api
+spec:
+  selector:
+    app: ml-pipeline-api
+  ports:
+    - port: 80
+      targetPort: 8000
+      protocol: TCP
+  type: ClusterIP

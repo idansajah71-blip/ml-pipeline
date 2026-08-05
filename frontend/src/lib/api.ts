@@ -131,6 +131,13 @@ export const abTests = {
   create: (data: { name: string; model_a_id: string; model_b_id: string; traffic_split?: number }) =>
     api.post<ABTest>('/ab-tests', data),
   update: (id: string, data: Partial<ABTest>) => api.put(`/ab-tests/${id}`, data),
+  metrics: (id: string, confidenceLevel?: number) => {
+    const params = confidenceLevel ? `?confidence_level=${confidenceLevel}` : '';
+    return api.get(`/ab-tests/${id}/metrics${params}`);
+  },
+  route: (id: string) => api.post(`/ab-tests/${id}/route`),
+  record: (id: string, group: string, correct: boolean) =>
+    api.post(`/ab-tests/${id}/record`, null, { params: { group, correct } }),
 };
 
 export const monitoring = {
@@ -166,6 +173,33 @@ export const notifications = {
 
 export const algorithms = {
   list: () => api.get<{ algorithms: string[]; default_params: Record<string, any> }>('/algorithms'),
+};
+
+export const mlOps = {
+  validateDataset: (datasetId: string, config?: Record<string, any>) =>
+    api.post(`/ml-ops/datasets/${datasetId}/validate`, config || {}),
+  qualityReport: (datasetId: string) =>
+    api.get(`/ml-ops/datasets/${datasetId}/quality`),
+  createBatchJob: (data: { name: string; model_id: string; input_file_path: string }) =>
+    api.post('/ml-ops/batch-jobs', data),
+  listBatchJobs: () => api.get('/ml-ops/batch-jobs'),
+  batchJob: (id: string) => api.get(`/ml-ops/batch-jobs/${id}`),
+  batchJobDownload: (id: string) => `/api/v1/ml-ops/batch-jobs/${id}/download`,
+  auditLogs: (params?: { action?: string; resource_type?: string; skip?: number; limit?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.action) searchParams.set('action', params.action);
+    if (params?.resource_type) searchParams.set('resource_type', params.resource_type);
+    if (params?.skip) searchParams.set('skip', String(params.skip));
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+    const query = searchParams.toString();
+    return api.get(`/ml-ops/audit-logs${query ? `?${query}` : ''}`);
+  },
+  benchmarkModel: (id: string, nSamples?: number) =>
+    api.post(`/models/${id}/benchmark`, null, { params: { n_samples: nSamples || 100 } }),
+  pruneModel: (id: string, threshold?: number) =>
+    api.post(`/models/${id}/prune`, null, { params: { importance_threshold: threshold || 0.01 } }),
+  exportModel: (id: string, format?: string) =>
+    api.post(`/models/${id}/export`, null, { params: { format: format || 'joblib' } }),
 };
 
 export const websocket = {

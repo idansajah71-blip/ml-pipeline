@@ -280,3 +280,92 @@ export interface AutoMLResult {
   message: string;
   status: string;
 }
+
+export interface DataQualityReport {
+  id: string;
+  dataset_id: string;
+  status: 'passed' | 'failed';
+  total_checks: number;
+  passed_checks: number;
+  failed_checks: number;
+  score: number;
+  checks: Array<{
+    name: string;
+    status: string;
+    message: string;
+    details: Record<string, any>;
+  }>;
+  created_at: string;
+}
+
+export interface BatchJob {
+  id: string;
+  name: string;
+  model_id: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  input_file_path: string | null;
+  output_file_path: string | null;
+  total_rows: number;
+  processed_rows: number;
+  failed_rows: number;
+  avg_latency_ms: number;
+  results_summary: Record<string, any>;
+  error_message: string | null;
+  task_id: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface AuditLog {
+  id: string;
+  user_id: string | null;
+  action: string;
+  resource_type: string;
+  resource_id: string | null;
+  details: Record<string, any>;
+  ip_address: string | null;
+  created_at: string;
+}
+
+export interface BenchmarkResult {
+  avg_latency_ms: number;
+  p50_latency_ms: number;
+  p95_latency_ms: number;
+  p99_latency_ms: number;
+  min_latency_ms: number;
+  max_latency_ms: number;
+  throughput_rps: number;
+  accuracy?: number;
+  f1?: number;
+}
+
+export interface PruneResult {
+  total_features: number;
+  kept_features: number;
+  pruned_features: number;
+  importance_threshold: number;
+  feature_importances: Record<string, number>;
+  kept: string[];
+  pruned: string[];
+}
+
+export interface ABTestMetrics {
+  test_id: string;
+  model_a_requests: number;
+  model_b_requests: number;
+  model_a_accuracy: number;
+  model_b_accuracy: number;
+  statistical_test: {
+    test_name: string;
+    statistic: number;
+    p_value: number;
+    significant: boolean;
+    confidence_level: number;
+    model_a_value: number;
+    model_b_value: number;
+    winner: string | null;
+  } | null;
+  confidence_level: number;
+  duration_hours: number | null;
+}
