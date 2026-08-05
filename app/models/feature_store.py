@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, JSON, Text, Integer, Float, Boolean
+from sqlalchemy import Column, String, DateTime, JSON, Text, Integer, Float, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -27,7 +27,7 @@ class Feature(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
-    feature_group_id = Column(UUID(as_uuid=True), nullable=False)
+    feature_group_id = Column(UUID(as_uuid=True), ForeignKey("feature_groups.id"), nullable=False)
     data_type = Column(String(50), nullable=False)
     description = Column(Text)
     is_required = Column(Boolean, default=False)
