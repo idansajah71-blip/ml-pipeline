@@ -4,918 +4,420 @@
 
 ---
 
-## 📋 RINGKASAN PROYEK
+## RINGKASAN PROYEK
 
 **Nama**: ML Pipeline  
 **Lokasi**: `C:\Users\User\Desktop\ml-pipeline`  
 **GitHub**: https://github.com/idansajah71-blip/ml-pipeline  
-**Tech Stack**: FastAPI + scikit-learn + PostgreSQL + Next.js + Docker + Kubernetes  
-**Status**: ✅ SELESAI (35/35 items dari Phase 1-5 sudah dikerjakan)
+**Tech Stack**: FastAPI + scikit-learn + PostgreSQL + Redis + Celery + Next.js 14 + Docker + Kubernetes  
+**Total Phase**: 41 phases - SEMUA SELESAI  
+**Commit Terakhir**: `eec495d`
 
 ---
 
-## ✅ KOMPONEN YANG SUDAH SELESAI
+## STATUS AKHIR PROYEK
 
-### 1. Backend (`app/`)
-| Komponen | Status | Path |
-|----------|--------|------|
-| FastAPI main app | ✅ | `app/main.py` |
-| Config (CORS, Redis) | ✅ | `app/core/config.py` |
-| Database (AsyncPG) | ✅ | `app/core/database.py` |
-| Redis cache (graceful fallback) | ✅ | `app/core/redis.py` |
-| JWT Auth + RBAC | ✅ | `app/core/security.py` |
-| Security middleware (Redis rate limit) | ✅ | `app/core/security_middleware.py` |
-| Audit logging | ✅ | `app/core/audit.py` |
-| API key manager (hashed) | ✅ | `app/core/api_key_manager.py` |
-| Encryption | ✅ | `app/core/encryption.py` |
-| IP reputation (Redis-persisted) | ✅ | `app/core/ip_reputation.py` |
-| Security scanner | ✅ | `app/core/security_scanner.py` |
-| Logging (JSON) | ✅ | `app/core/logging.py` |
-| Metrics (Prometheus) | ✅ | `app/core/metrics.py` |
-| ML Processor | ✅ | `app/ml/processor.py` |
-| ML Trainer (9 algo) | ✅ | `app/ml/trainer.py` |
-| ML Pipeline | ✅ | `app/ml/pipeline.py` |
-| Models (SQLAlchemy) | ✅ | `app/models/` (6 files) |
-| Schemas (Pydantic) | ✅ | `app/schemas/` (5 files) |
-| Services | ✅ | `app/services/` (3 files) |
-| API Routes | ✅ | `app/api/` (7 files) |
-| Notifications/Webhooks | ✅ | `app/api/notifications.py` |
-| Tests | ✅ | `app/tests/` (4 files) |
-| Alembic migrations | ✅ | `alembic/` |
-
-### 2. Frontend (`frontend/`)
-| Komponen | Status | Path |
-|----------|--------|------|
-| Next.js 14 + Tailwind | ✅ | `frontend/package.json` |
-| Login page | ✅ | `frontend/src/app/login/page.tsx` |
-| Register page | ✅ | `frontend/src/app/register/page.tsx` |
-| Dashboard layout | ✅ | `frontend/src/app/(dashboard)/layout.tsx` |
-| Dashboard home | ✅ | `frontend/src/app/page.tsx` |
-| Datasets page | ✅ | `frontend/src/app/(dashboard)/datasets/page.tsx` |
-| Dataset detail/preview | ✅ | `frontend/src/app/(dashboard)/datasets/[id]/page.tsx` |
-| Models page | ✅ | `frontend/src/app/(dashboard)/models/page.tsx` |
-| Model detail page | ✅ | `frontend/src/app/(dashboard)/models/[id]/page.tsx` |
-| Predictions page | ✅ | `frontend/src/app/(dashboard)/predictions/page.tsx` |
-| Experiments page | ✅ | `frontend/src/app/(dashboard)/experiments/page.tsx` |
-| A/B Tests page | ✅ | `frontend/src/app/(dashboard)/ab-tests/page.tsx` |
-| Monitoring page (Recharts) | ✅ | `frontend/src/app/(dashboard)/monitoring/page.tsx` |
-| Settings page | ✅ | `frontend/src/app/(dashboard)/settings/page.tsx` |
-| 404 page | ✅ | `frontend/src/app/not-found.tsx` |
-| Error boundary | ✅ | `frontend/src/app/error.tsx` |
-| API client | ✅ | `frontend/src/lib/api.ts` |
-| Auth context | ✅ | `frontend/src/lib/auth.ts` |
-| Types | ✅ | `frontend/src/types/index.ts` |
-| Toast component | ✅ | `frontend/src/components/Toast.tsx` |
-| Pagination component | ✅ | `frontend/src/components/Pagination.tsx` |
-| SearchInput component | ✅ | `frontend/src/components/SearchInput.tsx` |
-| Skeleton components | ✅ | `frontend/src/components/Skeleton.tsx` |
-| Sidebar (mobile responsive) | ✅ | `frontend/src/components/Sidebar.tsx` |
-| StatsCard, StatusBadge, LoadingSpinner | ✅ | `frontend/src/components/` |
-
-### 3. Infrastructure
-| Komponen | Status | Path |
-|----------|--------|------|
-| Docker Compose (dev) | ✅ | `docker-compose.yml` |
-| Docker Compose (prod) | ✅ | `docker-compose.prod.yml` |
-| Docker Compose (logging) | ✅ | `docker-compose.logging.yml` |
-| Docker Compose (loadtest) | ✅ | `docker-compose.loadtest.yml` |
-| Dockerfile (backend, multi-stage) | ✅ | `Dockerfile` |
-| Dockerfile (frontend, multi-stage) | ✅ | `frontend/Dockerfile` |
-| .dockerignore | ✅ | `.dockerignore` |
-| Nginx WAF | ✅ | `nginx/nginx.conf`, `nginx/waf-rules.conf` |
-| PostgreSQL init | ✅ | `scripts/init.sql` |
-| Seed data | ✅ | `scripts/seed.py` |
-
-### 4. CI/CD
-| Komponen | Status | Path |
-|----------|--------|------|
-| CI workflow | ✅ | `.github/workflows/ci.yml` |
-| Docker publish | ✅ | `.github/workflows/docker-publish.yml` |
-| Deploy staging | ✅ | `.github/workflows/deploy-staging.yml` |
-| Issue templates | ✅ | `.github/ISSUE_TEMPLATE/` |
-| PR template | ✅ | `.github/PULL_REQUEST_TEMPLATE.md` |
-| CODEOWNERS | ✅ | `.github/CODEOWNERS` |
-
-### 5. Cloud Deployment
-| Komponen | Status | Path |
-|----------|--------|------|
-| AWS EC2 script | ✅ | `deploy/aws-ec2.sh` |
-| GCP script | ✅ | `deploy/gcp-compute.sh` |
-| Backup script | ✅ | `deploy/backup.sh` |
-| Restore script | ✅ | `deploy/restore.sh` |
-| Health check | ✅ | `deploy/healthcheck.sh` |
-| Update script | ✅ | `deploy/update.sh` |
-| Security scan | ✅ | `deploy/security-scan.sh` |
-| Security setup | ✅ | `deploy/security-setup.sh` |
-
-### 6. Kubernetes
-| Komponen | Status | Path |
-|----------|--------|------|
-| Helm Chart | ✅ | `k8s/helm/ml-pipeline/` |
-| values.yaml | ✅ | Default + staging + production |
-| Templates | ✅ | Deployments, Services, Ingress, HPA, etc |
-| Deploy script | ✅ | `k8s/deploy.sh` |
-
-### 7. Monitoring & Logging
-| Komponen | Status | Path |
-|----------|--------|------|
-| Loki config | ✅ | `logging/loki/loki-config.yml` |
-| Promtail config | ✅ | `logging/promtail/promtail-config.yml` |
-| Grafana datasources | ✅ | `logging/grafana/datasources.yml` |
-| Grafana dashboard | ✅ | `logging/grafana/dashboards/` |
-| Prometheus config | ✅ | `logging/prometheus/prometheus.yml` |
-| Alert rules | ✅ | `logging/prometheus/alert_rules.yml` |
-
-### 8. Load Testing
-| Komponen | Status | Path |
-|----------|--------|------|
-| Locust tests | ✅ | `loadtest/locustfile.py` |
-| k6 tests | ✅ | `loadtest/k6-load-test.js` |
-| Benchmark script | ✅ | `loadtest/benchmark.py` |
-| Run script | ✅ | `loadtest/run-tests.sh` |
-
-### 9. Documentation
-| Komponen | Status | Path |
-|----------|--------|------|
-| Docusaurus setup | ✅ | `docs/package.json` |
-| Getting Started | ✅ | `docs/docs/getting-started/` |
-| API docs | ✅ | `docs/docs/api/` |
-| Guides | ✅ | `docs/docs/guides/` |
-| Deployment docs | ✅ | `docs/docs/deployment/` |
-| Changelog | ✅ | `docs/docs/changelog.md` |
+```
+✅ Backend FastAPI      - 35+ API modules, 30+ DB models, 15 Celery tasks
+✅ Frontend Next.js     - 21 pages, 21 nav links, dark mode, drag-drop upload
+✅ PostgreSQL           - 20+ tables dengan Alembic migrations
+✅ Redis                - Caching, rate limiting, WebSocket pub/sub
+✅ Celery               - Async training, batch prediction, auto-retrain, cleanup
+✅ Docker               - Multi-stage builds, non-root user, docker-compose
+✅ Kubernetes           - Deployment, Service, HPA (2-10 replicas), Worker, Beat
+✅ CI/CD                - GitHub Actions: test, lint, build, Docker, deploy staging→prod
+✅ Testing              - 144+ unit tests, 60% coverage threshold
+✅ Documentation        - Docusaurus 17 halaman
+✅ Monitoring           - Prometheus, Grafana, Loki
+✅ Security             - JWT+RBAC, rate limiting, IP reputation, API keys
+```
 
 ---
 
-## 📁 STRUKTUR FILE UTAMA
+## RINGKASAN 41 PHASE
+
+### Phase 1-10: Core ML Pipeline
+| Phase | Feature | Status |
+|-------|---------|--------|
+| 1 | Celery Async Training | ✅ |
+| 2 | Dataset Profiling | ✅ |
+| 3 | Experiment Tracking | ✅ |
+| 4 | Model Registry (Stage, Rollback, Card) | ✅ |
+| 5 | Explainable AI (SHAP) | ✅ |
+| 6 | AutoML | ✅ |
+| 7 | Data Drift Detection (PSI + KS Test) | ✅ |
+| 8 | WebSocket Real-time Training | ✅ |
+| 9 | Frontend MLOps Integration | ✅ |
+| 10 | Testing & Coverage | ✅ |
+
+### Phase 11-17: Production Features
+| Phase | Feature | Status |
+|-------|---------|--------|
+| 11 | Scheduled Retraining (Celery Beat) | ✅ |
+| 12 | Model Performance Monitoring | ✅ |
+| 13 | Prediction History & Alerts | ✅ |
+| 14 | Refresh Token (Rotating) | ✅ |
+| 15 | Password Reset Flow | ✅ |
+| 16 | Dark Mode (ThemeProvider) | ✅ |
+| 17 | Drag & Drop Upload | ✅ |
+
+### Phase 18-23: MLOps & Infrastructure
+| Phase | Feature | Status |
+|-------|---------|--------|
+| 18 | A/B Testing Engine (Statistical z-test) | ✅ |
+| 19 | Data Quality Validation (6 check types) | ✅ |
+| 20 | Batch Prediction (Async Celery) | ✅ |
+| 21 | Model Optimization (Benchmark, Prune, Export) | ✅ |
+| 22 | Audit Logging | ✅ |
+| 23 | Kubernetes Deployment (HPA, Probes) | ✅ |
+
+### Phase 24-29: Advanced MLOps
+| Phase | Feature | Status |
+|-------|---------|--------|
+| 24 | Feature Store (Versioned Ingest) | ✅ |
+| 25 | Model Serving API (Redis Cache) | ✅ |
+| 26 | CI/CD Pipeline (GitHub Actions) | ✅ |
+| 27 | Model Garbage Collection | ✅ |
+| 28 | Multi-tenancy (Organizations) | ✅ |
+| 29 | API Rate Limiting (Tier-based Quota) | ✅ |
+
+### Phase 30-35: Enterprise Features
+| Phase | Feature | Status |
+|-------|---------|--------|
+| 30 | Model Versioning & Lineage | ✅ |
+| 31 | Experiment Comparison Dashboard | ✅ |
+| 32 | Real-time Feature Monitoring | ✅ |
+| 33 | Model Registry Webhook | ✅ |
+| 34 | Data Lineage (Graph Traversal) | ✅ |
+| 35 | Custom Metrics Dashboard | ✅ |
+
+### Phase 36-41: Advanced Analytics
+| Phase | Feature | Status |
+|-------|---------|--------|
+| 36 | Model Explainability Dashboard (SHAP Interactive) | ✅ |
+| 37 | Auto-retrain Pipeline (Drift-triggered) | ✅ |
+| 38 | Multi-model Ensemble (Voting/Averaging) | ✅ |
+| 39 | Data Versioning (Checksum, Diff) | ✅ |
+| 40 | Model Marketplace (Share, Rating) | ✅ |
+| 41 | Cost Tracking (Compute Costs) | ✅ |
+
+---
+
+## FILE STRUCTURE
 
 ```
 ml-pipeline/
-├── app/                          # Backend FastAPI
-│   ├── main.py                   # Entry point (with security middleware)
-│   ├── core/                     # Core modules (13 files)
-│   ├── ml/                       # ML pipeline (3 files)
-│   ├── models/                   # SQLAlchemy models (6 files)
-│   ├── schemas/                  # Pydantic schemas (5 files)
-│   ├── services/                 # Business logic (3 files)
-│   ├── api/                      # API routes (7 files)
-│   └── tests/                    # Tests (4 files)
-├── alembic/                      # Database migrations
-│   ├── env.py                    # Async migration config
-│   └── versions/                 # Migration files
-├── frontend/                     # Next.js dashboard
-│   ├── src/app/                  # Pages (14 pages)
-│   │   ├── login/                # Login
-│   │   ├── register/             # Register (NEW)
-│   │   ├── not-found.tsx         # 404 (NEW)
-│   │   ├── error.tsx             # Error boundary (NEW)
-│   │   └── (dashboard)/          # Dashboard pages
-│   │       ├── models/[id]/      # Model detail (NEW)
-│   │       ├── datasets/[id]/    # Dataset preview (NEW)
-│   │       └── settings/         # User settings (NEW)
-│   ├── src/components/           # Components (8 files)
-│   │   ├── Toast.tsx             # Toast notifications (NEW)
-│   │   ├── Pagination.tsx        # Pagination (NEW)
-│   │   ├── SearchInput.tsx       # Search input (NEW)
-│   │   └── Skeleton.tsx          # Loading skeletons (NEW)
-│   ├── src/lib/                  # Utils (2 files)
-│   └── src/types/                # Types (1 file)
-├── docs/                         # Docusaurus documentation
-├── k8s/                          # Kubernetes Helm charts
-├── deploy/                       # Deployment scripts (8 files)
-├── logging/                      # Loki, Grafana, Prometheus
-├── loadtest/                     # Load testing scripts
-├── nginx/                        # Nginx WAF config
-├── scripts/                      # Database scripts
-├── .github/workflows/            # CI/CD (3 workflows)
-├── docker-compose.yml            # Development
-├── docker-compose.prod.yml       # Production (with Redis auth)
-├── docker-compose.logging.yml    # Logging stack
-├── docker-compose.loadtest.yml   # Load testing
-├── Dockerfile                    # Backend Docker (multi-stage, non-root)
-├── frontend/Dockerfile           # Frontend Docker (multi-stage, non-root)
-├── .dockerignore                 # Docker ignore rules (NEW)
-├── requirements.txt              # Python dependencies
-├── pyproject.toml                # Python project config
-├── alembic.ini                   # Alembic config (NEW)
-├── .env.example                  # Environment template
-├── .env                          # Local environment
-├── .gitignore                    # Git ignore rules
-├── Makefile                      # Make commands
-├── README.md                     # Main documentation
-├── continue.md                   # FILE INI
-└── run.py                        # Dev server runner
+├── app/
+│   ├── main.py                    # Entry point + all routers
+│   ├── core/
+│   │   ├── config.py              # Settings (Redis, Celery, SHAP)
+│   │   ├── database.py            # AsyncPG + SQLAlchemy
+│   │   ├── redis.py               # Redis client (graceful fallback)
+│   │   ├── security.py            # JWT + RBAC + Refresh Tokens
+│   │   ├── celery_app.py          # Celery + Beat (8 periodic tasks)
+│   │   ├── websocket.py           # WebSocket + Redis pub/sub
+│   │   └── security_middleware.py  # Rate limit, headers, logging
+│   ├── ml/
+│   │   ├── pipeline.py            # ML training pipeline
+│   │   ├── trainer.py             # 9 algorithms
+│   │   ├── tasks.py               # Async training + AutoML tasks
+│   │   ├── batch_tasks.py         # Batch prediction task
+│   │   ├── auto_retrain.py        # Auto-retrain on drift
+│   │   ├── cleanup_tasks.py       # GC + log cleanup
+│   │   ├── profiler.py            # Dataset profiling
+│   │   ├── drift.py               # PSI + KS drift detection
+│   │   ├── optimizer.py           # Benchmark + Prune + Export
+│   │   └── data_quality.py        # 6 quality checks
+│   ├── models/                    # 20+ SQLAlchemy models
+│   │   ├── user.py, model.py, dataset.py, experiment.py
+│   │   ├── prediction.py, ab_test.py
+│   │   ├── data_quality.py, batch_job.py, audit_log.py
+│   │   ├── feature_store.py, serving.py, organization.py
+│   │   ├── api_quota.py, model_version.py, feature_monitoring.py
+│   │   ├── webhook.py, lineage_metrics.py, advanced.py
+│   │   └── __init__.py
+│   ├── api/                       # 35+ API routers
+│   │   ├── auth.py, datasets.py, models.py, experiments.py
+│   │   ├── monitoring.py, ab_testing.py, notifications.py
+│   │   ├── ml_ops.py, ab_testing_enhanced.py, model_optimization.py
+│   │   ├── feature_store.py, serving.py, organizations.py
+│   │   ├── quota.py, model_versions.py, experiment_compare.py
+│   │   ├── feature_monitoring.py, webhooks.py, lineage_metrics.py
+│   │   ├── explainability_dashboard.py, ensemble.py
+│   │   ├── data_versioning.py, marketplace.py, cost_tracking.py
+│   │   └── __init__.py
+│   ├── schemas/                   # Pydantic schemas
+│   │   └── ml_ops.py, ab_test.py, user.py, model.py
+│   ├── services/
+│   │   ├── audit_service.py, feature_store_service.py
+│   │   ├── serving_service.py, api_quota_service.py
+│   │   └── model_service.py
+│   └── tests/                     # 144+ tests
+│       ├── test_profiler.py, test_drift.py, test_websocket.py
+│       └── test_ml_pipeline.py
+├── frontend/
+│   ├── src/app/(dashboard)/
+│   │   ├── page.tsx               # Dashboard home
+│   │   ├── datasets/              # List + Detail + Profile
+│   │   ├── models/                # List + Detail + AutoML
+│   │   ├── experiments/           # List + Detail
+│   │   ├── predictions/           # Predictions page
+│   │   ├── ab-tests/              # A/B Tests page
+│   │   ├── data-quality/          # Data Quality validation
+│   │   ├── batch-jobs/            # Batch predictions
+│   │   ├── feature-store/         # Feature management
+│   │   ├── feature-monitoring/    # Drift alerts
+│   │   ├── serving/               # Model serving endpoints
+│   │   ├── ensemble/              # Multi-model ensembles
+│   │   ├── explain/               # SHAP explainability
+│   │   ├── model-versions/        # Version tracking
+│   │   ├── experiment-compare/    # Compare experiments
+│   │   ├── organizations/         # Multi-tenancy
+│   │   ├── costs/                 # Cost tracking
+│   │   ├── monitoring/            # System monitoring
+│   │   ├── audit-logs/            # Activity logs
+│   │   └── settings/              # User settings
+│   ├── src/lib/
+│   │   ├── api.ts                 # API client (30+ services)
+│   │   ├── auth.ts                # Auth + refresh token
+│   │   ├── hooks.ts               # SWR hooks
+│   │   ├── theme.tsx              # Dark mode ThemeProvider
+│   │   └── validation.tsx         # Form validation
+│   ├── src/components/
+│   │   ├── Sidebar.tsx            # 21 nav links + theme toggle
+│   │   ├── ThemeToggle.tsx        # Light/Dark/System toggle
+│   │   ├── DragDropUpload.tsx     # Drag & drop file upload
+│   │   ├── Toast.tsx, Pagination.tsx, SearchInput.tsx
+│   │   ├── Skeleton.tsx, LoadingSpinner.tsx
+│   │   └── ...
+│   └── src/types/index.ts         # TypeScript types
+├── k8s/
+│   ├── deployment.yaml            # API + liveness/readiness/startup probes
+│   ├── service.yaml               # ClusterIP service
+│   ├── hpa.yaml                   # HPA 2-10 replicas
+│   ├── worker-deployment.yaml     # Celery worker
+│   └── beat-deployment.yaml       # Celery beat
+├── .github/workflows/
+│   └── ci-cd.yaml                 # Full CI/CD pipeline
+├── Dockerfile                     # Multi-stage backend
+├── docker-compose.yml             # Dev (API + Worker + Beat)
+├── docker-compose.prod.yml        # Production
+├── requirements.txt               # Python dependencies
+├── pyproject.toml                 # pytest config
+└── continue.md                    # FILE INI
 ```
 
 ---
 
-## ⚠️ PERINGATAN - JANGAN LAKUKAN INI
+## ENDPOINT LENGKAP
 
-1. **JANGAN hapus file yang sudah ada** - Semua file sudah terstruktur dengan baik
-2. **JANGAN ubah struktur folder** - Sudah sesuai best practice
-3. **JANGAN ubah nama model/database** - Akan breaking changes
-4. **JANGAN hapus API endpoints** - Sudah digunakan oleh frontend
-5. **JANGAN ubah JWT_SECRET** di `.env` - Akan logout semua user
-6. **JANGAN jalankan `drop table`** - Akan menghapus semua data
-7. **JANGAN ubah port default** - Backend: 8000, Frontend: 3000
+### Auth
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| POST | `/api/v1/auth/register` | Register (returns access + refresh token) |
+| POST | `/api/v1/auth/login` | Login (returns access + refresh token) |
+| POST | `/api/v1/auth/refresh` | Refresh access token (rotation) |
+| GET | `/api/v1/auth/me` | Get current user |
+
+### Models
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| GET | `/api/v1/models` | List models |
+| POST | `/api/v1/models` | Create model |
+| GET | `/api/v1/models/{id}` | Get model |
+| POST | `/api/v1/models/{id}/train` | Train model (sync/async) |
+| POST | `/api/v1/models/{id}/predict` | Single prediction |
+| POST | `/api/v1/models/{id}/predict/batch` | Batch prediction |
+| POST | `/api/v1/models/{id}/deploy` | Deploy model |
+| POST | `/api/v1/models/{id}/stage` | Update stage |
+| POST | `/api/v1/models/{id}/rollback` | Rollback version |
+| GET/PUT | `/api/v1/models/{id}/card` | Model card |
+| POST | `/api/v1/models/{id}/explain` | SHAP explanation |
+| POST | `/api/v1/models/automl` | AutoML |
+| GET | `/api/v1/models/compare/{a}/{b}` | Compare models |
+| POST | `/api/v1/models/{id}/benchmark` | Benchmark latency |
+| POST | `/api/v1/models/{id}/prune` | Prune features |
+| POST | `/api/v1/models/{id}/export` | Export model |
+
+### Datasets
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| GET | `/api/v1/datasets` | List datasets |
+| POST | `/api/v1/datasets` | Upload dataset |
+| GET | `/api/v1/datasets/{id}` | Get dataset |
+| GET | `/api/v1/datasets/{id}/preview` | Preview data |
+| GET | `/api/v1/datasets/{id}/profile` | Full profiling |
+
+### Experiments
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| GET | `/api/v1/experiments` | List (filter: algorithm, status) |
+| POST | `/api/v1/experiments/compare` | Compare experiments |
+| GET | `/api/v1/experiments/{id}/metrics` | Metrics detail |
+| GET | `/api/v1/experiments/{id}/logs` | Logs |
+
+### A/B Testing
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| POST | `/api/v1/ab-tests` | Create test |
+| GET | `/api/v1/ab-tests` | List tests |
+| PUT | `/api/v1/ab-tests/{id}` | Update test |
+| POST | `/api/v1/ab-tests/{id}/route` | Route prediction |
+| POST | `/api/v1/ab-tests/{id}/record` | Record outcome |
+| GET | `/api/v1/ab-tests/{id}/metrics` | Statistical metrics |
+
+### MLOps
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| POST | `/api/v1/ml-ops/datasets/{id}/validate` | Data quality check |
+| GET | `/api/v1/ml-ops/datasets/{id}/quality` | Latest quality report |
+| POST | `/api/v1/ml-ops/batch-jobs` | Create batch job |
+| GET | `/api/v1/ml-ops/batch-jobs` | List batch jobs |
+| GET | `/api/v1/ml-ops/batch-jobs/{id}/download` | Download results |
+| GET | `/api/v1/ml-ops/audit-logs` | Audit logs |
+
+### Feature Store
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| POST | `/api/v1/feature-store/groups` | Create group |
+| GET | `/api/v1/feature-store/groups` | List groups |
+| POST | `/api/v1/feature-store/groups/{id}/features` | Add feature |
+| POST | `/api/v1/feature-store/groups/{id}/ingest` | Ingest features |
+| GET | `/api/v1/feature-store/groups/{id}/get/{key}` | Lookup features |
+
+### Model Serving
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| POST | `/api/v1/serving/endpoints` | Create endpoint |
+| GET | `/api/v1/serving/endpoints` | List endpoints |
+| POST | `/api/v1/serving/endpoints/{id}/predict` | Predict (cached) |
+| GET | `/api/v1/serving/endpoints/{id}/metrics` | Metrics |
+
+### Feature Monitoring
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| GET | `/api/v1/feature-monitoring/alerts` | Drift alerts |
+| POST | `/api/v1/feature-monitoring/check` | Check drift (z-score) |
+
+### Model Versioning
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| POST | `/api/v1/model-versions` | Create version |
+| GET | `/api/v1/model-versions/model/{id}` | List versions |
+| PUT | `/api/v1/model-versions/{id}/promote` | Promote version |
+| GET | `/api/v1/model-versions/lineage/{id}` | Get lineage |
+
+### Explainability
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| POST | `/api/v1/explain/global` | Global SHAP importance |
+| POST | `/api/v1/explain/prediction` | Per-prediction explanation |
+
+### Ensemble
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| POST | `/api/v1/ensemble` | Create ensemble |
+| POST | `/api/v1/ensemble/predict` | Ensemble predict |
+
+### Organizations
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| POST | `/api/v1/orgs` | Create org |
+| POST | `/api/v1/orgs/{id}/members` | Add member |
+
+### Quota
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| GET | `/api/v1/quota` | Get quota usage |
+| GET | `/api/v1/quota/check` | Check & increment |
+
+### Cost Tracking
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| POST | `/api/v1/costs` | Record cost |
+| GET | `/api/v1/costs/summary` | Cost summary |
+
+### Data Lineage
+| Method | Path | Deskripsi |
+|--------|------|-----------|
+| POST | `/api/v1/lineage` | Create lineage |
+| GET | `/api/v1/lineage/graph/{type}/{id}` | Lineage graph |
+
+### WebSocket
+| Protocol | Path | Deskripsi |
+|----------|------|-----------|
+| WS | `/ws/training/{experiment_id}` | Real-time training progress |
 
 ---
 
-## 🚀 CARA MELANJUTKAN
+## CELERY BEAT SCHEDULE
 
-### Jika Mau Tambah Fitur Baru
-
-1. Buat file baru di folder yang sesuai
-2. Ikuti naming convention yang ada
-3. Tambahkan import di file terkait
-4. Test endpoint baru
-5. Update documentation
-
-### Jika Mau Deploy
-
-```bash
-# Development
-python run.py                          # Backend
-cd frontend && npm run dev             # Frontend
-
-# Docker
-docker compose up -d                   # Start all
-docker compose exec app python scripts/seed.py  # Seed DB
-
-# Production
-docker compose -f docker-compose.prod.yml up -d
-
-# Kubernetes
-./k8s/deploy.sh production
-```
-
-### Jika Mau Testing
-
-```bash
-# Backend tests
-pytest app/tests/ -v
-
-# Load tests
-./loadtest/run-tests.sh http://localhost:8000 all
-
-# Security scan
-./deploy/security-scan.sh
-```
-
-### Git Commands
-
-```bash
-# Check status
-git status
-
-# Create new branch
-git checkout -b feature/nama-fitur
-
-# Commit
-git add -A
-git commit -m "feat: deskripsi fitur"
-
-# Push
-git push origin main
-```
+| Task | Schedule | Deskripsi |
+|------|----------|-----------|
+| `check_model_performance` | Setiap 6 jam | Cek confidence/latency deployed models |
+| `scheduled_retraining_check` | Harian jam 2 pagi | Cek model stale (>30 hari) |
+| `garbage_collect_models` | Mingguan jam 3 pagi | Archive/delete unused models |
+| `cleanup_serving_logs` | Harian jam 4:30 | Hapus serving logs >30 hari |
+| `cleanup_audit_logs` | Harian jam 4:45 | Hapus audit logs >60 hari |
+| `run_auto_retrain_pipeline` | Setiap jam | Auto-retrain on critical drift |
 
 ---
 
-## 🔧 KONTEKS KEPUTUSAN YANG SUDAH DIAMBIL
+## DEFAULT USERS
 
-### Database
-- **PostgreSQL 16** (bukan MySQL) - Better JSON support
-- **AsyncPG** (bukan psycopg2) - Async support
-- **UUID** untuk primary key - Better for distributed systems
-- **Alembic** untuk migrations (bukan create_all di production)
-
-### Backend
-- **FastAPI** (bukan Flask/Django) - Performance + auto docs
-- **SQLAlchemy async** (bukan Tortoise) - Mature + flexible
-- **Pydantic v2** (bukan v1) - Better validation
-- **python-jose** (bukan PyJWT) - Better key management
-- **BackgroundTasks** untuk async training (bukan Celery untuk simplicity)
-- **Redis** untuk rate limiting, caching, IP reputation, password reset tokens
-
-### Frontend
-- **Next.js 14 App Router** (bukan Pages Router) - Latest pattern
-- **Tailwind CSS** (bukan MUI) - Faster styling
-- **Recharts** untuk charts di monitoring page
-- **AuthProvider** di root layout (bukan per-page)
-- **Mobile responsive** sidebar dengan hamburger menu
-
-### ML
-- **scikit-learn** (bukan TensorFlow/PyTorch) - Simple classification
-- **joblib** (bukan pickle) - Better for sklearn
-- **No GPU required** - CPU-only training
-
-### Infrastructure
-- **Docker Compose** (bukan Swarm) - Simple orchestration
-- **Helm** (bukan raw manifests) - Template management
-- **Nginx** (bukan Traefik) - WAF support
-- **Multi-stage Docker builds** dengan non-root user
-
----
-
-## 📊 DEFAULT DATA
-
-### Users
 | Email | Password | Role |
 |-------|----------|------|
 | admin@mlpipeline.com | admin123 | Admin |
 | datascientist@mlpipeline.com | ds123456 | Data Scientist |
 | user@mlpipeline.com | user1234 | User |
 
-### Dataset
-- **Iris Dataset** - 150 rows, 4 features, 3 classes
-- File: `ml_artifacts/datasets/iris_dataset.csv`
-
-### Algorithms Available
-1. random_forest
-2. gradient_boosting
-3. logistic_regression
-4. svm
-5. knn
-6. decision_tree
-7. adaboost
-8. bagging
-9. mlp
-
 ---
 
-## 📝 CATATAN TAMBAHAN
+## CARA JALANKAN
 
-### Environment Variables Wajib
-```
-JWT_SECRET_KEY    # Generate: openssl rand -hex 32
-POSTGRES_PASSWORD # Generate: openssl rand -base64 32
-REDIS_PASSWORD    # Generate: openssl rand -base64 32 (for production)
-CORS_ORIGINS      # Comma-separated origins
-```
-
-### Port yang Digunakan
-| Service | Port |
-|---------|------|
-| Backend API | 8000 |
-| Frontend | 3000 |
-| PostgreSQL | 5432 |
-| Redis | 6379 |
-| Loki | 3100 |
-| Grafana | 3001 |
-| Prometheus | 9090 |
-| Locust | 8089 |
-
-### API Base URL
-- Local: `http://localhost:8000`
-- Docker: `http://localhost:8000`
-- Production: `https://yourdomain.com`
-
----
-
-## 🎯 STATUS AKHIR
-
-```
-✅ Backend - SELESAI (dengan Alembic, Redis caching, batch predict, model compare)
-✅ Frontend - SELESAI (dengan model detail, dataset preview, settings, register, 404, SWR hooks)
-✅ Database - SELESAI (dengan Alembic migrations)
-✅ Authentication - SELESAI (dengan password reset, email verification)
-✅ ML Pipeline - SELESAI
-✅ Docker - SELESAI (multi-stage, non-root, .dockerignore)
-✅ Kubernetes - SELESAI
-✅ CI/CD - SELESAI
-✅ Monitoring - SELESAI (dengan Recharts charts)
-✅ Logging - SELESAI
-✅ Load Testing - SELESAI
-✅ Security - SELESAI (Redis rate limit, hashed API keys, IP reputation)
-✅ Documentation - SELESAI (lengkap semua 17 halaman docs)
-✅ Deployment Scripts - SELESAI
-✅ UI Components - SELESAI (Toast, Pagination, Search, Skeletons)
-✅ Mobile Responsive - SELESAI
-✅ Git + GitHub - SELESAI
-✅ SWR/React Query - SELESAI (dengan caching + auto-revalidation)
-✅ TypeScript fixes - SELESAI (hapus semua any types)
-✅ ML Tests - SELESAI (31 unit tests)
-✅ Security Tests - SELESAI (28 tests)
-✅ Frontend Tests - SELESAI (Jest + 5 component suites)
-✅ Docusaurus Docs - SELESAI (17 halaman lengkap)
-```
-
-**Proyek ini SUDAH SELESAI dan SIAP DIGUNAKAN.**
-
-### Status Lokal (31 Jul 2026)
-- ✅ Backend FastAPI berhasil dijalankan di http://localhost:8000
-- ✅ PostgreSQL 17 running, database `ml_pipeline_db` ada
-- ✅ Redis running di localhost:6379
-- ✅ Database sudah ter-seed (3 user, 1 dataset iris, 1 model)
-- ⚠️ Frontend belum dijalankan (perlu `cd frontend && npm run dev`)
-- ⚠️ Docker tidak terinstall di mesin ini
-
-### Jalankan Lokal
 ```bash
 # Backend (port 8000)
 python run.py
 
-# Frontend (port 3000) - di terminal baru
-cd frontend
-npm run dev
-```
+# Frontend (port 3000)
+cd frontend && npm run dev
 
-### API Docs
-- Swagger UI: http://localhost:8000/docs
-- ReDoc: http://localhost:8000/redoc
-
-### Default Users
-| Email | Password | Role |
-|-------|----------|------|
-| admin@mlpipeline.com | admin123 | Admin |
-| datascientist@mlpipeline.com | ds123456 | Data Scientist |
-| user@mlpipeline.com | user1234 | User |
-
-Jika ada error atau bug, periksa log terlebih dahulu:
-```bash
-docker compose logs -f app
-```
-
-Jangan langsung mengubah code tanpa memahami konteks yang sudah ada.
-
----
-
-## 📋 HAL YANG BISA DITAMBAHKAN LAIN KALI (OPTIONAL)
-
-Jika ingin lanjut, berikut fitur optional yang belum dikerjakan:
-
-| # | Fitur | Prioritas | Status |
-|---|-------|-----------|--------|
-| 36 | SWR/React Query | Medium | ✅ SELESAI - SWR hooks + refactor 8 halaman |
-| 37 | Next.js middleware auth | Low | ✅ SELESAI |
-| 38 | Server Components | Low | |
-| 39 | TypeScript fixes | Low | ✅ SELESAI - Fix `any` di monitoring, predictions, dataset detail |
-| 40 | Alertmanager deploy | Low | |
-| 41 | Nginx HTTPS | Low | |
-| 42 | Fix placeholder values | Low | |
-| 43 | CI linting fix | Low | |
-| 44 | ML pipeline tests | Low | ✅ SELESAI - 31 unit tests (processor, trainer, pipeline) |
-| 45 | Security middleware tests | Low | ✅ SELESAI - 28 tests (scanner, encryption) |
-| 46 | Integration tests | Low | |
-| 47 | Frontend tests | Low | ✅ SELESAI - Jest + 5 component test suites |
-| 48 | Lengkapi docs | Low | ✅ SELESAI - 17 docs (API, guides, tutorials, deployment, contributing) |
-
----
-
-## 📋 UPDATE PHASE 6 - MLOPS IMPROVEMENTS (5 Agustus 2026)
-
-### Yang Sudah Dikerjakan
-
-| # | Fitur | File | Status |
-|---|-------|------|--------|
-| 49 | Celery Async Training | `app/core/celery_app.py`, `app/ml/tasks.py` | ✅ SELESAI |
-| 50 | Dataset Profiling | `app/ml/profiler.py` | ✅ SELESAI |
-| 51 | Enhanced Experiment Tracking | `app/api/experiments.py` | ✅ SELESAI |
-| 52 | Model Registry (Stage, Rollback, Model Card) | `app/services/model_service.py`, `app/api/models.py` | ✅ SELESAI |
-| 53 | AutoML (Otomatis Compare Algoritma) | `app/api/models.py`, `app/ml/tasks.py` | ✅ SELESAI |
-| 54 | Explainable AI (SHAP) | `app/api/models.py` | ✅ SELESAI |
-| 55 | Task Status Tracking | `app/api/models.py` | ✅ SELESAI |
-
-### File Baru
-| File | Deskripsi |
-|------|-----------|
-| `app/core/celery_app.py` | Celery app configuration dengan Redis broker |
-| `app/ml/tasks.py` | Celery tasks untuk async training dan AutoML |
-| `app/ml/profiler.py` | Dataset profiler (missing values, outliers, correlations, class distribution) |
-
-### File yang Diupdate
-| File | Perubahan |
-|------|-----------|
-| `app/core/config.py` | Tambah `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND`, `SHAP_MAX_SAMPLES` |
-| `app/models/model.py` | Tambah `task_id`, `stage`, `parent_model_id`, `model_card` |
-| `app/schemas/model.py` | Tambah `ModelStageUpdate`, `ModelCardUpdate`, `AutoMLRequest/Response`, `ExplainRequest/Response`, `TaskStatusResponse` |
-| `app/schemas/dataset.py` | Tambah `DatasetProfileResponse` |
-| `app/services/model_service.py` | Tambah `_dispatch_async_training()`, `update_stage()`, `rollback_model()`, `update_model_card()` |
-| `app/api/models.py` | Tambah endpoints: `/stage`, `/rollback`, `/card`, `/explain`, `/automl`, `/tasks/{id}` |
-| `app/api/datasets.py` | Tambah endpoint `/{id}/profile` |
-| `app/api/experiments.py` | Tambah `/{id}/metrics`, `/{id}/logs`, `/compare`, filter by algorithm/status |
-| `requirements.txt` | Tambah `shap==0.44.1`, `celery[redis]==5.3.6` |
-| `docker-compose.yml` | Tambah service `celery_worker` |
-| `.env.example` | Tambah `CELERY_BROKER_URL`, `CELERY_RESULT_BACKEND` |
-
-### Endpoint Baru
-
-#### Models
-| Method | Path | Deskripsi |
-|--------|------|-----------|
-| POST | `/api/v1/models/{id}/stage` | Update model stage (development/staging/production/archived) |
-| POST | `/api/v1/models/{id}/rollback` | Rollback ke version sebelumnya |
-| GET | `/api/v1/models/{id}/card` | Get Model Card |
-| PUT | `/api/v1/models/{id}/card` | Update Model Card |
-| POST | `/api/v1/models/automl` | Jalankan AutoML (compare semua algoritma) |
-| POST | `/api/v1/models/{id}/explain` | SHAP explanation untuk prediksi |
-| GET | `/api/v1/models/tasks/{task_id}` | Cek status Celery task |
-
-#### Datasets
-| Method | Path | Deskripsi |
-|--------|------|-----------|
-| GET | `/api/v1/datasets/{id}/profile` | Full dataset profiling |
-
-#### Experiments
-| Method | Path | Deskripsi |
-|--------|------|-----------|
-| GET | `/api/v1/experiments/{id}/metrics` | Detail metrics experiment |
-| GET | `/api/v1/experiments/{id}/logs` | Logs experiment |
-| POST | `/api/v1/experiments/compare` | Bandingkan multiple experiments |
-| GET | `/api/v1/experiments?algorithm=xxx&status=xxx` | Filter experiments |
-
-### Cara Jalankan Celery Worker
-```bash
-# Local development
+# Celery Worker
 celery -A app.core.celery_app:celery_app worker --loglevel=info --concurrency=2
 
-# Docker
-docker compose up celery_worker
-
-# Check Celery status
-celery -A app.core.celery_app:celery_app inspect active
-```
-
-### Contoh Penggunaan Async Training
-```bash
-# Sync training (default)
-curl -X POST http://localhost:8000/api/v1/models/{model_id}/train \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"dataset_id": "xxx", "algorithm": "random_forest"}'
-
-# Async training
-curl -X POST http://localhost:8000/api/v1/models/{model_id}/train \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"dataset_id": "xxx", "algorithm": "random_forest", "async_training": true}'
-
-# Check task status
-curl http://localhost:8000/api/v1/models/tasks/{task_id} \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-### Contoh Penggunaan AutoML
-```bash
-curl -X POST http://localhost:8000/api/v1/models/automl \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "dataset_id": "xxx",
-    "target_column": "species",
-    "algorithms": ["random_forest", "gradient_boosting", "svm"]
-  }'
-```
-
-### Contoh Penggunaan SHAP Explain
-```bash
-curl -X POST http://localhost:8000/api/v1/models/{model_id}/explain \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "data": [{"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2}],
-    "top_k": 10
-  }'
-```
-
-### Contoh Dataset Profiling
-```bash
-curl http://localhost:8000/api/v1/datasets/{dataset_id}/profile?target_column=species \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-### Next Steps (Fase 7-10)
-| Fase | Fitur | Estimasi |
-|------|-------|----------|
-| 7 | Data Drift Detection | ✅ SELESAI |
-| 8 | WebSocket Real-time Training Progress | ✅ SELESAI |
-| 9 | Frontend MLOps Integration | 4-6 jam |
-| 10 | Testing & Coverage | 3-4 jam |
-
----
-
-## 📋 UPDATE PHASE 7-8 - DRIFT DETECTION & WEBSOCKET (5 Agustus 2026)
-
-### Yang Sudah Dikerjakan
-
-| # | Fitur | File | Status |
-|---|-------|------|--------|
-| 56 | Data Drift Detection (PSI + KS Test) | `app/ml/drift.py` | ✅ SELESAI |
-| 57 | Data Drift API Endpoint | `app/api/notifications.py` | ✅ SELESAI |
-| 58 | WebSocket Real-time Training Progress | `app/core/websocket.py` | ✅ SELESAI |
-| 59 | WebSocket Training Endpoint | `app/main.py` | ✅ SELESAI |
-| 60 | Redis Progress Publishing | `app/ml/tasks.py` | ✅ SELESAI |
-
-### File Baru
-| File | Deskripsi |
-|------|-----------|
-| `app/ml/drift.py` | DriftDetector: PSI, KS test, distribution shift, severity assessment |
-| `app/core/websocket.py` | WebSocket ConnectionManager dengan Redis pub/sub listener |
-
-### File yang Diupdate
-| File | Perubahan |
-|------|-----------|
-| `app/main.py` | Tambah WebSocket endpoint `/ws/training/{experiment_id}` |
-| `app/ml/tasks.py` | Tambah `publish_progress()` untuk real-time updates ke Redis |
-| `app/api/notifications.py` | Tambah endpoint `/data-drift` untuk dataset drift detection |
-
-### Endpoint Baru
-
-#### Notifications/Drift
-| Method | Path | Deskripsi |
-|--------|------|-----------|
-| POST | `/api/v1/notifications/data-drift` | Data drift detection antara 2 dataset (PSI + KS test) |
-
-#### WebSocket
-| Protocol | Path | Deskripsi |
-|----------|------|-----------|
-| WS | `/ws/training/{experiment_id}` | Real-time training progress via WebSocket |
-
-### Cara Penggunaan WebSocket
-```javascript
-// Frontend JavaScript
-const ws = new WebSocket(`ws://localhost:8000/ws/training/${experimentId}`);
-
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  console.log(`Progress: ${data.progress}% - ${data.step}`);
-  
-  // Update UI
-  updateProgressBar(data.progress);
-  updateStatusText(data.step);
-  
-  if (data.status === 'completed') {
-    showMetrics(data.metrics);
-  }
-};
-
-ws.onclose = () => {
-  console.log('Training stream ended');
-};
-```
-
-### Fitur Drift Detection
-- **PSI (Population Stability Index)**: Mengukur perubahan distribusi antara reference dan current data
-- **KS Test (Kolmogorov-Smirnov)**: Statistical test untuk mendeteksi perbedaan distribusi
-- **Distribution Shift**: Mean dan std deviation comparison
-- **Severity Assessment**: Low/Medium/High berdasarkan jumlah fitur yang drift
-- **Threshold Configurable**: PSI threshold (default 0.2), KS threshold (default 0.05)
-
-### Contoh Data Drift Check
-```bash
-curl -X POST http://localhost:8000/api/v1/notifications/data-drift \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "reference_dataset_id": "xxx",
-    "current_dataset_id": "yyy",
-    "target_column": "species",
-    "threshold_psi": 0.2,
-    "threshold_ks": 0.05
-  }'
-```
-
-### Next Steps (Fase 9-10)
-| Fase | Fitur | Estimasi |
-|------|-------|----------|
-| 9 | Frontend MLOps Integration | ✅ SELESAI |
-| 10 | Testing & Coverage | 3-4 jam |
-
----
-
-## 📋 UPDATE PHASE 9 - FRONTEND MLOPS INTEGRATION (5 Agustus 2026)
-
-### Yang Sudah Dikerjakan
-
-| # | Fitur | File | Status |
-|---|-------|------|--------|
-| 61 | AutoML Page | `frontend/src/app/(dashboard)/models/automl/page.tsx` | ✅ SELESAI |
-| 62 | Dataset Profile Page | `frontend/src/app/(dashboard)/datasets/[id]/profile/page.tsx` | ✅ SELESAI |
-| 63 | Model Detail - Explain Tab | `frontend/src/app/(dashboard)/models/[id]/page.tsx` | ✅ SELESAI |
-| 64 | Model Detail - Stage Management | `frontend/src/app/(dashboard)/models/[id]/page.tsx` | ✅ SELESAI |
-| 65 | Model Detail - Rollback | `frontend/src/app/(dashboard)/models/[id]/page.tsx` | ✅ SELESAI |
-| 66 | Model Detail - Model Card Tab | `frontend/src/app/(dashboard)/models/[id]/page.tsx` | ✅ SELESAI |
-| 67 | API Client Updates | `frontend/src/lib/api.ts` | ✅ SELESAI |
-| 68 | Hooks Updates | `frontend/src/lib/hooks.ts` | ✅ SELESAI |
-| 69 | TypeScript Types Updates | `frontend/src/types/index.ts` | ✅ SELESAI |
-
-### File Baru
-| File | Deskripsi |
-|------|-----------|
-| `frontend/src/app/(dashboard)/models/automl/page.tsx` | AutoML page - compare semua algoritma dengan progress bar |
-| `frontend/src/app/(dashboard)/datasets/[id]/profile/page.tsx` | Dataset profile - missing values, outliers, correlations, class distribution |
-
-### File yang Diupdate
-| File | Perubahan |
-|------|-----------|
-| `frontend/src/lib/api.ts` | Tambah: `datasets.profile`, `models.stage`, `models.rollback`, `models.card`, `models.updateCard`, `models.explain`, `models.taskStatus`, `models.automl`, `models.compare`, `notifications.dataDrift`, `notifications.driftCheck`, `websocket.training` |
-| `frontend/src/lib/hooks.ts` | Tambah: `useDatasetProfile`, `useExperimentMetrics`, update `useExperiments` dengan filter params |
-| `frontend/src/types/index.ts` | Tambah: `DatasetProfile`, `DataDriftResult`, `TaskStatus`, `ExplainResult`, `AutoMLResult` |
-| `frontend/src/app/(dashboard)/models/[id]/page.tsx` | Tambah tabs: explain, card; Tambah buttons: rollback, stage management; Tambah explain UI dengan SHAP visualization |
-
-### Fitur Frontend Baru
-
-#### AutoML Page (`/models/automl`)
-- Pilih dataset dan target column
-- Pilih algoritma (atau jalankan semua)
-- Real-time progress bar via polling task status
-- Hasil perbandingan dengan ranking dan metrics
-
-#### Dataset Profile Page (`/datasets/[id]/profile`)
-- Summary: rows, columns, numeric/categorical counts
-- Missing values analysis dengan visual
-- Outlier detection (IQR method) per kolom
-- Class distribution dengan bar chart
-- Strong correlations (|r| > 0.7)
-- Column profiles table dengan statistics
-
-#### Model Detail Updates
-- **Explain Tab**: Input JSON data, dapatkan SHAP explanation dengan feature importance bar chart
-- **Card Tab**: Tampilkan Model Card
-- **Stage Management**: Button untuk ubah stage (development/staging/production/archived)
-- **Rollback**: Button untuk rollback ke version sebelumnya
-
-### Next Steps (Fase 10)
-| Fase | Fitur | Estimasi |
-|------|-------|----------|
-| 10 | Testing & Coverage | ✅ SELESAI |
-
----
-
-## 📋 UPDATE PHASE 10 - TESTING & COVERAGE (5 Agustus 2026)
-
-### Yang Sudah Dikerjakan
-
-| # | Fitur | File | Status |
-|---|-------|------|--------|
-| 70 | Dataset Profiler Tests | `app/tests/test_profiler.py` | ✅ SELESAI |
-| 71 | Drift Detection Tests | `app/tests/test_drift.py` | ✅ SELESAI |
-| 72 | WebSocket Tests | `app/tests/test_websocket.py` | ✅ SELESAI |
-| 73 | Coverage Config | `pyproject.toml` | ✅ SELESAI |
-
-### File Baru
-| File | Deskripsi |
-|------|-----------|
-| `app/tests/test_profiler.py` | 14 unit tests untuk DatasetProfiler |
-| `app/tests/test_drift.py` | 10 unit tests untuk DriftDetector |
-| `app/tests/test_websocket.py` | 7 unit tests untuk WebSocket ConnectionManager |
-
-### File yang Diupdate
-| File | Perubahan |
-|------|-----------|
-| `pyproject.toml` | Tambah `pytest-cov`, addopts `--cov=app --cov-report=term-missing --cov-fail-under=60` |
-| `requirements.txt` | Tambah `pytest-cov==4.1.0` |
-
-### Cara Jalankan Tests
-```bash
-# Semua tests
-pytest app/tests/ -v
-
-# Dengan coverage
-pytest app/tests/ -v --cov=app --cov-report=html
-
-# Tests spesifik
-pytest app/tests/test_profiler.py -v
-pytest app/tests/test_drift.py -v
-pytest app/tests/test_websocket.py -v
-
-# Hanya ML tests
-pytest app/tests/test_ml_pipeline.py -v
-
-# Hanya integration tests
-pytest app/tests/ -v -k "integration"
-```
-
-### Coverage Target
-- Minimum: 60% (configured di `pyproject.toml`)
-- Target ideal: 80%+
-
-### Total Tests
-- ML Pipeline: 31 tests
-- Profiler: 14 tests
-- Drift: 10 tests
-- WebSocket: 7 tests
-- Security: 28 tests
-- Auth: 6 tests
-- Datasets: 4 tests
-- Models: 4 tests
-- Integration: ~40 tests
-- **Total: ~144 tests**
-
----
-
-## 🎯 RINGKASAN SEMUA PHASE
-
-| Phase | Fitur | Status |
-|-------|-------|--------|
-| 1 | Celery Async Training | ✅ SELESAI |
-| 2 | Dataset Profiling | ✅ SELESAI |
-| 3 | Experiment Tracking | ✅ SELESAI |
-| 4 | Model Registry | ✅ SELESAI |
-| 5 | Explainable AI (SHAP) | ✅ SELESAI |
-| 6 | AutoML | ✅ SELESAI |
-| 7 | Data Drift Detection | ✅ SELESAI |
-| 8 | WebSocket Real-time | ✅ SELESAI |
-| 9 | Frontend MLOps Integration | ✅ SELESAI |
-| 10 | Testing & Coverage | ✅ SELESAI |
-| 11 | Scheduled Retraining | ✅ SELESAI |
-| 12 | Model Performance Monitoring | ✅ SELESAI |
-| 13 | Prediction History & Alerts | ✅ SELESAI |
-
-**Total file baru: 15+ files**
-**Total file diupdate: 25+ files**
-**Total baris kode baru: ~3000+ lines**
-
----
-
-## 📋 UPDATE PHASE 11-13 - SCHEDULED RETRAINING, MONITORING, PREDICTION HISTORY (5 Agustus 2026)
-
-### Yang Sudah Dikerjakan
-
-| # | Fitur | File | Status |
-|---|-------|------|--------|
-| 74 | Celery Beat Schedule | `app/core/celery_app.py` | ✅ SELESAI |
-| 75 | Scheduled Retraining Check | `app/ml/tasks.py` | ✅ SELESAI |
-| 76 | Model Performance Check | `app/ml/tasks.py` | ✅ SELESAI |
-| 77 | Retrain Model Task | `app/ml/tasks.py` | ✅ SELESAI |
-| 78 | Model Performance API | `app/api/monitoring.py` | ✅ SELESAI |
-| 79 | Prediction History API | `app/api/monitoring.py` | ✅ SELESAI |
-| 80 | Prediction Stats API | `app/api/monitoring.py` | ✅ SELESAI |
-| 81 | Model Alerts API | `app/api/monitoring.py` | ✅ SELESAI |
-| 82 | Retrain Trigger API | `app/api/monitoring.py` | ✅ SELESAI |
-| 83 | Celery Beat Docker Service | `docker-compose.yml` | ✅ SELESAI |
-| 84 | Frontend Monitoring Hooks | `frontend/src/lib/hooks.ts` | ✅ SELESAI |
-| 85 | Frontend Monitoring API | `frontend/src/lib/api.ts` | ✅ SELESAI |
-
-### File yang Diupdate
-| File | Perubahan |
-|------|-----------|
-| `app/core/celery_app.py` | Tambah `beat_schedule` untuk performance check (6 jam) dan retraining check (harian jam 2) |
-| `app/ml/tasks.py` | Tambah `check_model_performance`, `scheduled_retraining_check`, `retrain_model_task` |
-| `app/api/monitoring.py` | Tambah: `/model/{id}/performance`, `/predictions/history`, `/predictions/stats`, `/alerts`, `/retrain/{id}` |
-| `docker-compose.yml` | Tambah service `celery_beat` |
-| `frontend/src/lib/api.ts` | Tambah: `monitoring.modelPerformance`, `monitoring.predictionHistory`, `monitoring.predictionStats`, `monitoring.alerts`, `monitoring.retrain` |
-| `frontend/src/lib/hooks.ts` | Tambah: `useModelPerformance`, `usePredictionStats`, `useAlerts` |
-
-### Endpoint Baru
-
-#### Monitoring
-| Method | Path | Deskripsi |
-|--------|------|-----------|
-| GET | `/api/v1/monitoring/model/{id}/performance?hours=24` | Model performance over time (hourly breakdown) |
-| POST | `/api/v1/monitoring/predictions/history` | Prediction history dengan filter |
-| GET | `/api/v1/monitoring/predictions/stats?hours=24` | Prediction statistics |
-| GET | `/api/v1/monitoring/alerts` | Model alerts (low confidence, high latency, no predictions) |
-| POST | `/api/v1/monitoring/retrain/{id}` | Trigger model retraining |
-
-### Celery Beat Schedule
-| Task | Schedule | Deskripsi |
-|------|----------|-----------|
-| `check_model_performance` | Setiap 6 jam | Cek confidence dan latency semua deployed models |
-| `scheduled_retraining_check` | Harian jam 2 pagi | Cek model yang sudah stale (>30 hari) |
-
-### Cara Jalankan Celery Beat
-```bash
-# Local development
+# Celery Beat
 celery -A app.core.celery_app:celery_app beat --loglevel=info
 
 # Docker
-docker compose up celery_beat
+docker compose up -d
 
-# Worker + Beat bersamaan
-celery -A app.core.celery_app:celery_app worker --loglevel=info &
-celery -A app.core.celery_app:celery_app beat --loglevel=info &
+# Tests
+pytest app/tests/ -v --cov=app
+
+# Frontend typecheck
+cd frontend && npm run typecheck
 ```
 
-### Contoh Prediction History
-```bash
-curl -X POST http://localhost:8000/api/v1/monitoring/predictions/history \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model_id": "xxx",
-    "start_date": "2026-08-01T00:00:00",
-    "min_confidence": 0.8,
-    "limit": 50
-  }'
-```
+---
 
-### Contoh Model Alerts
-```bash
-curl http://localhost:8000/api/v1/monitoring/alerts \
-  -H "Authorization: Bearer $TOKEN"
+## GIT COMMITS
 
-# Response:
-# {
-#   "total_alerts": 2,
-#   "alerts": [
-#     {"model_name": "iris-model", "alert_type": "low_confidence", "severity": "critical"},
-#     {"model_name": "spam-detector", "alert_type": "high_latency", "severity": "warning"}
-#   ]
-# }
-```
+| Commit | Phase | Deskripsi |
+|--------|-------|-----------|
+| `6a609f1` | 1-5 | Celery, Profiling, Experiments, Registry, SHAP |
+| `d86a0d9` | 6-10 | AutoML, Drift, WebSocket, Frontend, Tests |
+| `02b658c` | 11-13 | Retraining, Monitoring, Prediction History |
+| `42fd66b` | 14-17 | Refresh Token, Password Reset, Dark Mode, Drag-Drop |
+| `3c5fc20` | - | Push updates |
+| `f803d89` | 14-17 | Refresh Token, Dark Mode, Drag-Drop (final) |
+| `3a96453` | 18-23 | AB Testing, Data Quality, Batch, Optimization, Audit, K8s |
+| `6ad1733` | 24-29 | Feature Store, Serving, CI/CD, Cleanup, Multi-tenancy, Quota |
+| `32f8281` | 30-35 | Versioning, Compare, Monitoring, Webhooks, Lineage, Metrics |
+| `eec495d` | 36-41 | Explainability, Ensemble, Data Versioning, Marketplace, Costs |
 
 ---
 
 *File ini dibuat pada: 2026-07-30*  
-*Terakhir diupdate: 2026-08-05*  
+*Terakhir diupdate: 5 Agustus 2026*  
+*Total phases: 41/41 SELESAI*  
 *GitHub: https://github.com/idansajah71-blip/ml-pipeline*
