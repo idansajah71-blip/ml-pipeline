@@ -25,6 +25,9 @@ import {
   ArrowRightLeft,
   Activity,
   Bell,
+  PieChart,
+  Blend,
+  DollarSign,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -35,6 +38,8 @@ const navigation = [
   { name: 'Datasets', href: '/datasets', icon: Database },
   { name: 'Models', href: '/models', icon: Brain },
   { name: 'Model Versions', href: '/model-versions', icon: GitBranch },
+  { name: 'Ensembles', href: '/ensemble', icon: Blend },
+  { name: 'Explainability', href: '/explain', icon: PieChart },
   { name: 'Experiments', href: '/experiments', icon: FlaskConical },
   { name: 'Compare', href: '/experiment-compare', icon: ArrowRightLeft },
   { name: 'Predictions', href: '/predictions', icon: Zap },
@@ -46,6 +51,7 @@ const navigation = [
   { name: 'Serving', href: '/serving', icon: Rocket },
   { name: 'Webhooks', href: '/webhooks', icon: Bell },
   { name: 'Organizations', href: '/organizations', icon: Users },
+  { name: 'Costs', href: '/costs', icon: DollarSign },
   { name: 'Monitoring', href: '/monitoring', icon: Settings },
   { name: 'Audit Logs', href: '/audit-logs', icon: History },
   { name: 'Settings', href: '/settings', icon: UserCircle },

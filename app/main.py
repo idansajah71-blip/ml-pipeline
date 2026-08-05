@@ -11,6 +11,7 @@ from app.api import auth, datasets, models, experiments, monitoring, ab_testing,
 from app.api import ml_ops, ab_testing_enhanced, model_optimization
 from app.api import feature_store, serving, organizations, quota
 from app.api import model_versions, experiment_compare, feature_monitoring, webhooks, lineage_metrics
+from app.api import explainability_dashboard, ensemble, data_versioning, marketplace, cost_tracking
 from app.core.security_middleware import (
     RateLimitMiddleware,
     SecurityHeadersMiddleware,
@@ -82,6 +83,11 @@ app.include_router(experiment_compare.router, prefix="/api/v1")
 app.include_router(feature_monitoring.router, prefix="/api/v1")
 app.include_router(webhooks.router, prefix="/api/v1")
 app.include_router(lineage_metrics.router, prefix="/api/v1")
+app.include_router(explainability_dashboard.router, prefix="/api/v1")
+app.include_router(ensemble.router, prefix="/api/v1")
+app.include_router(data_versioning.router, prefix="/api/v1")
+app.include_router(marketplace.router, prefix="/api/v1")
+app.include_router(cost_tracking.router, prefix="/api/v1")
 
 
 @app.get("/health")

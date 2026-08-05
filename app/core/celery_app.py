@@ -43,6 +43,10 @@ celery_app.conf.update(
             "task": "ml.cleanup_audit_logs",
             "schedule": crontab(minute=45, hour=4),
         },
+        "hourly-auto-retrain-check": {
+            "task": "ml.run_auto_retrain_pipeline",
+            "schedule": crontab(minute=0, hour="*/1"),
+        },
     },
 )
 

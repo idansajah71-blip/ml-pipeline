@@ -297,6 +297,48 @@ export const lineage = {
   metricData: (metricId: string) => api.get(`/lineage/metrics/${metricId}/data`),
 };
 
+export const explainDashboard = {
+  global: (modelId: string, nSamples?: number) =>
+    api.post('/explain/global', { model_id: modelId, n_samples: nSamples || 100 }),
+  prediction: (modelId: string, data: Record<string, any>) =>
+    api.post('/explain/prediction', null, { params: { model_id: modelId }, data }),
+};
+
+export const ensembleApi = {
+  list: () => api.get('/ensemble'),
+  create: (data: { name: string; model_ids: string[]; strategy?: string; weights?: Record<string, number> }) =>
+    api.post('/ensemble', data),
+  predict: (ensembleId: string, data: Record<string, any>) =>
+    api.post('/ensemble/predict', { ensemble_id: ensembleId, data }),
+};
+
+export const dataVersions = {
+  create: (datasetId: string, changelog?: string) =>
+    api.post('/data-versions', { dataset_id: datasetId, changelog }),
+  listByDataset: (datasetId: string) => api.get(`/data-versions/dataset/${datasetId}`),
+  get: (id: string) => api.get(`/data-versions/${id}`),
+};
+
+export const marketplaceApi = {
+  discover: (tag?: string, search?: string) => {
+    const params: any = {};
+    if (tag) params.tag = tag;
+    if (search) params.search = search;
+    return api.get('/marketplace/discover', { params });
+  },
+  share: (data: { model_id: string; is_public?: boolean; tags?: string[] }) =>
+    api.post('/marketplace/share', data),
+  download: (shareId: string) => api.post(`/marketplace/${shareId}/download`),
+  rate: (shareId: string, rating: number) => api.post(`/marketplace/${shareId}/rate`, null, { params: { rating } }),
+};
+
+export const costTracking = {
+  record: (data: { resource_type: string; cost_usd: number; usage_hours?: number; gpu_hours?: number }) =>
+    api.post('/costs', data),
+  summary: (days?: number) => api.get('/costs/summary', { params: { days: days || 30 } }),
+  byModel: () => api.get('/costs/by-model'),
+};
+
 export const websocket = {
   training: (experimentId: string): WebSocket => {
     const wsUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/^http/, 'ws');
