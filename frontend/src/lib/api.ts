@@ -1,6 +1,12 @@
 import axios from 'axios';
 import { LoginPayload, RegisterPayload, TokenResponse, Stats, Dataset, MLModel, Experiment, ABTest } from '@/types';
 
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    _retry?: boolean;
+  }
+}
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 const api = axios.create({
@@ -20,9 +26,31 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      if (typeof window !== 'undefined') {
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      const refreshToken = localStorage.getItem('refresh_token');
+      if (refreshToken) {
+        try {
+          const res = await axios.post(`${API_BASE}/auth/refresh`, {
+            refresh_token: refreshToken,
+          });
+          const newToken = res.data.access_token;
+          const newRefresh = res.data.refresh_token;
+          localStorage.setItem('token', newToken);
+          localStorage.setItem('refresh_token', newRefresh);
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return api(originalRequest);
+        } catch {
+          localStorage.removeItem('token');
+          localStorage.removeItem('refresh_token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        }
+      } else {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/login';
@@ -35,6 +63,7 @@ api.interceptors.response.use(
 export const auth = {
   login: (data: LoginPayload) => api.post<TokenResponse>('/auth/login', data),
   register: (data: RegisterPayload) => api.post<TokenResponse>('/auth/register', data),
+  refresh: (refreshToken: string) => api.post<TokenResponse>('/auth/refresh', { refresh_token: refreshToken }),
   me: () => api.get('/auth/me'),
 };
 

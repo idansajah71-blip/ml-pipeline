@@ -5,11 +5,14 @@ from typing import Optional
 import secrets
 
 from app.core.database import get_db
-from app.core.security import get_current_active_user, create_access_token, get_password_hash, require_admin
+from app.core.security import (
+    get_current_active_user, create_access_token, create_refresh_token,
+    verify_token, get_password_hash, require_admin,
+)
 from app.core.redis import cache_set, cache_get, cache_delete
 from app.models.user import User
 from app.schemas.user import (
-    UserCreate, UserResponse, UserLogin, Token, UserUpdate, APIKeyResponse,
+    UserCreate, UserResponse, UserLogin, Token, TokenRefresh, UserUpdate, APIKeyResponse,
 )
 from app.services.user_service import UserService
 
@@ -39,8 +42,10 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
     service = UserService(db)
     user = await service.create_user(user_data)
     access_token = create_access_token(data={"sub": str(user.id)})
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
     return Token(
         access_token=access_token,
+        refresh_token=refresh_token,
         user=UserResponse.model_validate(user),
     )
 
@@ -55,8 +60,45 @@ async def login(login_data: UserLogin, db: AsyncSession = Depends(get_db)):
             detail="Invalid credentials",
         )
     access_token = create_access_token(data={"sub": str(user.id)})
+    refresh_token = create_refresh_token(data={"sub": str(user.id)})
     return Token(
         access_token=access_token,
+        refresh_token=refresh_token,
+        user=UserResponse.model_validate(user),
+    )
+
+
+@router.post("/refresh", response_model=Token)
+async def refresh_token(request: TokenRefresh, db: AsyncSession = Depends(get_db)):
+    payload = verify_token(request.refresh_token, expected_type="refresh")
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+        )
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload",
+        )
+
+    from uuid import UUID
+    result = await db.execute(select(User).where(User.id == UUID(user_id)))
+    user = result.scalar_one_or_none()
+    if not user or not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found or inactive",
+        )
+
+    access_token = create_access_token(data={"sub": str(user.id)})
+    new_refresh_token = create_refresh_token(data={"sub": str(user.id)})
+
+    return Token(
+        access_token=access_token,
+        refresh_token=new_refresh_token,
         user=UserResponse.model_validate(user),
     )
 

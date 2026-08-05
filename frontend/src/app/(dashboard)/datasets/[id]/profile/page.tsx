@@ -5,6 +5,33 @@ import { ArrowLeft, BarChart3, AlertTriangle, CheckCircle } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useDatasetProfile } from '@/lib/hooks';
 
+interface OutlierInfo {
+  outlier_count: number;
+  outlier_percentage: number;
+  q1: number;
+  q3: number;
+  iqr: number;
+}
+
+interface ClassInfo {
+  count: number;
+  percentage: number;
+}
+
+interface ColumnInfo {
+  dtype: string;
+  unique_count: number;
+  null_count: number;
+  null_percentage: number;
+  statistics: {
+    mean?: number;
+    std?: number;
+    mode?: string | number;
+    min?: number;
+    max?: number;
+  };
+}
+
 export default function DatasetProfilePage() {
   const params = useParams();
   const router = useRouter();
@@ -87,7 +114,7 @@ export default function DatasetProfilePage() {
           </div>
           {profile.missing_values.columns_with_missing.length > 0 && (
             <div className="space-y-2">
-              {profile.missing_values.columns_with_missing.map((col) => (
+              {profile.missing_values.columns_with_missing.map((col: string) => (
                 <div key={col} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2">
                   <span className="text-sm text-gray-700">{col}</span>
                   <span className="text-sm font-medium text-gray-900">
@@ -102,7 +129,7 @@ export default function DatasetProfilePage() {
         <div className="rounded-xl border border-gray-200 bg-white p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Outliers (IQR Method)</h2>
           <div className="space-y-2">
-            {Object.entries(profile.outliers).map(([col, info]) => (
+            {Object.entries(profile.outliers as Record<string, OutlierInfo>).map(([col, info]) => (
               <div key={col} className="rounded-lg bg-gray-50 px-3 py-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700">{col}</span>
@@ -137,7 +164,7 @@ export default function DatasetProfilePage() {
               )}
             </div>
             <div className="space-y-3">
-              {Object.entries(profile.class_distribution.distribution).map(([cls, info]) => (
+              {Object.entries(profile.class_distribution.distribution as Record<string, ClassInfo>).map(([cls, info]) => (
                 <div key={cls}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-sm text-gray-700">{cls}</span>
@@ -159,7 +186,7 @@ export default function DatasetProfilePage() {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Strong Correlations</h2>
           {profile.correlations.strong_correlations.length > 0 ? (
             <div className="space-y-2">
-              {profile.correlations.strong_correlations.map((corr, i) => (
+              {profile.correlations.strong_correlations.map((corr: { feature_1: string; feature_2: string; correlation: number; strength: string }, i: number) => (
                 <div key={i} className="rounded-lg bg-gray-50 px-3 py-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-700">
@@ -194,7 +221,7 @@ export default function DatasetProfilePage() {
               </tr>
             </thead>
             <tbody>
-              {Object.entries(profile.column_profiles).map(([col, info]) => (
+              {Object.entries(profile.column_profiles as Record<string, ColumnInfo>).map(([col, info]) => (
                 <tr key={col} className="border-b border-gray-100">
                   <td className="px-4 py-2 font-medium text-gray-900">{col}</td>
                   <td className="px-4 py-2 text-gray-600">{info.dtype}</td>
@@ -208,7 +235,7 @@ export default function DatasetProfilePage() {
                   </td>
                   <td className="px-4 py-2 text-gray-600">
                     {info.statistics.mean != null
-                      ? `mean: ${info.statistics.mean?.toFixed(2)}, std: ${info.statistics.std?.toFixed(2)}`
+                      ? `mean: ${info.statistics.mean.toFixed(2)}, std: ${info.statistics.std?.toFixed(2)}`
                       : info.statistics.mode
                       ? `mode: ${info.statistics.mode}`
                       : '-'}
