@@ -91,7 +91,7 @@ export const models = {
   get: (id: string) => api.get<MLModel>(`/models/${id}`),
   create: (data: { name: string; algorithm: string; target_column: string; description?: string }) =>
     api.post<MLModel>('/models', data),
-  train: (id: string, data: { dataset_id: string; algorithm: string; parameters?: Record<string, any>; async_training?: boolean }) =>
+  train: (id: string, data: { dataset_id: string; algorithm: string; target_column?: string; parameters?: Record<string, any>; async_training?: boolean }) =>
     api.post(`/models/${id}/train`, data),
   predict: (id: string, data: { data: Record<string, any>[] }) =>
     api.post(`/models/${id}/predict`, data),
