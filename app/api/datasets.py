@@ -10,9 +10,12 @@ from app.core.error_utils import sanitize_error_message, log_error
 from app.models.user import User
 from app.schemas.dataset import DatasetResponse, DatasetCreate, DatasetPreview, DatasetProfileResponse
 from app.services.dataset_service import DatasetService
+from app.ml.data_utils import validate_magic_bytes, SUPPORTED_FORMATS
 
 router = APIRouter(prefix="/datasets", tags=["Datasets"])
 logger = logging.getLogger(__name__)
+
+ALLOWED_EXTENSIONS = ('.csv', '.tsv', '.xls', '.xlsx', '.json', '.ods')
 
 
 @router.post("", response_model=DatasetResponse, status_code=201)
@@ -25,8 +28,18 @@ async def upload_dataset(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if not file.filename.endswith(('.csv', '.xls', '.xlsx')):
-        raise HTTPException(status_code=400, detail="Only CSV and Excel files are supported")
+    if not file.filename.lower().endswith(ALLOWED_EXTENSIONS):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file format. Allowed: {', '.join(ALLOWED_EXTENSIONS)}"
+        )
+
+    content = await file.read()
+    magic_error = validate_magic_bytes(file.filename, content)
+    if magic_error:
+        raise HTTPException(status_code=400, detail=magic_error)
+
+    await file.seek(0)
 
     service = DatasetService(db)
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
@@ -130,3 +143,71 @@ async def profile_dataset(
     except Exception as e:
         log_error(e, context=f"Profiling failed for dataset {dataset_id}")
         raise HTTPException(status_code=500, detail="Failed to generate dataset profile. The file may be corrupted.")
+
+
+@router.post("/import/google-sheet", response_model=DatasetResponse, status_code=201)
+async def import_google_sheet(
+    url: str = Form(...),
+    name: str = Form(...),
+    description: Optional[str] = Form(None),
+    target_column: Optional[str] = Form(None),
+    tags: Optional[str] = Form(""),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Import a dataset from a public Google Sheets URL."""
+    from app.ml.data_utils import load_google_sheet
+    import pandas as pd
+    import io
+
+    try:
+        df = load_google_sheet(url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    csv_bytes = df.to_csv(index=False).encode('utf-8')
+    filename = f"{name}.csv"
+
+    service = DatasetService(db)
+    tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else []
+
+    dataset_data = DatasetCreate(
+        name=name,
+        description=description,
+        target_column=target_column,
+        tags=tag_list,
+    )
+
+    import uuid, os
+    file_id = str(uuid.uuid4())
+    file_path = os.path.join(service.upload_dir, f"{file_id}.csv")
+
+    with open(file_path, "wb") as f:
+        f.write(csv_bytes)
+
+    data_info = service.processor.get_data_info(df)
+
+    target_col = dataset_data.target_column
+    if target_col and target_col not in df.columns:
+        os.remove(file_path)
+        raise HTTPException(status_code=400, detail=f"Target column '{target_col}' not found")
+
+    from app.models.dataset import Dataset
+    dataset = Dataset(
+        name=dataset_data.name,
+        description=dataset_data.description,
+        file_path=file_path,
+        file_size=len(csv_bytes),
+        rows_count=data_info['shape'][0],
+        columns_count=data_info['shape'][1],
+        column_names=data_info['columns'],
+        column_types=data_info['dtypes'],
+        target_column=target_col,
+        tags=dataset_data.tags,
+        owner_id=current_user.id,
+    )
+
+    db.add(dataset)
+    await db.flush()
+    await db.refresh(dataset)
+    return DatasetResponse.model_validate(dataset)

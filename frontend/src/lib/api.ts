@@ -80,6 +80,10 @@ export const datasets = {
     return api.get(`/datasets/${id}/profile${params}`);
   },
   delete: (id: string) => api.delete(`/datasets/${id}`),
+  importGoogleSheet: (formData: FormData) =>
+    api.post<Dataset>('/datasets/import/google-sheet', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }),
 };
 
 export const models = {

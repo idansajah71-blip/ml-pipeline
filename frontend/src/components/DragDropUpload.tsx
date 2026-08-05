@@ -10,7 +10,7 @@ interface DragDropUploadProps {
   disabled?: boolean;
 }
 
-export default function DragDropUpload({ accept = '.csv,.xls,.xlsx', onFileSelect, disabled }: DragDropUploadProps) {
+export default function DragDropUpload({ accept = '.csv,.tsv,.xls,.xlsx,.json,.ods', onFileSelect, disabled }: DragDropUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -105,7 +105,7 @@ export default function DragDropUpload({ accept = '.csv,.xls,.xlsx', onFileSelec
           <p className="text-sm text-gray-600 dark:text-gray-400">
             <span className="font-medium text-primary-600">Click to upload</span> or drag and drop
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-500">CSV, XLS, XLSX up to 50MB</p>
+          <p className="text-xs text-gray-500 dark:text-gray-500">CSV, TSV, JSON, XLS, XLSX, ODS</p>
         </>
       )}
     </div>
