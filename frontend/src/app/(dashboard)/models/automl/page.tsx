@@ -103,7 +103,7 @@ export default function AutoMLPage() {
                 value={selectedDataset}
                 onChange={(e) => setSelectedDataset(e.target.value)}
               >
-                <option value="">Select dataset...</option>
+                <option value="">{datasetList.length === 0 ? 'Memuat dataset...' : 'Pilih dataset...'}</option>
                 {datasetList.map((d: Dataset) => (
                   <option key={d.id} value={d.id}>
                     {d.name} ({d.rows_count || '?'} rows)

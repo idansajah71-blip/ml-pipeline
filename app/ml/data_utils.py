@@ -238,28 +238,60 @@ def load_dataframe(file_content: bytes, filename: str) -> pd.DataFrame:
 def _load_excel_all_sheets(
     file_content: bytes, filename: str, engine: Optional[str] = None
 ) -> pd.DataFrame:
-    """Read all sheets from an Excel file and concatenate them."""
+    """Read all sheets from an Excel file and concatenate them.
+    
+    Validates that all sheets have compatible column schemas before merging.
+    Sheets with different columns are skipped with a warning.
+    """
     try:
         kwargs = {'io': io.BytesIO(file_content)}
         if engine:
             kwargs['engine'] = engine
         xls = pd.ExcelFile(**kwargs)
     except Exception as e:
-        raise ValueError(f"Failed to read Excel file: {e}")
+        raise ValueError(f"Gagal membaca file Excel: {e}")
 
     sheets = xls.sheet_names
     if not sheets:
-        raise ValueError("Excel file contains no sheets")
+        raise ValueError("File Excel tidak memiliki sheet")
 
     frames: List[pd.DataFrame] = []
+    reference_cols = None
+    skipped_sheets = []
+
     for name in sheets:
         df = pd.read_excel(xls, sheet_name=name)
-        if not df.empty:
+        if df.empty:
+            continue
+
+        current_cols = set(df.columns)
+
+        if reference_cols is None:
+            reference_cols = current_cols
             df['_sheet_name'] = name
             frames.append(df)
+        else:
+            if current_cols == reference_cols:
+                df['_sheet_name'] = name
+                frames.append(df)
+            else:
+                missing = reference_cols - current_cols
+                extra = current_cols - reference_cols
+                parts = []
+                if missing:
+                    parts.append(f"kolom hilang: {', '.join(str(c) for c in missing)}")
+                if extra:
+                    parts.append(f"kolom ekstra: {', '.join(str(c) for c in extra)}")
+                skipped_sheets.append(f"{name} ({'; '.join(parts)})")
 
     if not frames:
-        raise ValueError("All sheets in the Excel file are empty")
+        raise ValueError("Semua sheet dalam file Excel kosong")
+
+    if skipped_sheets:
+        logger.warning(
+            f"Sheet berikut dilewati karena skema kolom berbeda: "
+            f"{'; '.join(skipped_sheets)}"
+        )
 
     combined = pd.concat(frames, ignore_index=True)
     return _clean_dirty_data(combined)

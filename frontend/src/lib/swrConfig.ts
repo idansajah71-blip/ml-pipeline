@@ -3,9 +3,9 @@ import { SWRConfiguration } from 'swr';
 export const defaultSWRConfig: SWRConfiguration = {
   revalidateOnFocus: true,
   revalidateOnReconnect: true,
-  shouldRetryOnError: false,
-  dedupingInterval: 2000,
+  shouldRetryOnError: true,
   errorRetryCount: 3,
+  dedupingInterval: 2000,
   focusThrottleInterval: 5000,
 };
 

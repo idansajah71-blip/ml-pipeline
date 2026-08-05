@@ -61,7 +61,7 @@ export default function PredictionsPage() {
               onChange={(e) => setSelectedModel(e.target.value)}
               className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             >
-              <option value="">Choose a model...</option>
+              <option value="">{deployableModels.length === 0 ? 'Memuat model...' : 'Pilih model...'}</option>
               {deployableModels.map((m) => (
                 <option key={m.id} value={m.id}>{m.name} ({m.algorithm} v{m.version})</option>
               ))}

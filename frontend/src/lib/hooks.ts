@@ -183,7 +183,10 @@ export function useAlerts() {
 
 export function useAlgorithms() {
   const { data, error, isLoading } = useSWR('algorithms', algorithmsFetcher, {
-    revalidateOnFocus: false,
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+    shouldRetryOnError: true,
+    errorRetryCount: 3,
   });
   return { algorithms: data?.algorithms ?? [], defaultParams: data?.default_params ?? {}, isLoading, isError: error };
 }

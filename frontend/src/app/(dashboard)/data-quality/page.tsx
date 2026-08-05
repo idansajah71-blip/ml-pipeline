@@ -41,7 +41,7 @@ export default function DataQualityPage() {
             onChange={(e) => setSelectedDataset(e.target.value)}
             className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white"
           >
-            <option value="">Select dataset...</option>
+            <option value="">{loadingDatasets ? 'Memuat dataset...' : 'Pilih dataset...'}</option>
             {!loadingDatasets && datasetsList.map((ds) => (
               <option key={ds.id} value={ds.id}>{ds.name}</option>
             ))}

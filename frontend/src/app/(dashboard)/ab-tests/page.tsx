@@ -78,7 +78,7 @@ export default function ABTestsPage() {
               onChange={(e) => setCreateForm({ ...createForm, model_a_id: e.target.value })}
               className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             >
-              <option value="">Model A (Control)</option>
+              <option value="">{modelsList.length === 0 ? 'Memuat model...' : 'Model A (Kontrol)'}</option>
               {modelsList.map((m) => (
                 <option key={m.id} value={m.id}>{m.name} v{m.version}</option>
               ))}
@@ -88,7 +88,7 @@ export default function ABTestsPage() {
               onChange={(e) => setCreateForm({ ...createForm, model_b_id: e.target.value })}
               className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             >
-              <option value="">Model B (Variant)</option>
+              <option value="">{modelsList.length === 0 ? 'Memuat model...' : 'Model B (Varian)'}</option>
               {modelsList.map((m) => (
                 <option key={m.id} value={m.id}>{m.name} v{m.version}</option>
               ))}

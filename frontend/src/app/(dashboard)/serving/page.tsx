@@ -9,6 +9,7 @@ export default function ServingPage() {
   const [endpoints, setEndpoints] = useState<any[]>([]);
   const [modelList, setModelList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [newEndpoint, setNewEndpoint] = useState({ name: '', model_id: '', description: '', cache_ttl_seconds: 300 });
   const [selectedEndpoint, setSelectedEndpoint] = useState<string | null>(null);
@@ -34,7 +35,10 @@ export default function ServingPage() {
     try {
       const res = await models.list();
       setModelList(res.data.items || []);
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      setLoadError('Gagal memuat daftar model');
+    }
   };
 
   const loadMetrics = async (endpointId: string) => {
@@ -85,12 +89,17 @@ export default function ServingPage() {
       {showCreate && (
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
           <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Create Endpoint</h2>
+          {loadError && (
+            <div className="mb-4 rounded-lg bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-400">
+              {loadError}
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <input placeholder="Endpoint Name" value={newEndpoint.name} onChange={e => setNewEndpoint({...newEndpoint, name: e.target.value})}
               className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white" />
             <select value={newEndpoint.model_id} onChange={e => setNewEndpoint({...newEndpoint, model_id: e.target.value})}
               className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white">
-              <option value="">Select model...</option>
+              <option value="">{modelList.length === 0 ? 'Memuat model...' : 'Pilih model...'}</option>
               {modelList.map(m => <option key={m.id} value={m.id}>{m.name} ({m.algorithm})</option>)}
             </select>
             <input placeholder="Description" value={newEndpoint.description} onChange={e => setNewEndpoint({...newEndpoint, description: e.target.value})}

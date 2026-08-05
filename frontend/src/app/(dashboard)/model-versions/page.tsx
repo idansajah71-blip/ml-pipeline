@@ -10,6 +10,7 @@ export default function ModelVersionsPage() {
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [versions, setVersions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [changelog, setChangelog] = useState('');
 
   useEffect(() => { loadModels(); }, []);
@@ -18,7 +19,10 @@ export default function ModelVersionsPage() {
     try {
       const res = await models.list();
       setModelList(res.data.items || []);
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      setLoadError('Gagal memuat daftar model');
+    }
     setLoading(false);
   };
 
@@ -54,10 +58,15 @@ export default function ModelVersionsPage() {
       </div>
 
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
+        {loadError && (
+          <div className="mb-4 rounded-lg bg-red-50 dark:bg-red-900/20 p-3 text-sm text-red-700 dark:text-red-400">
+            {loadError}
+          </div>
+        )}
         <div className="flex gap-4">
           <select value={selectedModel} onChange={e => loadVersions(e.target.value)}
             className="flex-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white">
-            <option value="">Select model...</option>
+            <option value="">{loading ? 'Memuat model...' : 'Pilih model...'}</option>
             {modelList.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
           </select>
           <input placeholder="Changelog" value={changelog} onChange={e => setChangelog(e.target.value)}

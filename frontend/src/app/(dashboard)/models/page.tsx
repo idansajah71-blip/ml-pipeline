@@ -22,7 +22,7 @@ export default function ModelsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [training, setTraining] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState({ name: '', algorithm: 'random_forest', target_column: '', description: '' });
-  const [trainForm, setTrainForm] = useState({ dataset_id: '', algorithm: 'random_forest' });
+  const [trainForms, setTrainForms] = useState<Record<string, { dataset_id: string }>>({});
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -54,11 +54,13 @@ export default function ModelsPage() {
   };
 
   const handleTrain = async (modelId: string) => {
+    const datasetId = trainForms[modelId]?.dataset_id || '';
+    if (!datasetId) return;
     setTraining(modelId);
     try {
       await models.train(modelId, {
-        dataset_id: trainForm.dataset_id,
-        algorithm: trainForm.algorithm,
+        dataset_id: datasetId,
+        algorithm: 'random_forest',
       });
       mutate();
       toast('success', 'Training completed successfully');
@@ -120,6 +122,7 @@ export default function ModelsPage() {
               onChange={(e) => setCreateForm({ ...createForm, algorithm: e.target.value })}
               className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             >
+              {algorithmsList.length === 0 && <option value="">Memuat algoritma...</option>}
               {algorithmsList.map((alg) => (
                 <option key={alg} value={alg}>{alg}</option>
               ))}
@@ -199,11 +202,11 @@ export default function ModelsPage() {
                   </Link>
                   {model.status === 'trained' && (
                     <select
-                      value={trainForm.dataset_id}
-                      onChange={(e) => setTrainForm({ ...trainForm, dataset_id: e.target.value })}
+                      value={trainForms[model.id]?.dataset_id || ''}
+                      onChange={(e) => setTrainForms(prev => ({ ...prev, [model.id]: { dataset_id: e.target.value } }))}
                       className="flex-1 rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
                     >
-                      <option value="">Select Dataset</option>
+                      <option value="">Pilih Dataset</option>
                       {datasetsList.map((ds) => (
                         <option key={ds.id} value={ds.id}>{ds.name}</option>
                       ))}
@@ -212,7 +215,7 @@ export default function ModelsPage() {
                   {model.status === 'trained' && (
                     <button
                       onClick={() => handleTrain(model.id)}
-                      disabled={!trainForm.dataset_id || training === model.id}
+                      disabled={!trainForms[model.id]?.dataset_id || training === model.id}
                       className="flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
                     >
                       {training === model.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Rocket className="h-3 w-3" />}

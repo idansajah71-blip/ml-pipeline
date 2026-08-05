@@ -7,6 +7,7 @@ import {
   Target,
   Cpu,
   CheckCircle2,
+  CheckCircle,
   ArrowRight,
   ArrowLeft,
   Loader2,
@@ -16,18 +17,21 @@ import {
   BarChart3,
   Eye,
   AlertTriangle,
+  Hash,
+  Tag,
 } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 import { models, datasets as datasetsApi } from '@/lib/api';
 import { useDatasets } from '@/lib/hooks';
 
-type WizardStep = 'upload' | 'target' | 'preview' | 'mode' | 'review' | 'training' | 'results';
+type WizardStep = 'upload' | 'target' | 'purpose' | 'preview' | 'mode' | 'review' | 'training' | 'results';
 
 interface WizardState {
   datasetFile: File | null;
   datasetId: string | null;
   datasetName: string;
   targetColumn: string;
+  predictionType: 'number' | 'category' | null;
   mode: 'simple' | 'advanced';
   algorithm: string;
   trainingResult: any | null;
@@ -36,9 +40,10 @@ interface WizardState {
 const STEPS: { key: WizardStep; label: string; icon: any }[] = [
   { key: 'upload', label: 'Unggah Data', icon: Upload },
   { key: 'target', label: 'Pilih Target', icon: Target },
+  { key: 'purpose', label: 'Tujuan Prediksi', icon: BarChart3 },
   { key: 'preview', label: 'Pratinjau', icon: Eye },
   { key: 'mode', label: 'Pilih Mode', icon: Cpu },
-  { key: 'review', label: 'Konfirmasi', icon: BarChart3 },
+  { key: 'review', label: 'Konfirmasi', icon: CheckCircle },
   { key: 'results', label: 'Hasil', icon: CheckCircle2 },
 ];
 
@@ -63,6 +68,7 @@ export default function TrainingWizard() {
     datasetId: null,
     datasetName: '',
     targetColumn: '',
+    predictionType: null,
     mode: 'simple',
     algorithm: 'random_forest',
     trainingResult: null,
@@ -341,8 +347,80 @@ export default function TrainingWizard() {
                 Kembali
               </button>
               <button
-                onClick={() => setCurrentStep('preview')}
+                onClick={() => setCurrentStep('purpose')}
                 disabled={!state.targetColumn}
+                className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+              >
+                Selanjutnya
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'purpose':
+        return (
+          <div className="space-y-6">
+            <div className="text-center">
+              <h2 className="text-xl font-semibold text-gray-900">Apa yang Ingin Anda Prediksi?</h2>
+              <p className="mt-2 text-gray-500">
+                Pilih jenis prediksi yang sesuai dengan kebutuhan Anda
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <button
+                onClick={() => setState((prev) => ({ ...prev, predictionType: 'number' }))}
+                className={`rounded-xl border-2 p-6 text-left transition-all ${
+                  state.predictionType === 'number'
+                    ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-500/20'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <div className="mb-3 flex items-center gap-3">
+                  <div className={`rounded-lg p-2 ${state.predictionType === 'number' ? 'bg-primary-100' : 'bg-gray-100'}`}>
+                    <Hash className={`h-6 w-6 ${state.predictionType === 'number' ? 'text-primary-600' : 'text-gray-500'}`} />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Mau Prediksi Angka</h3>
+                    <p className="text-sm text-gray-500">Regresi</p>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">Contoh: harga rumah, suhu, jumlah penjualan, total biaya</p>
+              </button>
+
+              <button
+                onClick={() => setState((prev) => ({ ...prev, predictionType: 'category' }))}
+                className={`rounded-xl border-2 p-6 text-left transition-all ${
+                  state.predictionType === 'category'
+                    ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-500/20'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <div className="mb-3 flex items-center gap-3">
+                  <div className={`rounded-lg p-2 ${state.predictionType === 'category' ? 'bg-primary-100' : 'bg-gray-100'}`}>
+                    <Tag className={`h-6 w-6 ${state.predictionType === 'category' ? 'text-primary-600' : 'text-gray-500'}`} />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">Mau Prediksi Kategori</h3>
+                    <p className="text-sm text-gray-500">Klasifikasi</p>
+                  </div>
+                </div>
+                <p className="text-sm text-gray-600">Contoh: spam/ham, ya/tidak, spesies bunga, jenis barang</p>
+              </button>
+            </div>
+
+            <div className="flex justify-between">
+              <button
+                onClick={() => setCurrentStep('target')}
+                className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Kembali
+              </button>
+              <button
+                onClick={() => setCurrentStep('preview')}
+                disabled={!state.predictionType}
                 className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
               >
                 Selanjutnya
@@ -419,7 +497,7 @@ export default function TrainingWizard() {
 
             <div className="flex justify-between">
               <button
-                onClick={() => setCurrentStep('target')}
+                onClick={() => setCurrentStep('purpose')}
                 className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -568,6 +646,12 @@ export default function TrainingWizard() {
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
                 <span className="text-sm text-gray-500">Kolom Target</span>
                 <span className="text-sm font-medium text-gray-900">{state.targetColumn}</span>
+              </div>
+              <div className="flex items-center justify-between py-2 border-b border-gray-100">
+                <span className="text-sm text-gray-500">Jenis Prediksi</span>
+                <span className="text-sm font-medium text-gray-900">
+                  {state.predictionType === 'number' ? 'Prediksi Angka (Regresi)' : 'Prediksi Kategori (Klasifikasi)'}
+                </span>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-gray-100">
                 <span className="text-sm text-gray-500">Mode</span>
@@ -762,6 +846,7 @@ export default function TrainingWizard() {
                     datasetId: null,
                     datasetName: '',
                     targetColumn: '',
+                    predictionType: null,
                     mode: 'simple',
                     algorithm: 'random_forest',
                     trainingResult: null,
