@@ -6,6 +6,8 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder, OneHotEncoder
 import io
 import warnings
 
+from app.ml.data_utils import load_dataframe
+
 warnings.filterwarnings('ignore', category=FutureWarning)
 
 HIGH_CARDINALITY_THRESHOLD = 20
@@ -19,12 +21,7 @@ class DataProcessor:
         self.one_hot_columns: List[str] = []
 
     def load_data(self, file_content: bytes, filename: str) -> pd.DataFrame:
-        if filename.endswith('.csv'):
-            return pd.read_csv(io.BytesIO(file_content))
-        elif filename.endswith(('.xls', '.xlsx')):
-            return pd.read_excel(io.BytesIO(file_content))
-        else:
-            raise ValueError(f"Unsupported file format: {filename}")
+        return load_dataframe(file_content, filename)
 
     def get_data_info(self, df: pd.DataFrame) -> Dict[str, Any]:
         dtypes = {}

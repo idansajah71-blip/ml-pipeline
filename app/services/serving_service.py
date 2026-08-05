@@ -1,10 +1,11 @@
 import os
 import json
 import hashlib
-import joblib
 from datetime import datetime
 from typing import Optional
 from uuid import UUID
+
+from app.core.safe_joblib import safe_load
 
 
 class ModelServingService:
@@ -51,7 +52,7 @@ class ModelServingService:
             return {"error": "Model not found"}
 
         try:
-            model_data = joblib.load(model.file_path)
+            model_data = safe_load(model.file_path)
             ml_model = model_data.get("model") if isinstance(model_data, dict) else model_data
             scaler = model_data.get("scaler") if isinstance(model_data, dict) else None
 

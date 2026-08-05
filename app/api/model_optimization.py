@@ -3,11 +3,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
 import os
-import joblib
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
 from app.core.config import get_settings
+from app.core.safe_joblib import safe_load
 from app.models.user import User
 from app.models.model import MLModel
 from app.services.audit_service import AuditService
@@ -31,7 +31,7 @@ async def benchmark_model(
     if not model.file_path or not os.path.exists(model.file_path):
         raise HTTPException(status_code=400, detail="Model file not found on disk")
 
-    model_data = joblib.load(model.file_path)
+    model_data = safe_load(model.file_path)
     if isinstance(model_data, dict):
         ml_model = model_data.get("model", model_data)
         scaler = model_data.get("scaler")
@@ -74,7 +74,7 @@ async def prune_model_features(
     if not model.file_path or not os.path.exists(model.file_path):
         raise HTTPException(status_code=400, detail="Model file not found on disk")
 
-    model_data = joblib.load(model.file_path)
+    model_data = safe_load(model.file_path)
     if isinstance(model_data, dict):
         ml_model = model_data.get("model", model_data)
         feature_names = model_data.get("feature_names", [])
@@ -112,7 +112,7 @@ async def export_model(
     if not model.file_path or not os.path.exists(model.file_path):
         raise HTTPException(status_code=400, detail="Model file not found on disk")
 
-    model_data = joblib.load(model.file_path)
+    model_data = safe_load(model.file_path)
     if isinstance(model_data, dict):
         ml_model = model_data.get("model", model_data)
         scaler = model_data.get("scaler")

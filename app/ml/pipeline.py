@@ -152,7 +152,7 @@ class MLPipeline:
     def load_artifacts(self, base_path: str) -> Dict[str, Any]:
         import os
         import json
-        import joblib
+        from app.core.safe_joblib import safe_load
 
         model_path = os.path.join(base_path, 'model.joblib')
         processor_path = os.path.join(base_path, 'processor.joblib')
@@ -161,7 +161,7 @@ class MLPipeline:
         self.trainer.load_model(model_path)
 
         if os.path.exists(processor_path):
-            proc_data = joblib.load(processor_path)
+            proc_data = safe_load(processor_path)
             self.processor.scaler = proc_data['scaler']
             self.processor.label_encoders = proc_data['label_encoders']
 

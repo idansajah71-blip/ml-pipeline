@@ -6,13 +6,13 @@ from pydantic import BaseModel
 from typing import Optional, List
 import pandas as pd
 import numpy as np
-import joblib
 import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
 from app.core.config import get_settings
 from app.core.error_utils import sanitize_error_message, log_error
+from app.core.safe_joblib import safe_load
 from app.models.user import User
 from app.models.model import MLModel
 
@@ -39,7 +39,7 @@ async def global_explainability(
 
     try:
         import shap
-        model_data = joblib.load(model.file_path)
+        model_data = safe_load(model.file_path)
         ml_model = model_data.get("model") if isinstance(model_data, dict) else model_data
         feature_names = model_data.get("feature_names", []) if isinstance(model_data, dict) else []
 
@@ -90,7 +90,7 @@ async def prediction_explain(
 
     try:
         import shap
-        model_data = joblib.load(model.file_path)
+        model_data = safe_load(model.file_path)
         ml_model = model_data.get("model") if isinstance(model_data, dict) else model_data
         feature_names = model_data.get("feature_names", []) if isinstance(model_data, dict) else []
 

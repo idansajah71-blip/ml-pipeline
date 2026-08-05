@@ -19,6 +19,7 @@ from app.models.data_quality import DataQualityReport
 from app.models.batch_job import BatchJob, BatchJobStatus
 from app.models.audit_log import AuditLog
 from app.ml.data_quality import DataQualityChecker
+from app.ml.data_utils import load_dataframe_from_path
 from app.services.audit_service import AuditService
 from app.schemas.ml_ops import (
     DataQualityConfig, DataQualityReportResponse,
@@ -44,7 +45,7 @@ async def validate_dataset(
     if not dataset.file_path or not os.path.exists(dataset.file_path):
         raise HTTPException(status_code=400, detail="Dataset file not found on disk")
 
-    df = pd.read_csv(dataset.file_path)
+    df = load_dataframe_from_path(dataset.file_path)
     checker = DataQualityChecker(df)
     check_result = checker.run_all(config.model_dump() if config else None)
 

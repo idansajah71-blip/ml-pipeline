@@ -22,6 +22,7 @@ from sklearn.metrics import (
 import joblib
 import numpy as np
 from datetime import datetime
+from app.core.safe_joblib import safe_load
 
 
 class ModelTrainer:
@@ -128,7 +129,7 @@ class ModelTrainer:
         joblib.dump(model_data, filepath)
 
     def load_model(self, filepath: str) -> Any:
-        model_data = joblib.load(filepath)
+        model_data = safe_load(filepath)
         self.model = model_data['model']
         self.algorithm = model_data['algorithm']
         return self.model

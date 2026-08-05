@@ -27,6 +27,8 @@ import numpy as np
 from datetime import datetime
 import logging
 
+from app.core.safe_joblib import safe_load
+
 logger = logging.getLogger(__name__)
 
 
@@ -233,7 +235,7 @@ class AutoTrainer:
 
     def load_model(self, filepath: str) -> Any:
         """Load a trained model."""
-        model_data = joblib.load(filepath)
+        model_data = safe_load(filepath)
         self.model = model_data['model']
         self.algorithm = model_data['algorithm']
         self.problem_type = model_data.get('problem_type', 'classification')

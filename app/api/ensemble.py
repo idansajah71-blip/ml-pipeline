@@ -5,10 +5,10 @@ from uuid import UUID
 from pydantic import BaseModel
 from typing import Optional, List
 import numpy as np
-import joblib
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
+from app.core.safe_joblib import safe_load
 from app.models.user import User
 from app.models.model import MLModel
 
@@ -100,7 +100,7 @@ async def ensemble_predict(
             continue
 
         try:
-            model_data = joblib.load(model.file_path)
+            model_data = safe_load(model.file_path)
             ml_model = model_data.get("model") if isinstance(model_data, dict) else model_data
             scaler = model_data.get("scaler") if isinstance(model_data, dict) else None
 

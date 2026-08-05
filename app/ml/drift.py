@@ -4,6 +4,8 @@ from typing import Dict, Any, Optional, List
 from io import BytesIO
 from scipy import stats
 
+from app.ml.data_utils import load_dataframe
+
 
 class DriftDetector:
     def detect(
@@ -78,11 +80,7 @@ class DriftDetector:
         }
 
     def _load(self, content: bytes, filename: str) -> pd.DataFrame:
-        if filename.endswith(".csv"):
-            return pd.read_csv(BytesIO(content))
-        elif filename.endswith((".xls", ".xlsx")):
-            return pd.read_excel(BytesIO(content))
-        raise ValueError(f"Unsupported format: {filename}")
+        return load_dataframe(content, filename)
 
     def _calculate_psi(self, ref: pd.Series, curr: pd.Series, bins: int = 10) -> Dict[str, float]:
         ref_vals = ref.values

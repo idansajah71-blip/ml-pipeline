@@ -3,6 +3,8 @@ import numpy as np
 from typing import Dict, Any, List, Optional
 from io import BytesIO
 
+from app.ml.data_utils import load_dataframe
+
 
 class DatasetProfiler:
     def profile(
@@ -26,12 +28,7 @@ class DatasetProfiler:
         return profile
 
     def _load_data(self, file_content: bytes, filename: str) -> pd.DataFrame:
-        if filename.endswith(".csv"):
-            return pd.read_csv(BytesIO(file_content))
-        elif filename.endswith((".xls", ".xlsx")):
-            return pd.read_excel(BytesIO(file_content))
-        else:
-            raise ValueError(f"Unsupported file format: {filename}")
+        return load_dataframe(file_content, filename)
 
     def _get_summary(self, df: pd.DataFrame) -> Dict[str, Any]:
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()

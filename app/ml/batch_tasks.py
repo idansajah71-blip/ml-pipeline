@@ -7,6 +7,7 @@ from datetime import datetime
 from celery import current_task
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
+from app.ml.data_utils import load_dataframe_from_path
 
 settings = get_settings()
 
@@ -39,7 +40,7 @@ def batch_predict_task(
 ):
     from app.models.batch_job import BatchJob, BatchJobStatus
     from app.ml.pipeline import MLPipeline
-    import joblib
+    from app.core.safe_joblib import safe_load
 
     session = get_sync_session()
     task_id = self.request.id
@@ -57,7 +58,7 @@ def batch_predict_task(
         self.update_state(state="STARTED", meta={"step": "loading_data", "progress": 5})
         publish_progress(job_id, {"step": "loading_data", "progress": 5, "status": "started"})
 
-        df = pd.read_csv(input_file_path)
+        df = load_dataframe_from_path(input_file_path)
         total_rows = len(df)
         job.total_rows = total_rows
         session.commit()
@@ -73,7 +74,7 @@ def batch_predict_task(
             session.commit()
             return {"status": "failed", "error": "Model not found"}
 
-        model_data = joblib.load(model_obj.file_path)
+        model_data = safe_load(model_obj.file_path)
         model = model_data.get("model") if isinstance(model_data, dict) else model_data
         scaler = model_data.get("scaler") if isinstance(model_data, dict) else None
         feature_names = model_data.get("feature_names", []) if isinstance(model_data, dict) else []
