@@ -62,7 +62,7 @@ class DataValidator:
                 quality_score=0.0,
             )
 
-        self._validate_size(df, warnings, errors)
+        self._validate_size(df, warnings, errors, suggestions)
         missing_penalty = self._validate_missing_values(df, target_column, warnings, suggestions)
         quality_score -= missing_penalty
 
@@ -92,7 +92,7 @@ class DataValidator:
         )
 
     def _validate_size(
-        self, df: pd.DataFrame, warnings: List[str], errors: List[str]
+        self, df: pd.DataFrame, warnings: List[str], errors: List[str], suggestions: List[str]
     ):
         """Validate dataset size."""
         n_samples = len(df)
