@@ -202,6 +202,51 @@ export const mlOps = {
     api.post(`/models/${id}/export`, null, { params: { format: format || 'joblib' } }),
 };
 
+export const featureStore = {
+  listGroups: () => api.get('/feature-store/groups'),
+  createGroup: (data: { name: string; description?: string; tags?: string[] }) =>
+    api.post('/feature-store/groups', data),
+  listFeatures: (groupId: string) => api.get(`/feature-store/groups/${groupId}/features`),
+  addFeature: (groupId: string, data: { name: string; data_type: string; description?: string }) =>
+    api.post(`/feature-store/groups/${groupId}/features`, data),
+  ingest: (groupId: string, data: { row_key: string; features: Record<string, any> }) =>
+    api.post(`/feature-store/groups/${groupId}/ingest`, data),
+  get: (groupId: string, rowKey: string) =>
+    api.get(`/feature-store/groups/${groupId}/get/${rowKey}`),
+  getBatch: (groupId: string, rowKeys: string[]) =>
+    api.post(`/feature-store/groups/${groupId}/get-batch`, rowKeys),
+};
+
+export const serving = {
+  listEndpoints: () => api.get('/serving/endpoints'),
+  createEndpoint: (data: { name: string; model_id: string; description?: string; cache_ttl_seconds?: number }) =>
+    api.post('/serving/endpoints', data),
+  predict: (endpointId: string, data: Record<string, any>) =>
+    api.post(`/serving/endpoints/${endpointId}/predict`, { data }),
+  predictBatch: (endpointId: string, inputs: Record<string, any>[]) =>
+    api.post(`/serving/endpoints/${endpointId}/predict-batch`, { inputs }),
+  metrics: (endpointId: string, hours?: number) =>
+    api.get(`/serving/endpoints/${endpointId}/metrics`, { params: { hours: hours || 24 } }),
+  delete: (endpointId: string) => api.delete(`/serving/endpoints/${endpointId}`),
+};
+
+export const organizations = {
+  list: () => api.get('/orgs'),
+  create: (data: { name: string; slug: string }) => api.post('/orgs', data),
+  get: (id: string) => api.get(`/orgs/${id}`),
+  listMembers: (id: string) => api.get(`/orgs/${id}/members`),
+  addMember: (orgId: string, userId: string, role?: string) =>
+    api.post(`/orgs/${orgId}/members`, null, { params: { user_id: userId, role: role || 'member' } }),
+  removeMember: (orgId: string, userId: string) =>
+    api.delete(`/orgs/${orgId}/members/${userId}`),
+};
+
+export const quota = {
+  get: () => api.get('/quota'),
+  check: () => api.get('/quota/check'),
+  setTier: (tier: string) => api.put('/quota/tier', { tier }),
+};
+
 export const websocket = {
   training: (experimentId: string): WebSocket => {
     const wsUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/^http/, 'ws');

@@ -31,6 +31,18 @@ celery_app.conf.update(
             "task": "ml.scheduled_retraining_check",
             "schedule": crontab(minute="0", hour="2"),
         },
+        "weekly-garbage-collect": {
+            "task": "ml.garbage_collect_models",
+            "schedule": crontab(minute=0, hour=3, day_of_week=0),
+        },
+        "daily-cleanup-serving-logs": {
+            "task": "ml.cleanup_serving_logs",
+            "schedule": crontab(minute=30, hour=4),
+        },
+        "daily-cleanup-audit-logs": {
+            "task": "ml.cleanup_audit_logs",
+            "schedule": crontab(minute=45, hour=4),
+        },
     },
 )
 

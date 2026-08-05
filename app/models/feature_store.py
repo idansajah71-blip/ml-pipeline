@@ -1,0 +1,52 @@
+import uuid
+from datetime import datetime
+from sqlalchemy import Column, String, DateTime, JSON, Text, Integer, Float, Boolean
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import relationship
+
+from app.core.database import Base
+
+
+class FeatureGroup(Base):
+    __tablename__ = "feature_groups"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(255), nullable=False, unique=True)
+    description = Column(Text)
+    owner_id = Column(UUID(as_uuid=True), nullable=False)
+    tags = Column(JSON, default=list)
+    schema_definition = Column(JSON, default=dict)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    features = relationship("Feature", back_populates="feature_group")
+
+
+class Feature(Base):
+    __tablename__ = "features"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(255), nullable=False)
+    feature_group_id = Column(UUID(as_uuid=True), nullable=False)
+    data_type = Column(String(50), nullable=False)
+    description = Column(Text)
+    is_required = Column(Boolean, default=False)
+    default_value = Column(String(500))
+    validation_rules = Column(JSON, default=dict)
+    transformation = Column(JSON, default=dict)
+    owner_id = Column(UUID(as_uuid=True), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    feature_group = relationship("FeatureGroup", back_populates="features")
+
+
+class FeatureSnapshot(Base):
+    __tablename__ = "feature_snapshots"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    feature_group_id = Column(UUID(as_uuid=True), nullable=False)
+    row_key = Column(String(255), nullable=False)
+    features = Column(JSON, nullable=False)
+    version = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.utcnow)

@@ -18,6 +18,9 @@ import {
   Shield,
   Layers,
   History,
+  Store,
+  Rocket,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -32,6 +35,9 @@ const navigation = [
   { name: 'A/B Tests', href: '/ab-tests', icon: BarChart3 },
   { name: 'Data Quality', href: '/data-quality', icon: Shield },
   { name: 'Batch Jobs', href: '/batch-jobs', icon: Layers },
+  { name: 'Feature Store', href: '/feature-store', icon: Store },
+  { name: 'Serving', href: '/serving', icon: Rocket },
+  { name: 'Organizations', href: '/organizations', icon: Users },
   { name: 'Monitoring', href: '/monitoring', icon: Settings },
   { name: 'Audit Logs', href: '/audit-logs', icon: History },
   { name: 'Settings', href: '/settings', icon: UserCircle },

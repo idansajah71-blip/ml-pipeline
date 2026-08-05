@@ -9,6 +9,7 @@ from app.core.config import get_settings
 from app.core.database import init_db
 from app.api import auth, datasets, models, experiments, monitoring, ab_testing, notifications
 from app.api import ml_ops, ab_testing_enhanced, model_optimization
+from app.api import feature_store, serving, organizations, quota
 from app.core.security_middleware import (
     RateLimitMiddleware,
     SecurityHeadersMiddleware,
@@ -71,6 +72,10 @@ app.include_router(notifications.router, prefix="/api/v1")
 app.include_router(ml_ops.router, prefix="/api/v1")
 app.include_router(ab_testing_enhanced.router, prefix="/api/v1")
 app.include_router(model_optimization.router, prefix="/api/v1")
+app.include_router(feature_store.router, prefix="/api/v1")
+app.include_router(serving.router, prefix="/api/v1")
+app.include_router(organizations.router, prefix="/api/v1")
+app.include_router(quota.router, prefix="/api/v1")
 
 
 @app.get("/health")
