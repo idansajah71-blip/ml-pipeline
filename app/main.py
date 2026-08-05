@@ -10,6 +10,7 @@ from app.core.database import init_db
 from app.api import auth, datasets, models, experiments, monitoring, ab_testing, notifications
 from app.api import ml_ops, ab_testing_enhanced, model_optimization
 from app.api import feature_store, serving, organizations, quota
+from app.api import model_versions, experiment_compare, feature_monitoring, webhooks, lineage_metrics
 from app.core.security_middleware import (
     RateLimitMiddleware,
     SecurityHeadersMiddleware,
@@ -76,6 +77,11 @@ app.include_router(feature_store.router, prefix="/api/v1")
 app.include_router(serving.router, prefix="/api/v1")
 app.include_router(organizations.router, prefix="/api/v1")
 app.include_router(quota.router, prefix="/api/v1")
+app.include_router(model_versions.router, prefix="/api/v1")
+app.include_router(experiment_compare.router, prefix="/api/v1")
+app.include_router(feature_monitoring.router, prefix="/api/v1")
+app.include_router(webhooks.router, prefix="/api/v1")
+app.include_router(lineage_metrics.router, prefix="/api/v1")
 
 
 @app.get("/health")

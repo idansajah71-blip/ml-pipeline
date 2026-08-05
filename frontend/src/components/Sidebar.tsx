@@ -21,6 +21,10 @@ import {
   Store,
   Rocket,
   Users,
+  GitBranch,
+  ArrowRightLeft,
+  Activity,
+  Bell,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -30,13 +34,17 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Datasets', href: '/datasets', icon: Database },
   { name: 'Models', href: '/models', icon: Brain },
+  { name: 'Model Versions', href: '/model-versions', icon: GitBranch },
   { name: 'Experiments', href: '/experiments', icon: FlaskConical },
+  { name: 'Compare', href: '/experiment-compare', icon: ArrowRightLeft },
   { name: 'Predictions', href: '/predictions', icon: Zap },
   { name: 'A/B Tests', href: '/ab-tests', icon: BarChart3 },
   { name: 'Data Quality', href: '/data-quality', icon: Shield },
   { name: 'Batch Jobs', href: '/batch-jobs', icon: Layers },
   { name: 'Feature Store', href: '/feature-store', icon: Store },
+  { name: 'Feature Monitoring', href: '/feature-monitoring', icon: Activity },
   { name: 'Serving', href: '/serving', icon: Rocket },
+  { name: 'Webhooks', href: '/webhooks', icon: Bell },
   { name: 'Organizations', href: '/organizations', icon: Users },
   { name: 'Monitoring', href: '/monitoring', icon: Settings },
   { name: 'Audit Logs', href: '/audit-logs', icon: History },

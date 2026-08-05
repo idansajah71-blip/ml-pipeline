@@ -247,6 +247,56 @@ export const quota = {
   setTier: (tier: string) => api.put('/quota/tier', { tier }),
 };
 
+export const modelVersions = {
+  create: (data: { model_id: string; changelog?: string }) =>
+    api.post('/model-versions', data),
+  listByModel: (modelId: string) => api.get(`/model-versions/model/${modelId}`),
+  get: (id: string) => api.get(`/model-versions/${id}`),
+  promote: (id: string) => api.put(`/model-versions/${id}/promote`),
+  lineage: (modelId: string) => api.get(`/model-versions/lineage/${modelId}`),
+  createLineage: (data: { model_id: string; parent_model_id?: string; relationship_type: string }) =>
+    api.post('/model-versions/lineage', data),
+  artifacts: (modelId: string) => api.get(`/model-versions/artifacts/${modelId}`),
+};
+
+export const experimentCompare = {
+  compare: (experimentIds: string[]) =>
+    api.post('/experiment-compare', experimentIds),
+  leaderboard: (algorithm?: string) =>
+    api.get('/experiment-compare/leaderboard', { params: algorithm ? { algorithm } : {} }),
+};
+
+export const featureMonitoring = {
+  alerts: (params?: { severity?: string; acknowledged?: number }) =>
+    api.get('/feature-monitoring/alerts', { params }),
+  acknowledgeAlert: (id: string) => api.post(`/feature-monitoring/alerts/${id}/acknowledge`),
+  featureStats: (name: string, hours?: number) =>
+    api.get(`/feature-monitoring/stats/${name}`, { params: { hours: hours || 24 } }),
+  checkDrift: (data: { feature_name: string; current_value: number; baseline_mean: number; baseline_std: number }) =>
+    api.post('/feature-monitoring/check', null, { params: data }),
+};
+
+export const webhooksApi = {
+  list: () => api.get('/webhooks'),
+  create: (data: { name: string; url: string; events: string[]; secret?: string }) =>
+    api.post('/webhooks', data),
+  delete: (id: string) => api.delete(`/webhooks/${id}`),
+  logs: (id: string) => api.get(`/webhooks/${id}/logs`),
+};
+
+export const lineage = {
+  create: (data: { source_type: string; source_id: string; target_type: string; target_id: string; transformation?: string }) =>
+    api.post('/lineage', data),
+  graph: (nodeType: string, nodeId: string, depth?: number) =>
+    api.get(`/lineage/graph/${nodeType}/${nodeId}`, { params: { depth: depth || 3 } }),
+  listMetrics: () => api.get('/lineage/metrics'),
+  createMetric: (data: { name: string; metric_type: string; query_or_formula: string }) =>
+    api.post('/lineage/metrics', data),
+  recordMetric: (metricId: string, data: { value: number; labels?: Record<string, any> }) =>
+    api.post(`/lineage/metrics/${metricId}/data`, data),
+  metricData: (metricId: string) => api.get(`/lineage/metrics/${metricId}/data`),
+};
+
 export const websocket = {
   training: (experimentId: string): WebSocket => {
     const wsUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000').replace(/^http/, 'ws');

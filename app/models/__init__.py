@@ -11,6 +11,10 @@ from app.models.feature_store import FeatureGroup, Feature, FeatureSnapshot
 from app.models.serving import ServingEndpoint, ServingLog
 from app.models.organization import Organization, OrgMember
 from app.models.api_quota import APIQuota, APIUsageLog
+from app.models.model_version import ModelVersion, ModelLineage, ModelArtifact
+from app.models.feature_monitoring import FeatureDriftAlert, FeatureStats
+from app.models.webhook import Webhook, WebhookLog
+from app.models.lineage_metrics import DataLineage, CustomMetric, MetricDataPoint
 
 __all__ = [
     "User", "UserRole",
@@ -26,4 +30,8 @@ __all__ = [
     "ServingEndpoint", "ServingLog",
     "Organization", "OrgMember",
     "APIQuota", "APIUsageLog",
+    "ModelVersion", "ModelLineage", "ModelArtifact",
+    "FeatureDriftAlert", "FeatureStats",
+    "Webhook", "WebhookLog",
+    "DataLineage", "CustomMetric", "MetricDataPoint",
 ]
