@@ -5,15 +5,18 @@ from typing import Optional, List, Dict, Any
 from uuid import UUID
 from datetime import datetime
 import httpx
+import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user, require_data_scientist
 from app.core.redis import cache_get, cache_set
+from app.core.error_utils import sanitize_error_message, log_error
 from app.models.user import User
 from app.models.model import MLModel
 from app.models.prediction import Prediction
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
+logger = logging.getLogger(__name__)
 
 
 class WebhookCreate(BaseModel):
@@ -294,4 +297,5 @@ async def check_data_drift(
         )
         return DataDriftResponse(**result)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Drift detection failed: {str(e)}")
+        log_error(e, context="Drift detection failed")
+        raise HTTPException(status_code=500, detail="Drift detection failed. Please check your datasets and try again.")

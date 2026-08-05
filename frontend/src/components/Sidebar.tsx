@@ -28,6 +28,7 @@ import {
   PieChart,
   Blend,
   DollarSign,
+  Wand2,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -35,6 +36,7 @@ import clsx from 'clsx';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Training Wizard', href: '/training-wizard', icon: Wand2 },
   { name: 'Datasets', href: '/datasets', icon: Database },
   { name: 'Models', href: '/models', icon: Brain },
   { name: 'Model Versions', href: '/model-versions', icon: GitBranch },

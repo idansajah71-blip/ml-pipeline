@@ -1,14 +1,15 @@
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, field_validator
 from typing import Optional
 from functools import lru_cache
+import os
 
 
 class Settings(BaseSettings):
     APP_NAME: str = "ML Pipeline"
     APP_VERSION: str = "1.0.0"
     ENVIRONMENT: str = "development"
-    DEBUG: bool = True
+    DEBUG: bool = False
 
     HOST: str = "0.0.0.0"
     PORT: int = 8000
@@ -39,9 +40,9 @@ class Settings(BaseSettings):
 
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:8000"
 
-    JWT_SECRET_KEY: str = "dev-secret-key-change-in-production"
+    JWT_SECRET_KEY: str = ""
     JWT_ALGORITHM: str = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     ML_ARTIFACTS_DIR: str = "./ml_artifacts"
     MAX_UPLOAD_SIZE_MB: int = 100
@@ -54,6 +55,24 @@ class Settings(BaseSettings):
 
     ENABLE_METRICS: bool = True
     LOG_LEVEL: str = "INFO"
+
+    @field_validator("JWT_SECRET_KEY")
+    @classmethod
+    def validate_jwt_secret(cls, v: str, info) -> str:
+        environment = info.data.get("ENVIRONMENT", "development")
+        if environment == "production" and not v:
+            raise ValueError(
+                "JWT_SECRET_KEY is required in production. "
+                "Set it via environment variable or .env file."
+            )
+        if environment == "production" and v == "dev-secret-key-change-in-production":
+            raise ValueError(
+                "JWT_SECRET_KEY cannot use the default dev value in production. "
+                "Set a secure random string via environment variable."
+            )
+        if environment != "production" and not v:
+            return "dev-secret-key-change-in-production"
+        return v
 
     @property
     def CELERY_BROKER(self) -> str:

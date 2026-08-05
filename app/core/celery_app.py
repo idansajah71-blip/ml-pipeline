@@ -47,6 +47,10 @@ celery_app.conf.update(
             "task": "ml.run_auto_retrain_pipeline",
             "schedule": crontab(minute=0, hour="*/1"),
         },
+        "daily-data-retention": {
+            "task": "ml.enforce_data_retention",
+            "schedule": crontab(minute=0, hour=5),
+        },
     },
 )
 

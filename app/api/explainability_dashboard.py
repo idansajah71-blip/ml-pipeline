@@ -7,15 +7,18 @@ from typing import Optional, List
 import pandas as pd
 import numpy as np
 import joblib
+import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
 from app.core.config import get_settings
+from app.core.error_utils import sanitize_error_message, log_error
 from app.models.user import User
 from app.models.model import MLModel
 
 settings = get_settings()
 router = APIRouter(prefix="/explain", tags=["Explainability Dashboard"])
+logger = logging.getLogger(__name__)
 
 
 class ExplainGlobalRequest(BaseModel):
@@ -69,7 +72,8 @@ async def global_explainability(
                 "top_features": list(feature_importance.keys())[:10],
             }
     except Exception as e:
-        return {"error": str(e), "feature_importance": {}}
+        log_error(e, context=f"Global explainability failed for model {data.model_id}")
+        return {"error": "Failed to generate explanation. Please check your model and try again.", "feature_importance": {}}
 
 
 @router.post("/prediction")
@@ -122,4 +126,5 @@ async def prediction_explain(
             "base_value": round(float(np.mean(sv)), 6),
         }
     except Exception as e:
-        return {"error": str(e)}
+        log_error(e, context=f"Prediction explanation failed for model {model_id}")
+        return {"error": "Failed to explain prediction. Please check your input data and try again."}

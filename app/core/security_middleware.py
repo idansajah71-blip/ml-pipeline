@@ -10,6 +10,27 @@ from app.core.redis import get_redis
 
 logger = get_logger(__name__)
 
+TIER_UPLOAD_LIMITS_MB = {
+    "free": 10,
+    "starter": 50,
+    "pro": 200,
+    "enterprise": 1000,
+}
+
+TIER_TRAINING_LIMITS = {
+    "free": {"daily": 5, "monthly": 50},
+    "starter": {"daily": 20, "monthly": 200},
+    "pro": {"daily": 100, "monthly": 1000},
+    "enterprise": {"daily": 500, "monthly": 5000},
+}
+
+TIER_RATE_LIMITS = {
+    "free": {"rpm": 60, "burst": 10},
+    "starter": {"rpm": 300, "burst": 50},
+    "pro": {"rpm": 1000, "burst": 200},
+    "enterprise": {"rpm": 5000, "burst": 1000},
+}
+
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(
@@ -86,6 +107,93 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         response.headers["X-RateLimit-Remaining"] = str(remaining)
 
         return response
+
+
+class UploadSizeLimitMiddleware(BaseHTTPMiddleware):
+    def __init__(self, app, default_max_mb: int = 100):
+        super().__init__(app)
+        self.default_max_mb = default_max_mb
+
+    def get_user_tier(self, request: Request) -> str:
+        return getattr(request.state, "user_tier", "free")
+
+    def get_max_upload_size_mb(self, tier: str) -> int:
+        return TIER_UPLOAD_LIMITS_MB.get(tier, TIER_UPLOAD_LIMITS_MB["free"])
+
+    async def dispatch(self, request: Request, call_next):
+        if request.method in ["POST", "PUT", "PATCH"]:
+            content_type = request.headers.get("content-type", "")
+
+            if "multipart/form-data" in content_type:
+                content_length = request.headers.get("content-length")
+
+                if content_length:
+                    size_mb = int(content_length) / (1024 * 1024)
+                    tier = self.get_user_tier(request)
+                    max_size_mb = self.get_max_upload_size_mb(tier)
+
+                    if size_mb > max_size_mb:
+                        logger.warning(
+                            f"Upload size exceeded: {size_mb:.1f}MB > {max_size_mb}MB (tier: {tier})",
+                            path=request.url.path,
+                        )
+                        return JSONResponse(
+                            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                            content={
+                                "detail": f"Upload size exceeds limit. Maximum allowed: {max_size_mb}MB for {tier} tier.",
+                                "max_size_mb": max_size_mb,
+                                "tier": tier,
+                            },
+                        )
+
+        return await call_next(request)
+
+
+class TrainingQuotaMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        if request.method == "POST" and "/train" in request.url.path:
+            user_id = getattr(request.state, "user_id", None)
+            if user_id:
+                redis_client = await get_redis()
+                if redis_client:
+                    try:
+                        tier = getattr(request.state, "user_tier", "free")
+                        limits = TIER_TRAINING_LIMITS.get(tier, TIER_TRAINING_LIMITS["free"])
+
+                        daily_key = f"training:daily:{user_id}"
+                        monthly_key = f"training:monthly:{user_id}"
+
+                        daily_count = await redis_client.get(daily_key)
+                        monthly_count = await redis_client.get(monthly_key)
+
+                        daily_count = int(daily_count) if daily_count else 0
+                        monthly_count = int(monthly_count) if monthly_count else 0
+
+                        if daily_count >= limits["daily"]:
+                            return JSONResponse(
+                                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                                content={
+                                    "detail": f"Daily training limit reached ({limits['daily']} for {tier} tier). Please try again tomorrow.",
+                                    "limit_type": "daily",
+                                    "limit": limits["daily"],
+                                    "tier": tier,
+                                },
+                            )
+
+                        if monthly_count >= limits["monthly"]:
+                            return JSONResponse(
+                                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                                content={
+                                    "detail": f"Monthly training limit reached ({limits['monthly']} for {tier} tier).",
+                                    "limit_type": "monthly",
+                                    "limit": limits["monthly"],
+                                    "tier": tier,
+                                },
+                            )
+                    except Exception as e:
+                        logger.warning(f"Training quota check error: {e}")
+
+        return await call_next(request)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):

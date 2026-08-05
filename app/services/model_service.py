@@ -6,15 +6,19 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from fastapi import HTTPException
+import logging
 
 from app.models.model import MLModel, ModelStatus
 from app.models.dataset import Dataset
 from app.models.experiment import Experiment, ExperimentStatus
-from app.schemas.model import ModelCreate, TrainRequest
+from app.schemas.model import ModelCreate, TrainRequest, TrainingMode
 from app.ml.pipeline import MLPipeline
+from app.ml.auto_pipeline import AutoMLPipeline
 from app.core.config import get_settings
+from app.core.error_utils import sanitize_error_message, log_error
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 class ModelService:
@@ -97,9 +101,9 @@ class ModelService:
             raise HTTPException(status_code=400, detail="Target column required")
 
         experiment = Experiment(
-            name=f"Training {model.name} v{model.version}",
+            name=f"Training {model.name} v{model.version} ({train_request.mode.value})",
             status=ExperimentStatus.RUNNING,
-            parameters=train_request.parameters,
+            parameters={**train_request.parameters, 'mode': train_request.mode.value},
             dataset_id=train_request.dataset_id,
             model_id=model_id,
             owner_id=owner_id,
@@ -127,14 +131,22 @@ class ModelService:
             with open(dataset.file_path, "rb") as f:
                 file_content = f.read()
 
-            pipeline = MLPipeline()
-            result = pipeline.run_training(
-                file_content=file_content,
-                filename=os.path.basename(dataset.file_path),
-                target_column=target_col,
-                algorithm=train_request.algorithm,
-                parameters=train_request.parameters,
-            )
+            if train_request.mode == TrainingMode.SIMPLE:
+                pipeline = AutoMLPipeline()
+                result = pipeline.run_training(
+                    file_content=file_content,
+                    filename=os.path.basename(dataset.file_path),
+                    target_column=target_col,
+                )
+            else:
+                pipeline = MLPipeline()
+                result = pipeline.run_training(
+                    file_content=file_content,
+                    filename=os.path.basename(dataset.file_path),
+                    target_column=target_col,
+                    algorithm=train_request.algorithm,
+                    parameters=train_request.parameters,
+                )
 
             if result["status"] == "completed":
                 model_dir = os.path.join(
@@ -147,6 +159,9 @@ class ModelService:
                 model.metrics = result.get("metrics", {})
                 model.parameters = result.get("parameters", {})
                 model.feature_names = result.get("data_info", {}).get("features", [])
+
+                if train_request.mode == TrainingMode.SIMPLE and hasattr(pipeline, 'generate_human_summary'):
+                    result['human_summary'] = pipeline.generate_human_summary()
 
                 experiment.status = ExperimentStatus.COMPLETED
                 experiment.results = result
@@ -161,11 +176,12 @@ class ModelService:
             return experiment
 
         except Exception as e:
+            log_error(e, context=f"Training failed for model {model_id}")
             experiment.status = ExperimentStatus.FAILED
-            experiment.results = {"error": str(e)}
+            experiment.results = {"error": sanitize_error_message(e)}
             model.status = ModelStatus.FAILED
             await self.db.flush()
-            raise HTTPException(status_code=500, detail=f"Training failed: {str(e)}")
+            raise HTTPException(status_code=500, detail="Training failed. Please check your dataset and try again.")
 
     async def update_model(self, model_id: UUID, update_data: dict, owner_id: UUID) -> MLModel:
         model = await self.get_model(model_id)

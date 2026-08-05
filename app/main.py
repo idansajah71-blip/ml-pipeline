@@ -1,12 +1,14 @@
-from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import time
 import uuid
+import logging
 from contextlib import asynccontextmanager
 
 from app.core.config import get_settings
 from app.core.database import init_db
+from app.core.error_utils import sanitize_error_message, log_error
 from app.api import auth, datasets, models, experiments, monitoring, ab_testing, notifications
 from app.api import ml_ops, ab_testing_enhanced, model_optimization
 from app.api import feature_store, serving, organizations, quota
@@ -17,15 +19,39 @@ from app.core.security_middleware import (
     SecurityHeadersMiddleware,
     RequestLoggingMiddleware,
     InputSanitizationMiddleware,
+    UploadSizeLimitMiddleware,
+    TrainingQuotaMiddleware,
 )
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
+
+
+def validate_production_config():
+    """Validate critical configuration for production environment."""
+    if settings.ENVIRONMENT == "production":
+        if not settings.JWT_SECRET_KEY:
+            raise ValueError(
+                "FATAL: JWT_SECRET_KEY is not set. "
+                "Application cannot start in production without a secure JWT secret. "
+                "Set the JWT_SECRET_KEY environment variable."
+            )
+        if settings.JWT_SECRET_KEY == "dev-secret-key-change-in-production":
+            raise ValueError(
+                "FATAL: JWT_SECRET_KEY is using the default dev value. "
+                "Application cannot start in production with the default secret. "
+                "Set a secure random string via the JWT_SECRET_KEY environment variable."
+            )
+        logger.info("Production configuration validated successfully")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    validate_production_config()
+
     if settings.ENVIRONMENT == "development":
         await init_db()
+
     from app.core.websocket import manager
     yield
     await manager.stop_redis_listener()
@@ -52,12 +78,28 @@ app.add_middleware(
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(InputSanitizationMiddleware)
+app.add_middleware(TrainingQuotaMiddleware)
+app.add_middleware(UploadSizeLimitMiddleware, default_max_mb=100)
 app.add_middleware(RateLimitMiddleware, default_limit=100, default_window=60)
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
 
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    detail = str(exc) if settings.DEBUG else "Internal server error"
+    log_error(exc, context=f"Unhandled exception on {request.method} {request.url.path}")
+
+    if settings.DEBUG:
+        detail = str(exc)
+    else:
+        detail = sanitize_error_message(exc)
+
     return JSONResponse(
         status_code=500,
         content={"detail": detail},
@@ -100,7 +142,8 @@ async def health_check():
             await session.execute(__import__("sqlalchemy").text("SELECT 1"))
         checks["database"] = "ok"
     except Exception as e:
-        checks["database"] = f"error: {str(e)[:100]}"
+        log_error(e, context="Health check: database")
+        checks["database"] = "error"
 
     try:
         from app.core.redis import get_redis
@@ -111,7 +154,8 @@ async def health_check():
         else:
             checks["redis"] = "unavailable"
     except Exception as e:
-        checks["redis"] = f"error: {str(e)[:100]}"
+        log_error(e, context="Health check: redis")
+        checks["redis"] = "error"
 
     healthy = all(v == "ok" or v == "unavailable" for v in checks.values())
 

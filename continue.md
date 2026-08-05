@@ -10,8 +10,8 @@
 **Lokasi**: `C:\Users\User\Desktop\ml-pipeline`  
 **GitHub**: https://github.com/idansajah71-blip/ml-pipeline  
 **Tech Stack**: FastAPI + scikit-learn + PostgreSQL + Redis + Celery + Next.js 14 + Docker + Kubernetes  
-**Total Phase**: 41 phases - SEMUA SELESAI  
-**Commit Terakhir**: `eec495d`
+**Total Phase**: 41 + 7 phases = 48 phases  
+**Commit Terakhir**: Perubahan terbaru (belum di-commit)
 
 ---
 
@@ -19,17 +19,70 @@
 
 ```
 ✅ Backend FastAPI      - 35+ API modules, 30+ DB models, 15 Celery tasks
-✅ Frontend Next.js     - 21 pages, 21 nav links, dark mode, drag-drop upload
+✅ Frontend Next.js     - 22 pages, 22 nav links, dark mode, drag-drop upload, training wizard
 ✅ PostgreSQL           - 20+ tables dengan Alembic migrations
 ✅ Redis                - Caching, rate limiting, WebSocket pub/sub
-✅ Celery               - Async training, batch prediction, auto-retrain, cleanup
+✅ Celery               - Async training, batch prediction, auto-retrain, cleanup, retention
 ✅ Docker               - Multi-stage builds, non-root user, docker-compose
 ✅ Kubernetes           - Deployment, Service, HPA (2-10 replicas), Worker, Beat
 ✅ CI/CD                - GitHub Actions: test, lint, build, Docker, deploy staging→prod
 ✅ Testing              - 144+ unit tests, 60% coverage threshold
-✅ Documentation        - Docusaurus 17 halaman
+✅ Documentation        - Docusaurus 17 halaman + Training Wizard Guide + FAQ
 ✅ Monitoring           - Prometheus, Grafana, Loki
-✅ Security             - JWT+RBAC, rate limiting, IP reputation, API keys
+✅ Security             - JWT+RBAC, rate limiting, IP reputation, API keys, fail-fast config
+```
+
+---
+
+## UPDATE TERBARU (5 Agustus 2026)
+
+### Phase 42-48: Production Readiness & User Experience
+
+| Phase | Feature | Status |
+|-------|---------|--------|
+| 42 | JWT_SECRET_KEY fail-fast (production validation) | ✅ |
+| 43 | One-Hot Encoding (ganti LabelEncoder) | ✅ |
+| 44 | Sanitize exception messages | ✅ |
+| 45 | Training mode (simple/advanced) | ✅ |
+| 46 | AutoML pipeline (auto select model) | ✅ |
+| 47 | Hyperparameter tuning (GridSearchCV) | ✅ |
+| 48 | Tolerant data validation + actionable messages | ✅ |
+| 49 | Per-user tier-based rate limits | ✅ |
+| 50 | Upload size limits per tier | ✅ |
+| 51 | Training quota limits | ✅ |
+| 52 | Training Wizard (guided flow untuk non-technical) | ✅ |
+| 53 | Documentation (FAQ, User Guide) | ✅ |
+| 54 | Data retention policies & auto-cleanup | ✅ |
+
+---
+
+## FILE BARU
+
+```
+app/
+├── core/
+│   ├── error_utils.py              # Sanitize error messages
+│   └── config.py                   # Updated: fail-fast validation
+├── ml/
+│   ├── auto_processor.py           # Auto preprocessing (simple mode)
+│   ├── auto_trainer.py             # Auto model selection
+│   ├── auto_pipeline.py            # AutoML pipeline
+│   ├── hyperparameter_tuner.py     # GridSearchCV tuning
+│   └── data_validator.py           # Tolerant data validation
+├── services/
+│   └── retention_service.py        # Data retention policies
+└── schemas/
+    └── model.py                    # Updated: TrainingMode enum
+
+frontend/src/app/(dashboard)/
+└── training-wizard/
+    └── page.tsx                    # Guided training wizard
+
+docs/
+├── training-wizard-guide.md        # User guide
+└── faq.md                          # FAQ
+
+.env.example                        # Environment template
 ```
 
 ---
@@ -360,6 +413,19 @@ ml-pipeline/
 | `cleanup_serving_logs` | Harian jam 4:30 | Hapus serving logs >30 hari |
 | `cleanup_audit_logs` | Harian jam 4:45 | Hapus audit logs >60 hari |
 | `run_auto_retrain_pipeline` | Setiap jam | Auto-retrain on critical drift |
+| `enforce_data_retention` | Harian jam 5 pagi | Auto-delete data sesuai retensi tier |
+
+---
+
+## TIER LIMITS
+
+| Feature | Free | Starter | Pro | Enterprise |
+|---------|------|---------|-----|------------|
+| Upload size | 10MB | 50MB | 200MB | 1GB |
+| API calls/day | 10,000 | 100,000 | 500,000 | 5M |
+| Training/day | 5 | 20 | 100 | 500 |
+| Dataset retention | 30 days | 90 days | 365 days | Unlimited |
+| Model retention | 60 days | 180 days | 730 days | Unlimited |
 
 ---
 
@@ -400,6 +466,22 @@ cd frontend && npm run typecheck
 
 ---
 
+## TRAINING MODE
+
+### Simple Mode (untuk Non-Technical)
+- Auto select model terbaik
+- Auto preprocessing (imputation, encoding, scaling)
+- Human-readable results
+- Akses via Training Wizard di frontend
+
+### Advanced Mode (untuk Data Scientist)
+- Pilih algoritma manual (9 options)
+- Custom hyperparameters
+- GridSearchCV tuning
+- Detailed metrics
+
+---
+
 ## GIT COMMITS
 
 | Commit | Phase | Deskripsi |
@@ -414,10 +496,11 @@ cd frontend && npm run typecheck
 | `6ad1733` | 24-29 | Feature Store, Serving, CI/CD, Cleanup, Multi-tenancy, Quota |
 | `32f8281` | 30-35 | Versioning, Compare, Monitoring, Webhooks, Lineage, Metrics |
 | `eec495d` | 36-41 | Explainability, Ensemble, Data Versioning, Marketplace, Costs |
+| TBD | 42-54 | Security fixes, AutoML, Training Wizard, Data Retention |
 
 ---
 
 *File ini dibuat pada: 2026-07-30*  
 *Terakhir diupdate: 5 Agustus 2026*  
-*Total phases: 41/41 SELESAI*  
+*Total phases: 54/54 SELESAI*  
 *GitHub: https://github.com/idansajah71-blip/ml-pipeline*

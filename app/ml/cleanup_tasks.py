@@ -4,8 +4,10 @@ from datetime import datetime, timedelta
 from celery import current_task
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
+import logging
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 def get_sync_session():
@@ -114,5 +116,98 @@ def cleanup_audit_logs():
     except Exception as e:
         session.rollback()
         return {"status": "failed", "error": str(e)}
+    finally:
+        session.close()
+
+
+@celery_app.task(name="ml.enforce_data_retention")
+def enforce_data_retention():
+    from app.services.retention_service import DataRetentionService, RETENTION_POLICIES
+    from app.models.user import User
+    from app.models.dataset import Dataset
+    from app.models.model import MLModel
+
+    session = get_sync_session()
+    try:
+        service = DataRetentionService(session)
+
+        deleted_items = {"datasets": 0, "models": 0, "files_freed_mb": 0}
+
+        for tier, policy in RETENTION_POLICIES.items():
+            if policy["dataset_retention_days"] > 0:
+                cutoff_date = datetime.utcnow() - timedelta(days=policy["dataset_retention_days"])
+                old_datasets = session.query(Dataset).filter(
+                    Dataset.created_at < cutoff_date,
+                    Dataset.is_archived == False,
+                ).all()
+
+                for dataset in old_datasets:
+                    if dataset.file_path and os.path.exists(dataset.file_path):
+                        size_mb = os.path.getsize(dataset.file_path) / (1024 * 1024)
+                        os.remove(dataset.file_path)
+                        deleted_items["files_freed_mb"] += size_mb
+                    session.delete(dataset)
+                    deleted_items["datasets"] += 1
+
+            if policy["model_retention_days"] > 0:
+                cutoff_date = datetime.utcnow() - timedelta(days=policy["model_retention_days"])
+                old_models = session.query(MLModel).filter(
+                    MLModel.created_at < cutoff_date,
+                    MLModel.status.notin_(["deployed", "production"]),
+                ).all()
+
+                for model in old_models:
+                    if model.file_path and os.path.exists(model.file_path):
+                        model_dir = os.path.dirname(model.file_path)
+                        if os.path.exists(model_dir):
+                            import shutil
+                            shutil.rmtree(model_dir, ignore_errors=True)
+                    session.delete(model)
+                    deleted_items["models"] += 1
+
+        inactive_cutoff = datetime.utcnow() - timedelta(days=180)
+        inactive_users = session.query(User).filter(
+            User.is_active == False,
+            User.updated_at < inactive_cutoff,
+        ).all()
+
+        for user in inactive_users:
+            user_datasets = session.query(Dataset).filter(Dataset.owner_id == user.id).all()
+            for dataset in user_datasets:
+                if dataset.file_path and os.path.exists(dataset.file_path):
+                    os.remove(dataset.file_path)
+                session.delete(dataset)
+
+            user_models = session.query(MLModel).filter(MLModel.owner_id == user.id).all()
+            for model in user_models:
+                if model.file_path and os.path.exists(model.file_path):
+                    model_dir = os.path.dirname(model.file_path)
+                    if os.path.exists(model_dir):
+                        import shutil
+                        shutil.rmtree(model_dir, ignore_errors=True)
+                session.delete(model)
+
+            session.delete(user)
+            deleted_items["datasets"] += len(user_datasets)
+            deleted_items["models"] += len(user_models)
+
+        session.commit()
+
+        logger.info(f"Data retention enforcement completed: {deleted_items}")
+
+        return {
+            "status": "completed",
+            "deleted_items": deleted_items,
+            "completed_at": datetime.utcnow().isoformat(),
+        }
+
+    except Exception as e:
+        session.rollback()
+        logger.error(f"Data retention enforcement failed: {e}", exc_info=True)
+        return {
+            "status": "failed",
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+        }
     finally:
         session.close()

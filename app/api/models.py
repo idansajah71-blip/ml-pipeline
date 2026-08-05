@@ -4,10 +4,12 @@ from sqlalchemy import select
 from typing import List
 from uuid import UUID
 import time
+import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user, require_data_scientist
 from app.core.redis import cache_get, cache_set, cache_delete
+from app.core.error_utils import sanitize_error_message, log_error
 from app.models.user import User
 from app.models.prediction import Prediction
 from app.models.experiment import Experiment
@@ -22,6 +24,7 @@ from app.services.model_service import ModelService
 from app.ml.pipeline import MLPipeline
 
 router = APIRouter(prefix="/models", tags=["Models"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("", response_model=ModelResponse, status_code=201)
@@ -151,7 +154,8 @@ async def predict(
         import os
         pipeline.load_artifacts(os.path.dirname(model.file_path))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to load model: {str(e)}")
+        log_error(e, context=f"Failed to load model artifacts for model {model_id}")
+        raise HTTPException(status_code=500, detail="Failed to load model. The model may be corrupted or missing.")
 
     start_time = time.time()
     result = pipeline.predict(predict_data.data, model.feature_names)
@@ -195,7 +199,8 @@ async def batch_predict(
         import os
         pipeline.load_artifacts(os.path.dirname(model.file_path))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to load model: {str(e)}")
+        log_error(e, context=f"Failed to load model artifacts for batch prediction on model {model_id}")
+        raise HTTPException(status_code=500, detail="Failed to load model. The model may be corrupted or missing.")
 
     start_time = time.time()
     result = pipeline.predict(batch_data.data, model.feature_names)
@@ -411,10 +416,11 @@ async def run_automl(
             status="running",
         )
     except Exception as e:
+        log_error(e, context=f"AutoML task failed for dataset {automl_request.dataset_id}")
         experiment.status = ExperimentStatus.FAILED
-        experiment.results = {"error": str(e)}
+        experiment.results = {"error": sanitize_error_message(e)}
         await db.flush()
-        raise HTTPException(status_code=500, detail=f"AutoML failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="AutoML task failed to start. Please check your dataset and try again.")
 
 
 @router.post("/{model_id}/explain", response_model=ExplainResponse)
@@ -501,7 +507,8 @@ async def explain_prediction(
             detail="SHAP not installed. Run: pip install shap",
         )
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Explanation failed: {str(e)}")
+        log_error(e, context=f"Explanation failed for model {model_id}")
+        raise HTTPException(status_code=500, detail="Failed to generate explanation. Please check your input data.")
 
 
 @router.get("/tasks/{task_id}", response_model=TaskStatusResponse)

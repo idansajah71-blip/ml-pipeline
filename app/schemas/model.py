@@ -13,6 +13,11 @@ class ModelStatus(str, Enum):
     FAILED = "failed"
 
 
+class TrainingMode(str, Enum):
+    SIMPLE = "simple"
+    ADVANCED = "advanced"
+
+
 class ModelBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
@@ -60,6 +65,7 @@ class TrainRequest(BaseModel):
     parameters: Dict[str, Any] = {}
     target_column: Optional[str] = None
     async_training: bool = False
+    mode: TrainingMode = Field(default=TrainingMode.ADVANCED)
 
 
 class TrainResponse(BaseModel):

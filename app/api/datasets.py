@@ -2,14 +2,17 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 from uuid import UUID
+import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
+from app.core.error_utils import sanitize_error_message, log_error
 from app.models.user import User
 from app.schemas.dataset import DatasetResponse, DatasetCreate, DatasetPreview, DatasetProfileResponse
 from app.services.dataset_service import DatasetService
 
 router = APIRouter(prefix="/datasets", tags=["Datasets"])
+logger = logging.getLogger(__name__)
 
 
 @router.post("", response_model=DatasetResponse, status_code=201)
@@ -125,4 +128,5 @@ async def profile_dataset(
         )
         return DatasetProfileResponse(**profile)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Profiling failed: {str(e)}")
+        log_error(e, context=f"Profiling failed for dataset {dataset_id}")
+        raise HTTPException(status_code=500, detail="Failed to generate dataset profile. The file may be corrupted.")
