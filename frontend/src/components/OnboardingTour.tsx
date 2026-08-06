@@ -44,6 +44,14 @@ export default function OnboardingTour() {
     if (!done) {
       setTimeout(() => setVisible(true), 1000);
     }
+
+    const handleRestart = () => {
+      localStorage.removeItem(STORAGE_KEY);
+      setCurrentStep(0);
+      setVisible(true);
+    };
+    window.addEventListener('restart-onboarding', handleRestart);
+    return () => window.removeEventListener('restart-onboarding', handleRestart);
   }, []);
 
   useEffect(() => {

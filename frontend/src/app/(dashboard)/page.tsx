@@ -58,6 +58,24 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {QUICKSTART_CARDS.map((card) => {
             const Icon = ICONS[card.icon];
+            const isOnboarding = card.id === 'understand-platform';
+
+            if (isOnboarding) {
+              return (
+                <button
+                  key={card.id}
+                  onClick={() => window.dispatchEvent(new Event('restart-onboarding'))}
+                  className={`group rounded-xl border-2 p-4 transition-all text-left ${card.color}`}
+                >
+                  <div className="mb-2 flex items-center gap-2">
+                    <Icon className="h-5 w-5" />
+                    <span className="font-semibold text-sm">{card.title}</span>
+                  </div>
+                  <p className="text-xs opacity-80">{card.description}</p>
+                </button>
+              );
+            }
+
             return (
               <Link
                 key={card.id}
