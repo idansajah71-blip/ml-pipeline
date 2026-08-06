@@ -4,44 +4,10 @@ import { Database, Brain, FlaskConical, Zap, Activity, Rocket, ArrowRight, Searc
 import StatusBadge from '@/components/StatusBadge';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useModels, useDatasets, useExperiments } from '@/lib/hooks';
+import { QUICKSTART_CARDS } from '@/lib/recommendations';
 import Link from 'next/link';
 
 const ICONS: Record<string, any> = { Brain, Search, BarChart3, HelpCircle };
-
-const QUICKSTART_CARDS = [
-  {
-    id: 'new-prediction',
-    title: 'Bikin Prediksi Baru',
-    description: 'Unggah data dan latih model pertama Anda',
-    icon: 'Brain',
-    href: '/training-wizard',
-    color: 'bg-blue-50 text-blue-600 border-blue-200 hover:border-blue-300',
-  },
-  {
-    id: 'explore-models',
-    title: 'Lihat Model Orang Lain',
-    description: 'Temukan model siap pakai di marketplace',
-    icon: 'Search',
-    href: '/marketplace',
-    color: 'bg-green-50 text-green-600 border-green-200 hover:border-green-300',
-  },
-  {
-    id: 'compare-models',
-    title: 'Bandingin Model',
-    description: 'Bandingkan performa berbagai algoritma',
-    icon: 'BarChart3',
-    href: '/benchmark',
-    color: 'bg-purple-50 text-purple-600 border-purple-200 hover:border-purple-300',
-  },
-  {
-    id: 'understand-platform',
-    title: 'Belum Ngerti Platform?',
-    description: 'Pelajari dasar-dasar ML Pipeline',
-    icon: 'HelpCircle',
-    href: '/onboarding',
-    color: 'bg-amber-50 text-amber-600 border-amber-200 hover:border-amber-300',
-  },
-];
 
 const stats = [
   { key: 'models', title: 'Total Model', icon: Brain, color: 'bg-blue-50 text-blue-600', href: '/models' },

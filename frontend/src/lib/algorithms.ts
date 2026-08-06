@@ -57,7 +57,7 @@ export const ALGORITHMS: Record<string, AlgorithmInfo> = {
   },
   lightgbm: {
     label: 'LightGBM',
-    description: 'Gradient Boosting yang sangat cepat dan hemat memori.cocok untuk dataset besar.',
+    description: 'Gradient Boosting yang sangat cepat dan hemat memori. Cocok untuk dataset besar.',
     bestFor: 'Dataset besar (100k+ baris), ketika butuh kecepatan',
   },
   catboost: {
@@ -81,7 +81,7 @@ export const REGRESSION_ALGORITHMS: Record<string, AlgorithmInfo> = {
   ridge: {
     label: 'Ridge Regression',
     description: 'Regresi linier dengan regularisasi L2. Mencegah overfitting pada fitur banyak.',
-    bestFor: 'DataWithMany fitur, mencegah overfitting',
+    bestFor: 'Data dengan banyak fitur, mencegah overfitting',
   },
   lasso: {
     label: 'Lasso Regression',

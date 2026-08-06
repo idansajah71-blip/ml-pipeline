@@ -315,7 +315,10 @@ export default function TrainingWizard() {
                 </label>
                 <select
                   value={state.targetColumn}
-                  onChange={(e) => setState((prev) => ({ ...prev, targetColumn: e.target.value }))}
+                  onChange={(e) => {
+                    setState((prev) => ({ ...prev, targetColumn: e.target.value }));
+                    setRecommendation(null);
+                  }}
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                 >
                   <option value="">Pilih kolom yang ingin diprediksi...</option>
@@ -372,7 +375,7 @@ export default function TrainingWizard() {
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <button
-                onClick={() => setState((prev) => ({ ...prev, predictionType: 'number' }))}
+                onClick={() => setState((prev) => ({ ...prev, predictionType: 'number', algorithm: 'random_forest' }))}
                 className={`rounded-xl border-2 p-6 text-left transition-all ${
                   state.predictionType === 'number'
                     ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-500/20'
@@ -392,7 +395,7 @@ export default function TrainingWizard() {
               </button>
 
               <button
-                onClick={() => setState((prev) => ({ ...prev, predictionType: 'category' }))}
+                onClick={() => setState((prev) => ({ ...prev, predictionType: 'category', algorithm: 'random_forest' }))}
                 className={`rounded-xl border-2 p-6 text-left transition-all ${
                   state.predictionType === 'category'
                     ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-500/20'
@@ -447,11 +450,12 @@ export default function TrainingWizard() {
               <button
                 onClick={() => {
                   setCurrentStep('preview');
-                  if (state.datasetId && state.targetColumn && !recommendation) {
+                  if (state.datasetId && state.targetColumn) {
                     setRecommendationLoading(true);
+                    setRecommendation(null);
                     recommendations.analyze(state.datasetId, state.targetColumn)
                       .then((res) => setRecommendation(res.data))
-                      .catch(() => {})
+                      .catch(() => setRecommendation(null))
                       .finally(() => setRecommendationLoading(false));
                   }
                 }}
@@ -582,6 +586,7 @@ export default function TrainingWizard() {
                       setState((prev) => ({
                         ...prev,
                         predictionType: recommendation.suggested_problem_type === 'regression' ? 'number' : 'category',
+                        algorithm: 'random_forest',
                       }));
                       toast('success', `Tipe prediksi diatur ke ${recommendation.suggested_problem_type === 'regression' ? 'Regresi' : 'Klasifikasi'}`);
                     }}
@@ -698,8 +703,13 @@ export default function TrainingWizard() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Pilih Algoritma
                 </label>
+                <p className="mb-3 text-xs text-gray-500">
+                  {state.predictionType === 'number'
+                    ? 'Menampilkan algoritma Regresi (untuk prediksi angka)'
+                    : 'Menampilkan algoritma Klasifikasi (untuk prediksi kategori)'}
+                </p>
                 <div className="space-y-2">
-                  {Object.entries(ALGORITHMS).map(([value, info]) => (
+                  {Object.entries(state.predictionType === 'number' ? REGRESSION_ALGORITHMS : ALGORITHMS).map(([value, info]) => (
                     <button
                       key={value}
                       type="button"

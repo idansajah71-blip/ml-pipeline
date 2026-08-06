@@ -170,7 +170,7 @@ export const FAQ_ENTRIES: FAQEntry[] = [
     question: 'Bagaimana jika data saya ada yang kosong?',
     answer: 'Sistem otomatis menangani missing values: kolom numerik diisi dengan median, kolom kategorikal diisi dengan modus (nilai terbanyak). Kolom dengan >80% missing akan mendapat peringatan untuk dihapus.',
     category: 'upload',
-    tags: ['kosong', 'missing', 'null', 'kosong', 'empty', 'kosong', 'hilang'],
+    tags: ['kosong', 'missing', 'null', 'empty', 'hilang'],
   },
   {
     id: 'simple-vs-advanced',
@@ -295,7 +295,7 @@ export const QUICKSTART_CARDS = [
     title: 'Belum Ngerti Platform?',
     description: 'Pelajari dasar-dasar ML Pipeline',
     icon: 'HelpCircle',
-    href: '/onboarding',
+    href: '/training-wizard',
     color: 'bg-amber-50 text-amber-600 border-amber-200',
   },
 ];
