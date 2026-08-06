@@ -96,8 +96,8 @@ export default function ModelsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Models</h1>
-          <p className="text-gray-500">Create, train, and manage your ML models</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Models</h1>
+          <p className="text-gray-500 dark:text-gray-400">Create, train, and manage your ML models</p>
         </div>
         <button
           onClick={() => setShowCreate(!showCreate)}
@@ -109,21 +109,21 @@ export default function ModelsPage() {
       </div>
 
       {showCreate && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-lg font-semibold">Create New Model</h2>
+        <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Create New Model</h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <input
               type="text"
               placeholder="Model Name"
               value={createForm.name}
               onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-              className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
             />
             <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Algoritma</label>
-              <div className="grid grid-cols-1 gap-1.5 max-h-64 overflow-y-auto rounded-lg border border-gray-200 p-2">
+              <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Algoritma</label>
+              <div className="grid max-h-64 grid-cols-1 gap-1.5 overflow-y-auto rounded-lg border border-gray-200 p-2 dark:border-gray-600">
                 {algorithmsList.length === 0 && (
-                  <p className="text-xs text-gray-400 px-2 py-1">Memuat algoritma...</p>
+                  <p className="px-2 py-1 text-xs text-gray-400">Memuat algoritma...</p>
                 )}
                 {algorithmsList.map((alg) => {
                   const info = ALGORITHMS[alg];
@@ -135,8 +135,8 @@ export default function ModelsPage() {
                       onClick={() => setCreateForm({ ...createForm, algorithm: alg })}
                       className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
                         isSelected
-                          ? 'bg-primary-50 border border-primary-300 text-primary-700'
-                          : 'hover:bg-gray-50 border border-transparent'
+                          ? 'border border-primary-300 bg-primary-50 text-primary-700 dark:border-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
+                          : 'border border-transparent hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`}
                     >
                       <span className="font-medium">{info?.label || alg}</span>
@@ -158,7 +158,7 @@ export default function ModelsPage() {
               placeholder="Target Column"
               value={createForm.target_column}
               onChange={(e) => setCreateForm({ ...createForm, target_column: e.target.value })}
-              className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
             />
             <button
               onClick={handleCreate}
@@ -184,9 +184,9 @@ export default function ModelsPage() {
           ))}
         </div>
       ) : paginatedModels.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-16">
-          <Brain className="mb-4 h-12 w-12 text-gray-300" />
-          <p className="text-gray-500">
+        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-16 dark:border-gray-600">
+          <Brain className="mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" />
+          <p className="text-gray-500 dark:text-gray-400">
             {search ? 'No models match your search' : 'No models yet. Create your first model!'}
           </p>
         </div>
@@ -194,34 +194,34 @@ export default function ModelsPage() {
         <>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {paginatedModels.map((model) => (
-              <div key={model.id} className="rounded-xl border border-gray-200 bg-white p-5">
+              <div key={model.id} className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
                 <div className="mb-3 flex items-start justify-between">
                   <div>
-                    <h3 className="font-semibold text-gray-900">{model.name}</h3>
-                    <p className="text-sm text-gray-500">{model.algorithm} v{model.version}</p>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">{model.name}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{model.algorithm} v{model.version}</p>
                   </div>
                   <StatusBadge status={model.status} />
                 </div>
 
                 {model.metrics?.accuracy !== undefined && (
-                  <div className="mb-3 rounded-lg bg-gray-50 p-3">
-                    <p className="text-xs text-gray-500">Accuracy</p>
-                    <p className="text-lg font-semibold text-gray-900">
+                  <div className="mb-3 rounded-lg bg-gray-50 p-3 dark:bg-gray-700">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Accuracy</p>
+                    <p className="text-lg font-semibold text-gray-900 dark:text-white">
                       {(model.metrics.accuracy * 100).toFixed(1)}%
                     </p>
                   </div>
                 )}
 
-                <div className="flex flex-wrap gap-1 mb-3">
+                <div className="mb-3 flex flex-wrap gap-1">
                   {model.tags?.map((tag) => (
-                    <span key={tag} className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{tag}</span>
+                    <span key={tag} className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-300">{tag}</span>
                   ))}
                 </div>
 
                 <div className="flex gap-2">
                   <Link
                     href={`/models/${model.id}`}
-                    className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200"
+                    className="flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
                   >
                     <Eye className="h-3 w-3" />
                     View
@@ -230,7 +230,7 @@ export default function ModelsPage() {
                     <select
                       value={trainForms[model.id]?.dataset_id || ''}
                       onChange={(e) => setTrainForms(prev => ({ ...prev, [model.id]: { dataset_id: e.target.value } }))}
-                      className="flex-1 rounded-lg border border-gray-300 px-2 py-1.5 text-xs"
+                      className="flex-1 rounded-lg border border-gray-300 bg-white px-2 py-1.5 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-white"
                     >
                       <option value="">Pilih Dataset</option>
                       {datasetsList.map((ds) => (
@@ -258,7 +258,7 @@ export default function ModelsPage() {
                   )}
                   <button
                     onClick={() => handleDelete(model.id)}
-                    className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100"
+                    className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
                   >
                     <Trash2 className="h-3 w-3" />
                   </button>

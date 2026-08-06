@@ -41,21 +41,21 @@ export default function CostTrackingPage() {
       {summary && (
         <>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <div className="rounded-lg bg-green-50 dark:bg-green-900/20 p-4">
-              <p className="text-sm text-green-600">Total Cost</p>
-              <p className="text-2xl font-bold text-green-900">${summary.total_cost_usd}</p>
+            <div className="rounded-lg bg-green-50 p-4 dark:bg-green-900/20">
+              <p className="text-sm text-green-600 dark:text-green-400">Total Cost</p>
+              <p className="text-2xl font-bold text-green-900 dark:text-green-300">${summary.total_cost_usd}</p>
             </div>
-            <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 p-4">
-              <p className="text-sm text-blue-600">Usage Hours</p>
-              <p className="text-2xl font-bold text-blue-900">{summary.total_usage_hours}h</p>
+            <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
+              <p className="text-sm text-blue-600 dark:text-blue-400">Usage Hours</p>
+              <p className="text-2xl font-bold text-blue-900 dark:text-blue-300">{summary.total_usage_hours}h</p>
             </div>
-            <div className="rounded-lg bg-purple-50 dark:bg-purple-900/20 p-4">
-              <p className="text-sm text-purple-600">GPU Hours</p>
-              <p className="text-2xl font-bold text-purple-900">{summary.total_gpu_hours}h</p>
+            <div className="rounded-lg bg-purple-50 p-4 dark:bg-purple-900/20">
+              <p className="text-sm text-purple-600 dark:text-purple-400">GPU Hours</p>
+              <p className="text-2xl font-bold text-purple-900 dark:text-purple-300">{summary.total_gpu_hours}h</p>
             </div>
-            <div className="rounded-lg bg-orange-50 dark:bg-orange-900/20 p-4">
-              <p className="text-sm text-orange-600">Cost/Hour</p>
-              <p className="text-2xl font-bold text-orange-900">${summary.cost_per_hour}</p>
+            <div className="rounded-lg bg-orange-50 p-4 dark:bg-orange-900/20">
+              <p className="text-sm text-orange-600 dark:text-orange-400">Cost/Hour</p>
+              <p className="text-2xl font-bold text-orange-900 dark:text-orange-300">${summary.cost_per_hour}</p>
             </div>
           </div>
 

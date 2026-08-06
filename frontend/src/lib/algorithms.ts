@@ -4,6 +4,27 @@ export interface AlgorithmInfo {
   bestFor: string;
 }
 
+export const PREDICTION_TYPE_COLORS = {
+  classification: {
+    bg: 'bg-blue-50',
+    text: 'text-blue-700',
+    border: 'border-blue-300',
+    dot: 'bg-blue-500',
+    darkBg: 'dark:bg-blue-900/30',
+    darkText: 'dark:text-blue-300',
+    darkBorder: 'dark:border-blue-700',
+  },
+  regression: {
+    bg: 'bg-emerald-50',
+    text: 'text-emerald-700',
+    border: 'border-emerald-300',
+    dot: 'bg-emerald-500',
+    darkBg: 'dark:bg-emerald-900/30',
+    darkText: 'dark:text-emerald-300',
+    darkBorder: 'dark:border-emerald-700',
+  },
+} as const;
+
 export const ALGORITHMS: Record<string, AlgorithmInfo> = {
   random_forest: {
     label: 'Random Forest',

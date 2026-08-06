@@ -46,20 +46,20 @@ export default function PredictionsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Predictions</h1>
-        <p className="text-gray-500">Make predictions using your trained models</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Predictions</h1>
+        <p className="text-gray-500 dark:text-gray-400">Make predictions using your trained models</p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-6">
-          <h2 className="text-lg font-semibold">Input</h2>
+        <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Input</h2>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Select Model</label>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Select Model</label>
             <select
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
             >
               <option value="">{deployableModels.length === 0 ? 'Memuat model...' : 'Pilih model...'}</option>
               {deployableModels.map((m) => (
@@ -69,20 +69,20 @@ export default function PredictionsPage() {
           </div>
 
           {model && (
-            <div className="rounded-lg bg-gray-50 p-3">
-              <p className="text-xs text-gray-500">Features: {model.feature_names?.join(', ')}</p>
-              <p className="text-xs text-gray-500">Target: {model.target_column}</p>
+            <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-700">
+              <p className="text-xs text-gray-500 dark:text-gray-400">Features: {model.feature_names?.join(', ')}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Target: {model.target_column}</p>
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Input Data (JSON)</label>
+            <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Input Data (JSON)</label>
             <textarea
               value={inputData}
               onChange={(e) => setInputData(e.target.value)}
               rows={8}
               placeholder={model ? `{\n  ${model.feature_names?.map((f) => `"${f}": 0`).join(',\n  ')}\n}` : '{ "feature1": 0, "feature2": 0 }'}
-              className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-2.5 font-mono text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 font-mono text-sm text-gray-900 placeholder-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
             />
           </div>
 
@@ -96,25 +96,25 @@ export default function PredictionsPage() {
           </button>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-lg font-semibold">Results</h2>
+        <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Results</h2>
           {!results ? (
             <div className="flex flex-col items-center justify-center py-16">
-              <Zap className="mb-4 h-12 w-12 text-gray-300" />
-              <p className="text-gray-500">Make a prediction to see results</p>
+              <Zap className="mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" />
+              <p className="text-gray-500 dark:text-gray-400">Make a prediction to see results</p>
             </div>
           ) : results.error ? (
-            <div className="rounded-lg bg-red-50 p-4">
-              <p className="text-sm text-red-700">{results.error}</p>
+            <div className="rounded-lg bg-red-50 p-4 dark:bg-red-900/30">
+              <p className="text-sm text-red-700 dark:text-red-300">{results.error}</p>
             </div>
           ) : (
             <div className="space-y-4">
               {results.predictions?.map((pred, i) => (
-                <div key={i} className="rounded-lg border border-gray-100 p-4">
+                <div key={i} className="rounded-lg border border-gray-100 p-4 dark:border-gray-700">
                   <div className="mb-2 flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-500">Prediction {i + 1}</span>
+                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Prediction {i + 1}</span>
                     {pred.probability && (
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
                         Confidence: {(pred.probability * 100).toFixed(1)}%
                       </span>
                     )}
@@ -124,14 +124,14 @@ export default function PredictionsPage() {
                     <div className="mt-2 space-y-1">
                       {Object.entries(pred.probabilities).map(([cls, prob]) => (
                         <div key={cls} className="flex items-center gap-2">
-                          <span className="w-20 text-xs text-gray-500">{cls}</span>
-                          <div className="flex-1 rounded-full bg-gray-200">
+                          <span className="w-20 text-xs text-gray-500 dark:text-gray-400">{cls}</span>
+                          <div className="flex-1 rounded-full bg-gray-200 dark:bg-gray-600">
                             <div
                               className="rounded-full bg-primary-500"
                               style={{ width: `${prob * 100}%`, height: '8px' }}
                             />
                           </div>
-                          <span className="w-12 text-right text-xs text-gray-600">{(prob * 100).toFixed(1)}%</span>
+                          <span className="w-12 text-right text-xs text-gray-600 dark:text-gray-300">{(prob * 100).toFixed(1)}%</span>
                         </div>
                       ))}
                     </div>
@@ -139,7 +139,7 @@ export default function PredictionsPage() {
                 </div>
               ))}
               {results.latency_ms !== undefined && (
-                <p className="text-xs text-gray-500">Latency: {results.latency_ms}ms</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">Latency: {results.latency_ms}ms</p>
               )}
             </div>
           )}

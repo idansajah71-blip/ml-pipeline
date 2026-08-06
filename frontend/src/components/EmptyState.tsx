@@ -16,12 +16,12 @@ interface EmptyStateProps {
 
 export default function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-16">
-      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
-        <Icon className="h-8 w-8 text-gray-400" />
+    <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-16 dark:border-gray-600">
+      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
+        <Icon className="h-8 w-8 text-gray-400 dark:text-gray-500" />
       </div>
-      <h3 className="mb-1 text-lg font-semibold text-gray-900">{title}</h3>
-      <p className="mb-6 max-w-sm text-center text-sm text-gray-500">{description}</p>
+      <h3 className="mb-1 text-lg font-semibold text-gray-900 dark:text-white">{title}</h3>
+      <p className="mb-6 max-w-sm text-center text-sm text-gray-500 dark:text-gray-400">{description}</p>
       {action && (
         action.href ? (
           <Link

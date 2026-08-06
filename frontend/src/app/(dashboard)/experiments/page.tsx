@@ -15,16 +15,16 @@ export default function ExperimentsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Experiments</h1>
-        <p className="text-gray-500">Track your model training experiments</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Experiments</h1>
+        <p className="text-gray-500 dark:text-gray-400">Track your model training experiments</p>
       </div>
 
       {isLoading ? (
         <LoadingSpinner size="lg" className="mx-auto" />
       ) : experimentsList.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-16">
-          <FlaskConical className="mb-4 h-12 w-12 text-gray-300" />
-          <p className="text-gray-500">No experiments yet. Train a model to create an experiment!</p>
+        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-16 dark:border-gray-600">
+          <FlaskConical className="mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" />
+          <p className="text-gray-500 dark:text-gray-400">No experiments yet. Train a model to create an experiment!</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -35,19 +35,19 @@ export default function ExperimentsPage() {
                 onClick={() => setSelected(exp)}
                 className={`w-full rounded-xl border p-4 text-left transition-colors ${
                   selected?.id === exp.id
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-gray-200 bg-white hover:bg-gray-50'
+                    ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/30'
+                    : 'border-gray-200 bg-white hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <p className="font-medium text-gray-900">{exp.name}</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{exp.name}</p>
                   <StatusBadge status={exp.status} />
                 </div>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   {format(new Date(exp.created_at), 'MMM d, yyyy HH:mm')}
                 </p>
                 {exp.duration_seconds && (
-                  <p className="text-xs text-gray-500">Duration: {exp.duration_seconds}s</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Duration: {exp.duration_seconds}s</p>
                 )}
               </button>
             ))}
@@ -55,24 +55,24 @@ export default function ExperimentsPage() {
 
           <div className="lg:col-span-2">
             {selected ? (
-              <div className="rounded-xl border border-gray-200 bg-white p-6">
-                <h2 className="mb-4 text-lg font-semibold">{selected.name}</h2>
+              <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+                <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">{selected.name}</h2>
 
                 <div className="mb-4 grid grid-cols-2 gap-4">
-                  <div className="rounded-lg bg-gray-50 p-3">
-                    <p className="text-xs text-gray-500">Status</p>
+                  <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-700">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Status</p>
                     <StatusBadge status={selected.status} />
                   </div>
-                  <div className="rounded-lg bg-gray-50 p-3">
-                    <p className="text-xs text-gray-500">Duration</p>
-                    <p className="font-medium">{selected.duration_seconds || '-'}s</p>
+                  <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-700">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Duration</p>
+                    <p className="font-medium text-gray-900 dark:text-white">{selected.duration_seconds || '-'}s</p>
                   </div>
                 </div>
 
                 {Object.keys(selected.parameters).length > 0 && (
                   <div className="mb-4">
-                    <h3 className="mb-2 text-sm font-medium text-gray-700">Parameters</h3>
-                    <pre className="overflow-auto rounded-lg bg-gray-50 p-4 text-xs">
+                    <h3 className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Parameters</h3>
+                    <pre className="overflow-auto rounded-lg bg-gray-50 p-4 text-xs dark:bg-gray-700 dark:text-gray-300">
                       {JSON.stringify(selected.parameters, null, 2)}
                     </pre>
                   </div>
@@ -80,17 +80,17 @@ export default function ExperimentsPage() {
 
                 {Object.keys(selected.results).length > 0 && (
                   <div>
-                    <h3 className="mb-2 text-sm font-medium text-gray-700">Results</h3>
-                    <pre className="max-h-96 overflow-auto rounded-lg bg-gray-50 p-4 text-xs">
+                    <h3 className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">Results</h3>
+                    <pre className="max-h-96 overflow-auto rounded-lg bg-gray-50 p-4 text-xs dark:bg-gray-700 dark:text-gray-300">
                       {JSON.stringify(selected.results, null, 2)}
                     </pre>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white py-16">
-                <FlaskConical className="mb-4 h-12 w-12 text-gray-300" />
-                <p className="text-gray-500">Select an experiment to view details</p>
+              <div className="flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white py-16 dark:border-gray-700 dark:bg-gray-800">
+                <FlaskConical className="mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" />
+                <p className="text-gray-500 dark:text-gray-400">Select an experiment to view details</p>
               </div>
             )}
           </div>

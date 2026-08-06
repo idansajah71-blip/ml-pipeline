@@ -10,12 +10,12 @@ import Link from 'next/link';
 const ICONS: Record<string, any> = { Brain, Search, BarChart3, HelpCircle };
 
 const stats = [
-  { key: 'models', title: 'Total Model', icon: Brain, color: 'bg-blue-50 text-blue-600', href: '/models' },
-  { key: 'datasets', title: 'Total Dataset', icon: Database, color: 'bg-green-50 text-green-600', href: '/datasets' },
-  { key: 'experiments', title: 'Eksperimen', icon: FlaskConical, color: 'bg-purple-50 text-purple-600', href: '/experiments' },
-  { key: 'predictions', title: 'Prediksi', icon: Zap, color: 'bg-yellow-50 text-yellow-600', href: '/predictions' },
-  { key: 'active', title: 'Model Aktif', icon: Rocket, color: 'bg-indigo-50 text-indigo-600', href: '/models' },
-  { key: 'training', title: 'Training', icon: Activity, color: 'bg-orange-50 text-orange-600', href: '/experiments' },
+  { key: 'models', title: 'Total Model', icon: Brain, color: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400', href: '/models' },
+  { key: 'datasets', title: 'Total Dataset', icon: Database, color: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400', href: '/datasets' },
+  { key: 'experiments', title: 'Eksperimen', icon: FlaskConical, color: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400', href: '/experiments' },
+  { key: 'predictions', title: 'Prediksi', icon: Zap, color: 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400', href: '/predictions' },
+  { key: 'active', title: 'Model Aktif', icon: Rocket, color: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400', href: '/models' },
+  { key: 'training', title: 'Training', icon: Activity, color: 'bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400', href: '/experiments' },
 ] as const;
 
 export default function DashboardPage() {
@@ -48,13 +48,13 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dasbor</h1>
-        <p className="text-gray-500">Ringkasan ML Pipeline Anda</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dasbor</h1>
+        <p className="text-gray-500 dark:text-gray-400">Ringkasan ML Pipeline Anda</p>
       </div>
 
       {/* Bantu Saya Mulai */}
       <div>
-        <h2 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">Bantu Saya Mulai</h2>
+        <h2 className="mb-3 text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Bantu Saya Mulai</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {QUICKSTART_CARDS.map((card) => {
             const Icon = ICONS[card.icon];
@@ -98,12 +98,12 @@ export default function DashboardPage() {
           <Link
             key={s.key}
             href={s.href}
-            className="rounded-xl border border-gray-200 bg-white p-5 transition-colors hover:bg-gray-50"
+            className="rounded-xl border border-gray-200 bg-white p-5 transition-colors hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-750"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-500">{s.title}</p>
-                <p className="mt-1 text-2xl font-semibold text-gray-900">{values[s.key]}</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{s.title}</p>
+                <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">{values[s.key]}</p>
               </div>
               <div className={`rounded-lg p-3 ${s.color}`}>
                 <s.icon className="h-5 w-5" />
@@ -114,23 +114,23 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-gray-200 bg-white">
-          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-            <h2 className="text-lg font-semibold text-gray-900">Model Terbaru</h2>
+        <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+          <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700 px-6 py-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Model Terbaru</h2>
             <Link href="/models" className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700">
               Lihat semua <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
           <div className="p-6">
             {recentModels.length === 0 ? (
-              <p className="text-sm text-gray-500">Belum ada model. Mulai training sekarang!</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Belum ada model. Mulai training sekarang!</p>
             ) : (
               <div className="space-y-3">
                 {recentModels.map((model) => (
-                  <div key={model.id} className="flex items-center justify-between rounded-lg border border-gray-100 p-3">
+                  <div key={model.id} className="flex items-center justify-between rounded-lg border border-gray-100 dark:border-gray-700 p-3">
                     <div>
-                      <p className="font-medium text-gray-900">{model.name}</p>
-                      <p className="text-xs text-gray-500">{model.algorithm} v{model.version}</p>
+                      <p className="font-medium text-gray-900 dark:text-white">{model.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{model.algorithm} v{model.version}</p>
                     </div>
                     <StatusBadge status={model.status} />
                   </div>
@@ -140,26 +140,26 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-gray-200 bg-white">
-          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-            <h2 className="text-lg font-semibold text-gray-900">Dataset Terbaru</h2>
+        <div className="rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+          <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700 px-6 py-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Dataset Terbaru</h2>
             <Link href="/datasets" className="flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700">
               Lihat semua <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
           <div className="p-6">
             {recentDatasets.length === 0 ? (
-              <p className="text-sm text-gray-500">Belum ada dataset. Unggah dataset pertama Anda!</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Belum ada dataset. Unggah dataset pertama Anda!</p>
             ) : (
               <div className="space-y-3">
                 {recentDatasets.map((ds) => (
-                  <div key={ds.id} className="flex items-center justify-between rounded-lg border border-gray-100 p-3">
+                  <div key={ds.id} className="flex items-center justify-between rounded-lg border border-gray-100 dark:border-gray-700 p-3">
                     <div>
-                      <p className="font-medium text-gray-900">{ds.name}</p>
-                      <p className="text-xs text-gray-500">{ds.rows_count} rows, {ds.columns_count} columns</p>
+                      <p className="font-medium text-gray-900 dark:text-white">{ds.name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{ds.rows_count} rows, {ds.columns_count} columns</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-gray-500">{ds.target_column}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{ds.target_column}</p>
                     </div>
                   </div>
                 ))}

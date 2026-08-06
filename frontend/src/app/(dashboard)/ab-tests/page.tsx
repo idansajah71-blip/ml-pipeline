@@ -39,8 +39,8 @@ export default function ABTestsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">A/B Tests</h1>
-          <p className="text-gray-500">Compare model performance with A/B testing</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">A/B Tests</h1>
+          <p className="text-gray-500 dark:text-gray-400">Compare model performance with A/B testing</p>
         </div>
         <button
           onClick={() => setShowCreate(!showCreate)}
@@ -52,18 +52,18 @@ export default function ABTestsPage() {
       </div>
 
       {showCreate && (
-        <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-lg font-semibold">Create New A/B Test</h2>
+        <div className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
+          <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Create New A/B Test</h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <input
               type="text"
               placeholder="Test Name"
               value={createForm.name}
               onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-              className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 placeholder-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400"
             />
             <div>
-              <label className="block text-sm text-gray-500">Traffic Split: {createForm.traffic_split}% to Model B</label>
+              <label className="mb-1 block text-sm text-gray-500 dark:text-gray-400">Traffic Split: {createForm.traffic_split}% to Model B</label>
               <input
                 type="range"
                 min="0"
@@ -76,7 +76,7 @@ export default function ABTestsPage() {
             <select
               value={createForm.model_a_id}
               onChange={(e) => setCreateForm({ ...createForm, model_a_id: e.target.value })}
-              className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
             >
               <option value="">{modelsList.length === 0 ? 'Memuat model...' : 'Model A (Kontrol)'}</option>
               {modelsList.map((m) => (
@@ -86,7 +86,7 @@ export default function ABTestsPage() {
             <select
               value={createForm.model_b_id}
               onChange={(e) => setCreateForm({ ...createForm, model_b_id: e.target.value })}
-              className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              className="rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm text-gray-900 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
             >
               <option value="">{modelsList.length === 0 ? 'Memuat model...' : 'Model B (Varian)'}</option>
               {modelsList.map((m) => (
@@ -107,18 +107,18 @@ export default function ABTestsPage() {
       {isLoading ? (
         <LoadingSpinner size="lg" className="mx-auto" />
       ) : tests.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-16">
-          <FlaskConical className="mb-4 h-12 w-12 text-gray-300" />
-          <p className="text-gray-500">No A/B tests yet. Create your first test!</p>
+        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-16 dark:border-gray-600">
+          <FlaskConical className="mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" />
+          <p className="text-gray-500 dark:text-gray-400">No A/B tests yet. Create your first test!</p>
         </div>
       ) : (
         <div className="space-y-4">
           {tests.map((test) => (
-            <div key={test.id} className="rounded-xl border border-gray-200 bg-white p-6">
+            <div key={test.id} className="rounded-xl border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800">
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <h3 className="font-semibold text-gray-900">{test.name}</h3>
-                  <p className="text-sm text-gray-500">{test.description || 'No description'}</p>
+                  <h3 className="font-semibold text-gray-900 dark:text-white">{test.name}</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{test.description || 'No description'}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <StatusBadge status={test.status} />
@@ -150,18 +150,18 @@ export default function ABTestsPage() {
               </div>
 
               <div className="grid grid-cols-3 gap-4">
-                <div className="rounded-lg bg-gray-50 p-3 text-center">
-                  <p className="text-xs text-gray-500">Traffic Split</p>
-                  <p className="text-lg font-semibold">{test.traffic_split}%</p>
-                  <p className="text-xs text-gray-400">to Model B</p>
+                <div className="rounded-lg bg-gray-50 p-3 text-center dark:bg-gray-700">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Traffic Split</p>
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white">{test.traffic_split}%</p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">to Model B</p>
                 </div>
-                <div className="rounded-lg bg-blue-50 p-3 text-center">
-                  <p className="text-xs text-gray-500">Model A Requests</p>
-                  <p className="text-lg font-semibold text-blue-700">{test.model_a_requests}</p>
+                <div className="rounded-lg bg-blue-50 p-3 text-center dark:bg-blue-900/30">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Model A Requests</p>
+                  <p className="text-lg font-semibold text-blue-700 dark:text-blue-400">{test.model_a_requests}</p>
                 </div>
-                <div className="rounded-lg bg-green-50 p-3 text-center">
-                  <p className="text-xs text-gray-500">Model B Requests</p>
-                  <p className="text-lg font-semibold text-green-700">{test.model_b_requests}</p>
+                <div className="rounded-lg bg-green-50 p-3 text-center dark:bg-green-900/30">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Model B Requests</p>
+                  <p className="text-lg font-semibold text-green-700 dark:text-green-400">{test.model_b_requests}</p>
                 </div>
               </div>
             </div>

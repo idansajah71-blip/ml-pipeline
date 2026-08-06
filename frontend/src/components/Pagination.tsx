@@ -30,7 +30,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
       <button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-400 dark:hover:bg-gray-700"
       >
         <ChevronLeft className="h-4 w-4" />
       </button>
@@ -39,11 +39,11 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
         <>
           <button
             onClick={() => onPageChange(1)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-sm text-gray-600 hover:bg-gray-100"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
           >
             1
           </button>
-          {start > 2 && <span className="px-1 text-gray-400">...</span>}
+          {start > 2 && <span className="px-1 text-gray-400 dark:text-gray-500">...</span>}
         </>
       )}
 
@@ -55,7 +55,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
             'flex h-9 w-9 items-center justify-center rounded-lg text-sm font-medium',
             page === currentPage
               ? 'bg-primary-600 text-white'
-              : 'text-gray-600 hover:bg-gray-100'
+              : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
           )}
         >
           {page}
@@ -64,10 +64,10 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
 
       {end < totalPages && (
         <>
-          {end < totalPages - 1 && <span className="px-1 text-gray-400">...</span>}
+          {end < totalPages - 1 && <span className="px-1 text-gray-400 dark:text-gray-500">...</span>}
           <button
             onClick={() => onPageChange(totalPages)}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-sm text-gray-600 hover:bg-gray-100"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
           >
             {totalPages}
           </button>
@@ -77,7 +77,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange }: Pa
       <button
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+        className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed dark:text-gray-400 dark:hover:bg-gray-700"
       >
         <ChevronRight className="h-4 w-4" />
       </button>
