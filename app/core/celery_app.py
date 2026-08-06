@@ -6,8 +6,8 @@ settings = get_settings()
 
 celery_app = Celery(
     "ml_pipeline",
-    broker=settings.CELERY_BROKER_URL,
-    backend=settings.CELERY_RESULT_BACKEND,
+    broker=settings.CELERY_BROKER,
+    backend=settings.CELERY_BACKEND,
 )
 
 celery_app.conf.update(
