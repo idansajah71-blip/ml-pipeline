@@ -51,7 +51,7 @@ class ModelResponse(ModelBase):
     parameters: Dict[str, Any] = {}
     feature_names: List[str] = []
     target_column: Optional[str] = None
-    is_default: int
+    is_default: Optional[int] = 0
     owner_id: UUID
     created_at: datetime
     updated_at: datetime

@@ -24,7 +24,7 @@ class MLModel(Base):
     description = Column(Text)
     algorithm = Column(String(100), nullable=False)
     version = Column(Integer, default=1)
-    status = Column(Enum(ModelStatus), default=ModelStatus.TRAINED)
+    status = Column(Enum(ModelStatus, values_callable=lambda x: [e.value for e in x]), default=ModelStatus.TRAINED)
     file_path = Column(String(500))
     metrics = Column(JSON, default=dict)
     parameters = Column(JSON, default=dict)
