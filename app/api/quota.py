@@ -15,11 +15,17 @@ class TierUpdate(BaseModel):
     tier: str
 
 
+class QuotaUsage(BaseModel):
+    current: int
+    limit: int
+
+
 class QuotaResponse(BaseModel):
     tier: str
-    rpm: dict
-    daily: dict
-    monthly: dict
+    rpm: QuotaUsage
+    daily: QuotaUsage
+    monthly: QuotaUsage
+    training: dict
 
 
 @router.get("", response_model=QuotaResponse)
