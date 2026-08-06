@@ -439,6 +439,78 @@ ml-pipeline/
 
 ---
 
+## INSTALLASI DEPENDENCIES
+
+```bash
+# 1. Buat & aktifkan virtual environment
+python -m venv venv
+venv\Scripts\activate          # Windows
+# source venv/bin/activate    # Linux/Mac
+
+# 2. Install semua Python dependencies
+pip install -r requirements.txt
+
+# 3. Install Celery (termasuk Redis broker)
+pip install "celery[redis]==5.3.6"
+
+# 4. Install Node.js dependencies (frontend)
+cd frontend && npm install && cd ..
+
+# 5. Setup environment
+copy .env.example .env         # Windows
+# cp .env.example .env         # Linux/Mac
+# Edit .env sesuai kebutuhan, pastikan CELERY_BROKER_URL & CELERY_RESULT_BACKEND terisi
+
+# 6. Jalankan database migration
+python -m alembic upgrade head
+
+# 7. (Optional) Seed database dengan sample data
+python scripts/seed.py
+```
+
+### Cek dependencies sudah terinstall
+
+```bash
+# Cek Python packages utama
+pip list | findstr "fastapi uvicorn celery redis scikit sqlalchemy"
+
+# Cek Node packages
+cd frontend && npm list --depth=0
+```
+
+### Troubleshooting Celery
+
+```bash
+# Jika Celery tidak menemukan module, pastikan virtual environment aktif:
+venv\Scripts\activate
+
+# Cek Celery version
+celery --version
+
+# Cek semua tasks yang ter-register
+celery -A app.core.celery_app:celery_app inspect registered
+
+# Jika task cleanup_*/auto_retrain/data_retention tidak muncul,
+# pastikan app/ml/__init__.py meng-import semua submodule:
+#   from app.ml.tasks import *
+#   from app.ml.cleanup_tasks import *
+#   from app.ml.auto_retrain import *
+#   from app.ml.batch_tasks import *
+```
+
+### Konfigurasi .env untuk Celery
+
+```env
+# Celery wajib pakai Redis sebagai broker
+CELERY_BROKER_URL=redis://localhost:6379/1
+CELERY_RESULT_BACKEND=redis://localhost:6379/2
+
+# Jika tidak di-set, Celery akan gagal connect ke RabbitMQ (port 5672)
+# Error: Cannot connect to amqp://guest:**@127.0.0.1:5672/
+```
+
+---
+
 ## CARA JALANKAN
 
 ```bash
@@ -448,10 +520,10 @@ python run.py
 # Frontend (port 3000)
 cd frontend && npm run dev
 
-# Celery Worker
+# Celery Worker (12 tasks)
 celery -A app.core.celery_app:celery_app worker --loglevel=info --concurrency=2
 
-# Celery Beat
+# Celery Beat (7 periodic tasks)
 celery -A app.core.celery_app:celery_app beat --loglevel=info
 
 # Docker

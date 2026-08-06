@@ -4,6 +4,7 @@ from sqlalchemy import select
 from uuid import UUID
 from pydantic import BaseModel
 from typing import Optional, List
+from datetime import datetime
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
@@ -26,7 +27,7 @@ class VersionResponse(BaseModel):
     status: str
     metrics: dict
     changelog: Optional[str]
-    created_at: str
+    created_at: datetime
     model_config = {"from_attributes": True}
 
 
@@ -43,7 +44,7 @@ class LineageResponse(BaseModel):
     parent_model_id: Optional[UUID]
     relationship_type: str
     metadata_json: dict
-    created_at: str
+    created_at: datetime
     model_config = {"from_attributes": True}
 
 
@@ -54,7 +55,7 @@ class ArtifactResponse(BaseModel):
     artifact_type: str
     file_path: Optional[str]
     size_bytes: int
-    created_at: str
+    created_at: datetime
     model_config = {"from_attributes": True}
 
 

@@ -1,0 +1,28 @@
+product_name,category,price_idr,quantity_sold,city,province,rating,review_count,seller_rating,discount_pct,is_free_shipping
+iPhone 15 Pro Max,Electronics,18999000,1250,Jakarta,Jakarta,4.8,3420,4.9,12,1
+Samsung Galaxy S24 Ultra,Electronics,16499000,980,Jakarta,Jakarta,4.7,2890,4.8,8,1
+Xiaomi 14 Pro,Electronics,8999000,2100,Bandung,Jawa Barat,4.6,1560,4.7,15,1
+Laptop ASUS ROG Strix,Electronics,19999000,450,Surabaya,Jawa Timur,4.8,890,4.9,5,1
+MacBook Air M3,Electronics,16999000,320,Jakarta,Jakarta,4.9,1200,4.9,3,1
+Nike Air Max 2024,Fashion,1899000,3200,Surabaya,Jawa Timur,4.5,2100,4.6,20,1
+Uniqlo Heattech Winter,Fashion,299000,8500,Jakarta,Jakarta,4.4,5600,4.5,25,1
+Levi's 501 Original,Fashion,899000,1800,Bandung,Jawa Barat,4.6,1200,4.7,15,1
+Adidas Ultraboost,Fashion,2499000,1500,Jakarta,Jakarta,4.7,980,4.8,10,1
+Sephora Skincare Set,Beauty,599000,4200,Jakarta,Jakarta,4.8,3800,4.8,18,1
+Wardah Cosmetics Kit,Beauty,189000,6800,Surabaya,Jawa Timur,4.5,2400,4.6,22,1
+Skincare Korea Import,Beauty,349000,3100,Bandung,Jawa Barat,4.7,1900,4.7,12,1
+Indomie Goreng Box (40 pcs),Food,78000,15000,Jakarta,Jakarta,4.9,8200,4.8,5,1
+Kopi Toraja Premium 1kg,Food,145000,4500,Makassar,Sulawesi Selatan,4.8,2100,4.7,8,1
+Teh Poci Original (12 pack),Food,45000,8200,Semarang,Jawa Tengah,4.7,3400,4.6,10,1
+Rendang Instant (500g),Food,89000,6100,Padang,Sumatera Barat,4.8,2800,4.8,5,1
+Keripik Tempe (1 kg),Food,35000,7200,Malang,Jawa Timur,4.6,1900,4.5,8,0
+IKEA KALLAX Shelf,Home,899000,2800,Jakarta,Jakarta,4.5,1500,4.6,15,1
+Dyson V15 Vacuum,Home,7999000,380,Jakarta,Jakarta,4.8,680,4.9,5,1
+Tupperware Set 24 pcs,Home,499000,3500,Surabaya,Jawa Timur,4.4,2100,4.5,20,1
+Spring Bed King Size,Home,3499000,850,Bandung,Jawa Barat,4.6,920,4.7,12,1
+Nintendo Switch OLED,Gaming,4299000,1200,Jakarta,Jakarta,4.8,1800,4.8,8,1
+PS5 Slim Digital,Gaming,5999000,680,Jakarta,Jakarta,4.9,1100,4.9,3,1
+Steam Deck 512GB,Gaming,7499000,320,Surabaya,Jawa Timur,4.7,580,4.8,5,0
+Yamaha MT-25 Motorcycle,Vehicle,56500000,180,Jakarta,Jakarta,4.7,420,4.8,2,0
+Honda PCX 160,Vehicle,33500000,450,Bandung,Jawa Barat,4.8,680,4.8,3,0
+Vespa Primavera 150,Vehicle,52900000,95,Jakarta,Jakarta,4.9,280,4.9,0,0

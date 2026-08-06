@@ -1,0 +1,34 @@
+province,population,gdp_trillion_idr,sector,unemployment_rate,poverty_rate,literacy_rate
+Jakarta,10562088,2762.4,Services,5.8,4.5,99.2
+Jawa Barat,48274162,1586.3,Manufacturing,7.2,6.8,96.1
+Jawa Timur,40665696,1124.8,Agriculture,4.6,10.2,95.8
+Jawa Tengah,36516035,812.5,Agriculture,4.3,11.5,95.2
+Banten,11904562,568.9,Manufacturing,8.1,6.1,95.9
+Sumatera Utara,14799361,448.2,Agriculture,5.9,8.7,93.4
+Sumatera Selatan,8633850,312.7,Resources,6.4,12.1,92.8
+Sumatera Barat,5534472,228.4,Agriculture,4.8,7.3,94.1
+Riau,6394087,389.6,Resources,5.2,6.9,94.5
+Lampung,9007848,248.3,Agriculture,5.1,11.8,93.2
+Kalimantan Timur,3766039,421.8,Resources,3.9,5.2,94.8
+Kalimantan Selatan,4073584,198.5,Resources,4.7,6.4,93.9
+Sulawesi Selatan,9073509,318.4,Agriculture,4.9,8.9,93.1
+Sulawesi Utara,2621923,112.6,Resources,6.1,7.8,92.7
+Bali,4317404,186.9,Tourism,3.2,3.8,98.1
+Nusa Tenggara Timur,5325566,98.4,Agriculture,6.8,20.2,88.4
+Nusa Tenggara Barat,5320092,128.7,Agriculture,5.4,14.6,90.8
+Papua,4303000,82.3,Resources,7.2,26.8,79.2
+Maluku,1848923,52.6,Resources,6.9,17.4,85.6
+Gorontalo,1171681,28.4,Agriculture,5.6,15.2,88.9
+Sulawesi Tengah,2985734,92.8,Resources,5.8,11.4,90.1
+Sulawesi Utara,2621923,112.6,Resources,6.1,7.8,92.7
+Jambi,3548228,108.5,Resources,5.4,9.2,93.6
+Bengkulu,2010670,48.2,Agriculture,5.7,14.8,91.2
+Kepulauan Bangka Belitung,1455678,38.6,Resources,6.2,8.1,92.4
+DI Yogyakarta,3668719,128.4,Services,4.1,5.8,97.6
+Kalimantan Barat,5414390,148.7,Agriculture,5.3,7.6,93.4
+Kalimantan Tengah,2669969,96.3,Resources,6.7,9.8,91.8
+Kalimantan Utara,701814,32.4,Resources,7.4,8.2,90.1
+Sulawesi Tenggara,2624875,78.6,Resources,5.9,10.4,91.3
+Maluku Utara,1282937,38.2,Resources,7.8,12.6,86.4
+NTT,5325566,98.4,Agriculture,6.8,20.2,88.4
+Aceh,5274871,128.6,Resources,6.4,14.8,91.6

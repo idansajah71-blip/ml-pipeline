@@ -5,6 +5,7 @@ from sqlalchemy import select
 from uuid import UUID
 from pydantic import BaseModel
 from typing import List, Optional
+from datetime import datetime
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
@@ -35,7 +36,7 @@ class EndpointResponse(BaseModel):
     cache_ttl_seconds: int
     rate_limit_rpm: int
     is_active: int
-    created_at: str
+    created_at: datetime
     model_config = {"from_attributes": True}
 
 

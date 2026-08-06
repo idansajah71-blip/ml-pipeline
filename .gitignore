@@ -60,6 +60,9 @@ docker-compose.override.yml
 .DS_Store
 Thumbs.db
 
+# Celery
+celerybeat-schedule.*
+
 # Node.js
 node_modules/
 .next/

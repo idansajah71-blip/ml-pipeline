@@ -1,0 +1,37 @@
+city,province,month,temperature_c,humidity_pct,rainfall_mm,wind_speed_kmh,weather_condition
+Jakarta,Jakarta,January,28.5,82,320,12.5,Rainy
+Jakarta,Jakarta,July,28.1,73,42,11.8,Dry
+Surabaya,Jawa Timur,January,28.8,78,285,10.2,Rainy
+Surabaya,Jawa Timur,July,28.4,68,28,9.8,Dry
+Bandung,Jawa Barat,January,24.2,85,298,8.5,Rainy
+Bandung,Jawa Barat,July,23.8,72,35,7.2,Dry
+Semarang,Jawa Tengah,January,28.1,80,310,11.2,Rainy
+Semarang,Jawa Tengah,July,27.6,70,38,10.5,Dry
+Yogyakarta,DI Yogyakarta,January,27.4,82,275,9.8,Rainy
+Yogyakarta,DI Yogyakarta,July,27.0,68,32,8.6,Dry
+Medan,Sumatera Utara,January,27.2,84,245,8.2,Rainy
+Medan,Sumatera Utara,July,28.0,75,125,7.5,Partly Cloudy
+Palembang,Sumatera Selatan,January,28.6,85,340,9.5,Rainy
+Palembang,Sumatera Selatan,July,28.2,72,55,8.8,Partly Cloudy
+Padang,Sumatera Barat,January,27.8,88,420,10.8,Rainy
+Padang,Sumatera Barat,July,27.2,80,180,9.2,Partly Cloudy
+Manado,Sulawesi Utara,January,27.0,86,385,12.2,Rainy
+Manado,Sulawesi Utara,July,27.4,74,85,11.5,Partly Cloudy
+Makassar,Sulawesi Selatan,January,28.2,82,295,11.8,Rainy
+Makassar,Sulawesi Selatan,July,28.8,65,45,10.2,Dry
+Denpasar,Bali,January,28.6,85,350,12.8,Rainy
+Denpasar,Bali,July,27.4,72,55,11.2,Partly Cloudy
+Pontianak,Kalimantan Barat,January,28.8,88,445,8.5,Rainy
+Pontianak,Kalimantan Barat,July,28.4,78,160,7.8,Partly Cloudy
+Banjarmasin,Kalimantan Selatan,January,28.2,86,380,9.2,Rainy
+Banjarmasin,Kalimantan Selatan,July,28.6,74,110,8.5,Partly Cloudy
+Samarinda,Kalimantan Timur,January,28.0,85,295,7.8,Rainy
+Samarinda,Kalimantan Timur,July,28.4,76,145,7.2,Partly Cloudy
+Jayapura,Papua,January,27.4,88,310,8.8,Rainy
+Jayapura,Papua,July,27.0,82,180,8.2,Partly Cloudy
+Ambon,Maluku,January,28.2,86,265,10.5,Rainy
+Ambon,Maluku,July,27.6,78,120,9.8,Partly Cloudy
+Kupang,NTT,January,28.8,82,225,12.5,Rainy
+Kupang,NTT,July,27.2,65,18,11.8,Dry
+Banda Aceh,Aceh,January,27.0,86,330,9.5,Rainy
+Banda Aceh,Aceh,July,28.2,78,140,8.8,Partly Cloudy

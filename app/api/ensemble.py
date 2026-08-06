@@ -4,6 +4,7 @@ from sqlalchemy import select
 from uuid import UUID
 from pydantic import BaseModel
 from typing import Optional, List
+import uuid
 import numpy as np
 
 from app.core.database import get_db
@@ -57,7 +58,7 @@ async def create_ensemble(
             raise HTTPException(status_code=404, detail=f"Model {mid} not found")
         models_list.append(model)
 
-    ensemble_id = str(UUID(int=np.random.randint(0, 2**64)))
+    ensemble_id = str(uuid.uuid4())
     weights = data.weights or {str(mid): 1.0 / len(data.model_ids) for mid in data.model_ids}
 
     ensembles_store[ensemble_id] = {
