@@ -299,13 +299,15 @@ def retrain_model_task(self, model_id: str, owner_id: str):
         if not model:
             return {"status": "failed", "error": "Model not found"}
 
-        dataset = session.query(Dataset).filter(Dataset.id == model.target_column).first()
-        if not dataset:
-            experiments = session.query(Experiment).filter(
-                Experiment.model_id == model_id
-            ).order_by(Experiment.created_at.desc()).all()
-            if experiments and experiments[0].dataset_id:
-                dataset = session.query(Dataset).filter(Dataset.id == experiments[0].dataset_id).first()
+        dataset = None
+        if experiments := session.query(Experiment).filter(
+            Experiment.model_id == model_id
+        ).order_by(Experiment.created_at.desc()).all():
+            for exp in experiments:
+                if exp.dataset_id:
+                    dataset = session.query(Dataset).filter(Dataset.id == exp.dataset_id).first()
+                    if dataset:
+                        break
 
         if not dataset:
             return {"status": "failed", "error": "No dataset found for retraining"}

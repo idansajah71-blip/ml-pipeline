@@ -10,6 +10,8 @@ import { CardSkeleton } from '@/components/Skeleton';
 import { useToast } from '@/components/Toast';
 import { models, datasets as datasetsApi, algorithms } from '@/lib/api';
 import { useModels, useDatasets, useAlgorithms } from '@/lib/hooks';
+import { ALGORITHMS } from '@/lib/algorithms';
+import Tooltip from '@/components/Tooltip';
 import Link from 'next/link';
 
 const ITEMS_PER_PAGE = 9;
@@ -18,7 +20,7 @@ export default function ModelsPage() {
   const { toast } = useToast();
   const { models: modelsList, isLoading, mutate } = useModels();
   const { datasets: datasetsList } = useDatasets();
-  const { algorithms: algorithmsList } = useAlgorithms();
+  const { classificationAlgorithms: algorithmsList } = useAlgorithms();
   const [showCreate, setShowCreate] = useState(false);
   const [training, setTraining] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState({ name: '', algorithm: 'random_forest', target_column: '', description: '' });
@@ -117,16 +119,28 @@ export default function ModelsPage() {
               onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
               className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             />
-            <select
-              value={createForm.algorithm}
-              onChange={(e) => setCreateForm({ ...createForm, algorithm: e.target.value })}
-              className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-            >
-              {algorithmsList.length === 0 && <option value="">Memuat algoritma...</option>}
-              {algorithmsList.map((alg) => (
-                <option key={alg} value={alg}>{alg}</option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={createForm.algorithm}
+                onChange={(e) => setCreateForm({ ...createForm, algorithm: e.target.value })}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+              >
+                {algorithmsList.length === 0 && <option value="">Memuat algoritma...</option>}
+                {algorithmsList.map((alg) => (
+                  <option key={alg} value={alg}>{ALGORITHMS[alg]?.label || alg}</option>
+                ))}
+              </select>
+              {createForm.algorithm && ALGORITHMS[createForm.algorithm] && (
+                <div className="mt-1.5 flex items-start gap-1.5 rounded-md bg-gray-50 px-3 py-2">
+                  <Tooltip content={ALGORITHMS[createForm.algorithm].description} position="bottom" className="!whitespace-normal !max-w-xs">
+                    <span className="inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-[10px] text-gray-600">
+                      ?
+                    </span>
+                  </Tooltip>
+                  <p className="text-xs text-gray-500">{ALGORITHMS[createForm.algorithm].bestFor}</p>
+                </div>
+              )}
+            </div>
             <input
               type="text"
               placeholder="Target Column"

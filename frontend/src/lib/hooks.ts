@@ -188,5 +188,12 @@ export function useAlgorithms() {
     shouldRetryOnError: true,
     errorRetryCount: 3,
   });
-  return { algorithms: data?.algorithms ?? [], defaultParams: data?.default_params ?? {}, isLoading, isError: error };
+  return {
+    classificationAlgorithms: data?.classification?.algorithms ?? [],
+    regressionAlgorithms: data?.regression?.algorithms ?? [],
+    classificationParams: data?.classification?.default_params ?? {},
+    regressionParams: data?.regression?.default_params ?? {},
+    isLoading,
+    isError: error,
+  };
 }

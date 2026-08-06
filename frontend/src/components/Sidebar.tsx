@@ -29,6 +29,11 @@ import {
   Blend,
   DollarSign,
   Wand2,
+  Gauge,
+  LineChart,
+  FileCheck,
+  AlertTriangle,
+  BarChart,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -54,6 +59,10 @@ const navigation = [
   { name: 'Webhook', href: '/webhooks', icon: Bell },
   { name: 'Organisasi', href: '/organizations', icon: Users },
   { name: 'Biaya', href: '/costs', icon: DollarSign },
+  { name: 'Kuota API', href: '/quota', icon: Gauge },
+  { name: 'MLflow', href: '/mlflow', icon: LineChart },
+  { name: 'Benchmark', href: '/benchmark', icon: BarChart },
+  { name: 'Validasi Data', href: '/data-validation', icon: FileCheck },
   { name: 'Monitoring', href: '/monitoring', icon: Settings },
   { name: 'Log Audit', href: '/audit-logs', icon: History },
   { name: 'Pengaturan', href: '/settings', icon: UserCircle },
@@ -75,14 +84,15 @@ export default function Sidebar() {
           <ThemeToggle />
           <button
             onClick={() => setMobileOpen(false)}
-            className="lg:hidden text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            className="lg:hidden text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-2 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="Tutup menu navigasi"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
       </div>
 
-      <nav className="space-y-1 px-3 py-4">
+      <nav className="space-y-1 px-3 py-4" aria-label="Navigasi utama">
         {navigation.map((item) => {
           const isActive = pathname === item.href;
           return (
@@ -116,7 +126,8 @@ export default function Sidebar() {
         </div>
         <button
           onClick={logout}
-          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 min-h-[44px]"
+          aria-label="Keluar dari akun"
         >
           <LogOut className="h-4 w-4" />
           Keluar
@@ -129,7 +140,9 @@ export default function Sidebar() {
     <>
       <button
         onClick={() => setMobileOpen(true)}
-        className="fixed left-4 top-4 z-50 rounded-lg bg-white dark:bg-gray-800 p-2 shadow-md lg:hidden"
+        className="fixed left-4 top-4 z-50 rounded-lg bg-white dark:bg-gray-800 p-2 shadow-md lg:hidden min-h-[44px] min-w-[44px] flex items-center justify-center"
+        aria-label="Buka menu navigasi"
+        aria-expanded={mobileOpen}
       >
         <Menu className="h-5 w-5 text-gray-600 dark:text-gray-400" />
       </button>

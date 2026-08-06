@@ -6,12 +6,14 @@ import { ArrowLeft, Zap, Trophy, Loader2 } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { models, datasets as datasetsApi } from '@/lib/api';
 import { useDatasets, useAlgorithms } from '@/lib/hooks';
+import { ALGORITHMS } from '@/lib/algorithms';
+import Tooltip from '@/components/Tooltip';
 import { Dataset } from '@/types';
 
 export default function AutoMLPage() {
   const router = useRouter();
   const { datasets: datasetList, isLoading: datasetsLoading } = useDatasets();
-  const { algorithms: algoList, isLoading: algosLoading } = useAlgorithms();
+  const { classificationAlgorithms: algoList, isLoading: algosLoading } = useAlgorithms();
   const [selectedDataset, setSelectedDataset] = useState<string>('');
   const [targetColumn, setTargetColumn] = useState<string>('');
   const [selectedAlgos, setSelectedAlgos] = useState<string[]>([]);
@@ -129,17 +131,23 @@ export default function AutoMLPage() {
               </label>
               <div className="flex flex-wrap gap-2">
                 {algoList.map((algo) => (
-                  <button
+                  <Tooltip
                     key={algo}
-                    onClick={() => toggleAlgo(algo)}
-                    className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                      selectedAlgos.includes(algo)
-                        ? 'bg-primary-100 text-primary-700 border border-primary-300'
-                        : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
-                    }`}
+                    content={ALGORITHMS[algo]?.description || algo}
+                    position="top"
+                    className="!whitespace-normal !max-w-xs"
                   >
-                    {algo}
-                  </button>
+                    <button
+                      onClick={() => toggleAlgo(algo)}
+                      className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                        selectedAlgos.includes(algo)
+                          ? 'bg-primary-100 text-primary-700 border border-primary-300'
+                          : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+                      }`}
+                    >
+                      {ALGORITHMS[algo]?.label || algo}
+                    </button>
+                  </Tooltip>
                 ))}
               </div>
               <p className="mt-1 text-xs text-gray-500">Kosongkan untuk menjalankan semua algoritma</p>

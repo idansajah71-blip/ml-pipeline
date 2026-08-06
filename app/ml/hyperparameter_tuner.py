@@ -1,96 +1,152 @@
-from typing import Dict, Any, Optional, Tuple
-from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
-from sklearn.ensemble import (
-    RandomForestClassifier,
-    GradientBoostingClassifier,
-    RandomForestRegressor,
-    GradientBoostingRegressor,
-)
-from sklearn.linear_model import LogisticRegression, Ridge
-from sklearn.svm import SVC, SVR
-from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
-from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from typing import Dict, Any, Optional, Tuple, List
 import numpy as np
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
-CLASSIFICATION_GRIDS = {
-    'random_forest': {
-        'n_estimators': [50, 100, 200],
-        'max_depth': [None, 10, 20, 30],
-        'min_samples_split': [2, 5, 10],
-        'min_samples_leaf': [1, 2, 4],
-    },
-    'gradient_boosting': {
-        'n_estimators': [50, 100, 200],
-        'learning_rate': [0.01, 0.1, 0.2],
-        'max_depth': [3, 5, 7],
-        'min_samples_split': [2, 5],
-    },
-    'logistic_regression': {
-        'C': [0.01, 0.1, 1.0, 10.0],
-        'penalty': ['l2'],
-        'solver': ['lbfgs', 'liblinear'],
-    },
-    'svm': {
-        'C': [0.1, 1.0, 10.0],
-        'kernel': ['rbf', 'linear'],
-        'gamma': ['scale', 'auto'],
-    },
-    'knn': {
-        'n_neighbors': [3, 5, 7, 11],
-        'weights': ['uniform', 'distance'],
-        'metric': ['euclidean', 'manhattan'],
-    },
-    'decision_tree': {
-        'max_depth': [None, 5, 10, 20],
-        'min_samples_split': [2, 5, 10],
-        'min_samples_leaf': [1, 2, 4],
-    },
-}
 
-REGRESSION_GRIDS = {
-    'random_forest': {
-        'n_estimators': [50, 100, 200],
-        'max_depth': [None, 10, 20, 30],
-        'min_samples_split': [2, 5, 10],
-        'min_samples_leaf': [1, 2, 4],
-    },
-    'gradient_boosting': {
-        'n_estimators': [50, 100, 200],
-        'learning_rate': [0.01, 0.1, 0.2],
-        'max_depth': [3, 5, 7],
-        'min_samples_split': [2, 5],
-    },
-    'ridge': {
-        'alpha': [0.01, 0.1, 1.0, 10.0, 100.0],
-    },
-}
+def _get_optuna():
+    try:
+        import optuna
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
+        return optuna
+    except ImportError:
+        return None
 
-CLASSIFICATION_MODELS = {
-    'random_forest': RandomForestClassifier,
-    'gradient_boosting': GradientBoostingClassifier,
-    'logistic_regression': LogisticRegression,
-    'svm': SVC,
-    'knn': KNeighborsClassifier,
-    'decision_tree': DecisionTreeClassifier,
-}
 
-REGRESSION_MODELS = {
-    'random_forest': RandomForestRegressor,
-    'gradient_boosting': GradientBoostingRegressor,
-    'ridge': Ridge,
+optuna = _get_optuna()
+
+
+def _suggest_xgboost_params(trial, problem_type):
+    params = {
+        'n_estimators': trial.suggest_int('n_estimators', 50, 500),
+        'max_depth': trial.suggest_int('max_depth', 3, 10),
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
+        'subsample': trial.suggest_float('subsample', 0.6, 1.0),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
+        'reg_alpha': trial.suggest_float('reg_alpha', 1e-8, 10.0, log=True),
+        'reg_lambda': trial.suggest_float('reg_lambda', 1e-8, 10.0, log=True),
+        'min_child_weight': trial.suggest_int('min_child_weight', 1, 10),
+        'random_state': 42,
+    }
+    if problem_type == 'classification':
+        params['eval_metric'] = 'logloss'
+        params['use_label_encoder'] = False
+    return params
+
+
+def _suggest_lightgbm_params(trial, problem_type):
+    params = {
+        'n_estimators': trial.suggest_int('n_estimators', 50, 500),
+        'num_leaves': trial.suggest_int('num_leaves', 20, 150),
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
+        'feature_fraction': trial.suggest_float('feature_fraction', 0.6, 1.0),
+        'bagging_fraction': trial.suggest_float('bagging_fraction', 0.6, 1.0),
+        'bagging_freq': trial.suggest_int('bagging_freq', 1, 7),
+        'min_child_samples': trial.suggest_int('min_child_samples', 5, 100),
+        'reg_alpha': trial.suggest_float('reg_alpha', 1e-8, 10.0, log=True),
+        'reg_lambda': trial.suggest_float('reg_lambda', 1e-8, 10.0, log=True),
+        'random_state': 42,
+        'verbose': -1,
+    }
+    return params
+
+
+def _suggest_catboost_params(trial, problem_type):
+    params = {
+        'iterations': trial.suggest_int('iterations', 50, 500),
+        'depth': trial.suggest_int('depth', 3, 10),
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
+        'l2_leaf_reg': trial.suggest_float('l2_leaf_reg', 1e-8, 10.0, log=True),
+        'random_strength': trial.suggest_float('random_strength', 0.0, 10.0),
+        'bagging_temperature': trial.suggest_float('bagging_temperature', 0.0, 10.0),
+        'random_state': 42,
+        'verbose': 0,
+    }
+    return params
+
+
+def _suggest_random_forest_params(trial, problem_type):
+    return {
+        'n_estimators': trial.suggest_int('n_estimators', 50, 300),
+        'max_depth': trial.suggest_int('max_depth', 3, 30) if trial.suggest_categorical('use_max_depth', [True, False]) else None,
+        'min_samples_split': trial.suggest_int('min_samples_split', 2, 20),
+        'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 10),
+        'max_features': trial.suggest_categorical('max_features', ['sqrt', 'log2', None]),
+        'random_state': 42,
+    }
+
+
+def _suggest_gradient_boosting_params(trial, problem_type):
+    return {
+        'n_estimators': trial.suggest_int('n_estimators', 50, 300),
+        'max_depth': trial.suggest_int('max_depth', 3, 10),
+        'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
+        'min_samples_split': trial.suggest_int('min_samples_split', 2, 20),
+        'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 10),
+        'subsample': trial.suggest_float('subsample', 0.6, 1.0),
+        'random_state': 42,
+    }
+
+
+def _suggest_svm_params(trial, problem_type):
+    return {
+        'C': trial.suggest_float('C', 0.01, 100.0, log=True),
+        'kernel': trial.suggest_categorical('kernel', ['rbf', 'linear', 'poly']),
+        'gamma': trial.suggest_categorical('gamma', ['scale', 'auto']),
+        'probability': True,
+    }
+
+
+def _suggest_knn_params(trial, problem_type):
+    return {
+        'n_neighbors': trial.suggest_int('n_neighbors', 1, 20),
+        'weights': trial.suggest_categorical('weights', ['uniform', 'distance']),
+        'metric': trial.suggest_categorical('metric', ['euclidean', 'manhattan', 'minkowski']),
+        'p': trial.suggest_int('p', 1, 5),
+    }
+
+
+def _suggest_logistic_regression_params(trial, problem_type):
+    return {
+        'C': trial.suggest_float('C', 0.01, 100.0, log=True),
+        'penalty': trial.suggest_categorical('penalty', ['l1', 'l2']),
+        'solver': trial.suggest_categorical('solver', ['lbfgs', 'liblinear', 'saga']),
+        'max_iter': 1000,
+        'random_state': 42,
+    }
+
+
+def _suggest_decision_tree_params(trial, problem_type):
+    return {
+        'max_depth': trial.suggest_int('max_depth', 3, 20) if trial.suggest_categorical('use_max_depth', [True, False]) else None,
+        'min_samples_split': trial.suggest_int('min_samples_split', 2, 20),
+        'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 10),
+        'criterion': trial.suggest_categorical('criterion', ['gini', 'entropy']),
+        'random_state': 42,
+    }
+
+
+PARAM_SUGGESTERS = {
+    'xgboost': _suggest_xgboost_params,
+    'lightgbm': _suggest_lightgbm_params,
+    'catboost': _suggest_catboost_params,
+    'random_forest': _suggest_random_forest_params,
+    'gradient_boosting': _suggest_gradient_boosting_params,
+    'svm': _suggest_svm_params,
+    'knn': _suggest_knn_params,
+    'logistic_regression': _suggest_logistic_regression_params,
+    'decision_tree': _suggest_decision_tree_params,
 }
 
 
 class HyperparameterTuner:
     """
-    Hyperparameter tuning using GridSearchCV or RandomizedSearchCV.
+    Hyperparameter tuning using Optuna with TPE sampler.
     
-    Supports both classification and regression tasks with
-    predefined search spaces for common algorithms.
+    Supports Bayesian optimization with pruning for efficient search
+    across classification and regression tasks.
     """
 
     def __init__(self):
@@ -98,166 +154,147 @@ class HyperparameterTuner:
         self.best_score = None
         self.best_model = None
         self.tuning_history = []
+        self.study = None
 
     def tune(
         self,
-        model,
+        model_class,
         X_train,
         y_train,
         algorithm: str,
         problem_type: str = 'classification',
-        method: str = 'grid',
+        n_trials: int = 50,
         cv: int = 5,
-        n_iter: int = 50,
         scoring: Optional[str] = None,
-        n_jobs: int = -1,
+        timeout_seconds: Optional[int] = None,
+        n_jobs: int = 1,
     ) -> Tuple[Any, Dict[str, Any]]:
-        """
-        Perform hyperparameter tuning.
-        
-        Args:
-            model: Base model to tune
-            X_train: Training features
-            y_train: Training labels
-            algorithm: Algorithm name
-            problem_type: 'classification' or 'regression'
-            method: 'grid' for GridSearchCV, 'random' for RandomizedSearchCV
-            cv: Number of cross-validation folds
-            n_iter: Number of iterations for RandomizedSearchCV
-            scoring: Scoring metric (auto-selected if None)
-            n_jobs: Number of parallel jobs
-            
-        Returns:
-            Tuple of (best_model, tuning_results)
-        """
-        if problem_type == 'classification':
-            param_grid = CLASSIFICATION_GRIDS.get(algorithm, {})
-        else:
-            param_grid = REGRESSION_GRIDS.get(algorithm, {})
-
-        if not param_grid:
-            logger.warning(f"No parameter grid found for {algorithm}. Using default parameters.")
-            return model, {'message': 'No tuning grid available', 'params': {}}
+        if optuna is None:
+            logger.warning("Optuna not installed. Falling back to default parameters.")
+            return model_class, {
+                'message': 'Optuna not installed. Using default parameters.',
+                'best_params': {},
+            }
 
         if scoring is None:
-            if problem_type == 'classification':
-                scoring = 'f1_weighted'
-            else:
-                scoring = 'r2'
+            scoring = 'f1_weighted' if problem_type == 'classification' else 'r2'
 
-        start_time = datetime.now()
+        suggest_fn = PARAM_SUGGESTERS.get(algorithm)
+        if suggest_fn is None:
+            logger.warning(f"No Optuna search space for {algorithm}. Using default params.")
+            return model_class, {'message': f'No search space for {algorithm}', 'best_params': {}}
+
+        from sklearn.model_selection import cross_val_score
+
+        def objective(trial):
+            params = suggest_fn(trial, problem_type)
+
+            try:
+                model_instance = model_class(**params)
+                scores = cross_val_score(
+                    model_instance, X_train, y_train,
+                    cv=cv, scoring=scoring, n_jobs=1,
+                )
+                return float(scores.mean())
+            except Exception as e:
+                logger.warning(f"Trial failed: {e}")
+                return float('-inf')
+
+        start_time = datetime.now(timezone.utc)
 
         try:
-            if method == 'grid':
-                searcher = GridSearchCV(
-                    model,
-                    param_grid,
-                    cv=cv,
-                    scoring=scoring,
-                    n_jobs=n_jobs,
-                    refit=True,
-                    return_train_score=False,
-                )
-            else:
-                searcher = RandomizedSearchCV(
-                    model,
-                    param_grid,
-                    n_iter=min(n_iter, self._count_combinations(param_grid)),
-                    cv=cv,
-                    scoring=scoring,
-                    n_jobs=n_jobs,
-                    refit=True,
-                    return_train_score=False,
-                    random_state=42,
-                )
+            study = optuna.create_study(
+                direction='maximize',
+                sampler=optuna.samplers.TPESampler(seed=42),
+                pruner=optuna.pruners.MedianPruner(n_warmup_steps=5),
+            )
+            study.optimize(
+                objective,
+                n_trials=n_trials,
+                timeout=timeout_seconds,
+                n_jobs=n_jobs,
+                show_progress_bar=False,
+            )
 
-            searcher.fit(X_train, y_train)
+            self.study = study
+            self.best_params = study.best_params
+            self.best_score = study.best_value
 
-            duration = (datetime.now() - start_time).total_seconds()
+            best_model = model_class(**self.best_params, random_state=42)
+            best_model.fit(X_train, y_train)
+            self.best_model = best_model
 
-            self.best_params = searcher.best_params_
-            self.best_score = searcher.best_score_
-            self.best_model = searcher.best_estimator_
+            duration = (datetime.now(timezone.utc) - start_time).total_seconds()
 
             results = {
-                'best_params': searcher.best_params_,
-                'best_score': float(searcher.best_score_),
+                'best_params': study.best_params,
+                'best_score': float(study.best_value),
                 'scoring_metric': scoring,
-                'method': method,
+                'method': 'optuna_tpe',
                 'cv_folds': cv,
+                'n_trials': len(study.trials),
                 'duration_seconds': round(duration, 2),
-                'n_candidates': len(searcher.cv_results_['params']),
-                'completed_at': datetime.utcnow().isoformat(),
+                'completed_at': datetime.now(timezone.utc).isoformat(),
+                'optimization_history': [
+                    {
+                        'trial': t.number,
+                        'value': float(t.value) if t.value is not None else None,
+                        'params': t.params,
+                        'state': str(t.state),
+                    }
+                    for t in study.trials[-10:]
+                ],
+                'param_importances': self._get_param_importances(study),
             }
 
             self.tuning_history.append(results)
-
             return self.best_model, results
 
         except Exception as e:
-            logger.error(f"Hyperparameter tuning failed: {e}", exc_info=True)
-            return model, {
+            logger.error(f"Optuna tuning failed: {e}", exc_info=True)
+            return model_class, {
                 'error': str(e),
-                'message': 'Tuning failed, using original model',
-                'params': {},
+                'message': 'Tuning failed, using default model',
+                'best_params': {},
             }
 
-    def _count_combinations(self, param_grid: Dict) -> int:
-        """Count total parameter combinations."""
-        count = 1
-        for values in param_grid.values():
-            count *= len(values)
-        return count
+    def _get_param_importances(self, study) -> Dict[str, float]:
+        try:
+            import optuna
+            importances = optuna.importance.get_param_importances(study)
+            return {k: round(float(v), 6) for k, v in importances.items()}
+        except Exception:
+            return {}
 
     def get_search_space_summary(self, algorithm: str, problem_type: str = 'classification') -> Dict[str, Any]:
-        """Get summary of search space for an algorithm."""
-        if problem_type == 'classification':
-            grid = CLASSIFICATION_GRIDS.get(algorithm, {})
-        else:
-            grid = REGRESSION_GRIDS.get(algorithm, {})
-
-        if not grid:
-            return {'algorithm': algorithm, 'message': 'No tuning grid available'}
-
-        total_combinations = self._count_combinations(grid)
+        suggest_fn = PARAM_SUGGESTERS.get(algorithm)
+        if suggest_fn is None:
+            return {'algorithm': algorithm, 'message': 'No tuning space available'}
 
         return {
             'algorithm': algorithm,
             'problem_type': problem_type,
-            'parameters': {k: v if len(v) <= 5 else f"[{len(v)} options]" for k, v in grid.items()},
-            'total_combinations': total_combinations,
+            'method': 'optuna_tpe',
+            'has_search_space': True,
         }
 
 
 def tune_hyperparameters(
-    model,
+    model_class,
     X_train,
     y_train,
     algorithm: str,
     problem_type: str = 'classification',
-    method: str = 'grid',
+    n_trials: int = 50,
     cv: int = 5,
+    scoring: Optional[str] = None,
 ) -> Tuple[Any, Dict[str, Any]]:
-    """
-    Convenience function for hyperparameter tuning.
-    
-    Args:
-        model: Base model to tune
-        X_train: Training features
-        y_train: Training labels
-        algorithm: Algorithm name
-        problem_type: 'classification' or 'regression'
-        method: 'grid' or 'random'
-        cv: Number of CV folds
-        
-    Returns:
-        Tuple of (tuned_model, tuning_results)
-    """
     tuner = HyperparameterTuner()
     return tuner.tune(
-        model, X_train, y_train,
+        model_class, X_train, y_train,
         algorithm=algorithm,
         problem_type=problem_type,
-        method=method,
+        n_trials=n_trials,
         cv=cv,
+        scoring=scoring,
     )

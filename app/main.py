@@ -14,6 +14,7 @@ from app.api import ml_ops, ab_testing_enhanced, model_optimization
 from app.api import feature_store, serving, organizations, quota
 from app.api import model_versions, experiment_compare, feature_monitoring, webhooks, lineage_metrics
 from app.api import explainability_dashboard, ensemble, data_versioning, marketplace, cost_tracking
+from app.api import mlflow_tracking, model_benchmark, data_validation_api
 from app.core.security_middleware import (
     RateLimitMiddleware,
     SecurityHeadersMiddleware,
@@ -53,6 +54,7 @@ async def lifespan(app: FastAPI):
         await init_db()
 
     from app.core.websocket import manager
+    await manager.start_redis_listener()
     yield
     await manager.stop_redis_listener()
 
@@ -130,6 +132,9 @@ app.include_router(ensemble.router, prefix="/api/v1")
 app.include_router(data_versioning.router, prefix="/api/v1")
 app.include_router(marketplace.router, prefix="/api/v1")
 app.include_router(cost_tracking.router, prefix="/api/v1")
+app.include_router(mlflow_tracking.router, prefix="/api/v1")
+app.include_router(model_benchmark.router, prefix="/api/v1")
+app.include_router(data_validation_api.router, prefix="/api/v1")
 
 
 @app.get("/health")
@@ -181,9 +186,14 @@ async def root():
 @app.get("/api/v1/algorithms")
 async def list_algorithms():
     from app.ml.trainer import ModelTrainer
+    trainer = ModelTrainer()
     return {
-        "algorithms": list(ModelTrainer.ALGORITHMS.keys()),
-        "default_params": ModelTrainer.DEFAULT_PARAMS,
+        "classification": trainer.get_algorithms("classification"),
+        "regression": trainer.get_algorithms("regression"),
+        "available_count": {
+            "classification": len(trainer.ALGORITHMS),
+            "regression": len(trainer.REGRESSION_ALGORITHMS),
+        },
     }
 
 

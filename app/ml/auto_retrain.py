@@ -41,15 +41,14 @@ def auto_retrain_on_drift(model_id: str, drift_score: float, feature_name: str):
 
         dataset = None
         from app.models.dataset import Dataset
-        if model.target_column:
-            dataset = session.query(Dataset).filter(Dataset.id == model.target_column).first()
-
-        if not dataset:
-            experiments = session.query(Experiment).filter(
-                Experiment.model_id == model_id
-            ).order_by(Experiment.created_at.desc()).all()
-            if experiments and experiments[0].dataset_id:
-                dataset = session.query(Dataset).filter(Dataset.id == experiments[0].dataset_id).first()
+        experiments = session.query(Experiment).filter(
+            Experiment.model_id == model_id
+        ).order_by(Experiment.created_at.desc()).all()
+        for exp in experiments:
+            if exp.dataset_id:
+                dataset = session.query(Dataset).filter(Dataset.id == exp.dataset_id).first()
+                if dataset:
+                    break
 
         if not dataset:
             experiment.status = ExperimentStatus.FAILED

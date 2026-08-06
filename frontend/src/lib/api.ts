@@ -176,7 +176,7 @@ export const notifications = {
 };
 
 export const algorithms = {
-  list: () => api.get<{ algorithms: string[]; default_params: Record<string, any> }>('/algorithms'),
+  list: () => api.get<{ classification: { algorithms: string[]; default_params: Record<string, any> }; regression: { algorithms: string[]; default_params: Record<string, any> } }>('/algorithms'),
 };
 
 export const mlOps = {
@@ -341,6 +341,27 @@ export const costTracking = {
     api.post('/costs', data),
   summary: (days?: number) => api.get('/costs/summary', { params: { days: days || 30 } }),
   byModel: () => api.get('/costs/by-model'),
+};
+
+export const mlflowApi = {
+  status: () => api.get('/mlflow/status'),
+  runs: (maxResults?: number) => api.get('/mlflow/runs', { params: { max_results: maxResults || 10 } }),
+  logRun: (data: { model_id: string; parameters?: Record<string, any>; metrics?: Record<string, any>; tags?: Record<string, string> }) =>
+    api.post('/mlflow/log', data),
+};
+
+export const benchmarkApi = {
+  run: (modelId: string) => api.post(`/benchmark/${modelId}`),
+};
+
+export const dataValidationApi = {
+  validate: (datasetId: string, targetColumn?: string) => {
+    const params = targetColumn ? `?target_column=${targetColumn}` : '';
+    return api.post(`/data-validation/${datasetId}/validate${params}`);
+  },
+  driftDetect: (refId: string, curId: string) =>
+    api.post('/data-validation/drift-detect', null, { params: { reference_dataset_id: refId, current_dataset_id: curId } }),
+  quality: (datasetId: string) => api.post(`/data-validation/${datasetId}/quality`),
 };
 
 export const websocket = {

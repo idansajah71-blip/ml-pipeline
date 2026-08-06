@@ -37,6 +37,12 @@ class ConnectionManager:
 
     async def start_redis_listener(self):
         try:
+            self._pubsub_task = asyncio.create_task(self._listen_redis())
+        except Exception as e:
+            print(f"Redis listener start error: {e}")
+
+    async def _listen_redis(self):
+        try:
             import redis.asyncio as redis
 
             client = redis.from_url(
@@ -53,6 +59,8 @@ class ConnectionManager:
                     channel = message["channel"]
                     data = json.loads(message["data"])
                     await self.broadcast(channel, data)
+        except asyncio.CancelledError:
+            pass
         except Exception as e:
             print(f"Redis listener error: {e}")
 

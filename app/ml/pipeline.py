@@ -1,7 +1,7 @@
 import time
 import uuid
-from typing import Dict, Any, List
-from datetime import datetime
+from typing import Dict, Any, List, Optional
+from datetime import datetime, timezone
 import pandas as pd
 import numpy as np
 
@@ -25,6 +25,8 @@ class MLPipeline:
         algorithm: str = 'random_forest',
         parameters: Dict[str, Any] = None,
         test_size: float = 0.2,
+        problem_type: str = 'classification',
+        run_benchmark: bool = True,
     ) -> Dict[str, Any]:
         start_time = time.time()
         self.experiment_id = str(uuid.uuid4())
@@ -38,7 +40,8 @@ class MLPipeline:
             )
 
             model, training_info = self.trainer.train(
-                X_train, y_train, algorithm=algorithm, parameters=parameters
+                X_train, y_train, algorithm=algorithm, parameters=parameters,
+                problem_type=problem_type,
             )
 
             metrics = self.trainer.evaluate(X_test, y_test)
@@ -53,13 +56,24 @@ class MLPipeline:
 
             feature_importance = self.trainer.get_feature_importance(preprocess_metadata['feature_names'])
 
+            benchmark_results = None
+            if run_benchmark:
+                try:
+                    benchmark_results = self.trainer.benchmark(
+                        X_test, y_test, feature_names=preprocess_metadata['feature_names']
+                    )
+                except Exception:
+                    benchmark_results = None
+
             duration = time.time() - start_time
 
             self.training_metadata = {
                 'experiment_id': self.experiment_id,
                 'algorithm': algorithm,
+                'problem_type': problem_type,
                 'parameters': training_info.get('parameters', {}),
                 'metrics': metrics,
+                'benchmark': benchmark_results,
                 'data_info': {
                     'rows': data_info['shape'][0],
                     'columns': data_info['shape'][1],
@@ -69,7 +83,7 @@ class MLPipeline:
                 'preprocess_metadata': preprocess_metadata,
                 'feature_importance': feature_importance,
                 'duration_seconds': round(duration, 2),
-                'completed_at': datetime.utcnow().isoformat(),
+                'completed_at': datetime.now(timezone.utc).isoformat(),
                 'status': 'completed',
             }
 

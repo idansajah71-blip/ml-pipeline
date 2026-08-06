@@ -52,6 +52,8 @@ class Settings(BaseSettings):
     CELERY_RESULT_BACKEND: str = ""
 
     SHAP_MAX_SAMPLES: int = 100
+    MLFLOW_TRACKING_URI: str = ""
+    MLFLOW_EXPERIMENT_NAME: str = "ml-pipeline"
 
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587

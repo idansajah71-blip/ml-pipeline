@@ -1,6 +1,6 @@
 import uuid
-from datetime import datetime
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, JSON, Text, Index
+from datetime import datetime, timezone
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, JSON, Text, Index, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -21,9 +21,10 @@ class Dataset(Base):
     column_types = Column(JSON)
     target_column = Column(String(255))
     tags = Column(JSON, default=list)
+    is_archived = Column(Boolean, default=False, nullable=False)
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     owner = relationship("User", back_populates="datasets")
     experiments = relationship("Experiment", back_populates="dataset")
