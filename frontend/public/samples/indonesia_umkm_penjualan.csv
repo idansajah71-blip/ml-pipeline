@@ -1,0 +1,31 @@
+nama_usaha,kategori_usaha,kota,provinsi,jumlah_karyawan,modal_juta,pendapatan_bulan_juta,biaya_operasional_juta,laba_bulan_juta,tingkat_keuntungan,tahun_berdiri,metode_pembayaran,platform_penjualan,status_izin
+Toko Berkah,Minuman & Makanan,Jakarta Selatan,DKI Jakarta,3,50,120,80,40,Tinggi,2018,Tunai & QRIS,Offline & Shopee,Ada
+Warung Makmur,Minuman & Makanan,Bandung,Jawa Barat,2,20,65,45,20,Sedang,2020,Qris,Tokopedia,Ada
+Kedai Kopi Senja,Minuman & Makanan,Surabaya,Jawa Timur,5,80,200,130,70,Tinggi,2019,Tunai & QRIS & Transfer,Grab Food & GoFood,Tidak
+Bengkel Jaya,Montir & Otomotif,Semarang,Jawa Tengah,4,60,90,55,35,Tinggi,2017,Tunai & Transfer,Offline,Tidak
+Salon Cantik,Kecantikan & Perawatan,Yogyakarta,DI Yogyakarta,6,40,150,95,55,Tinggi,2021,Qris & Tunai,Instagram & TikTok,Ada
+Toko Bangunan Sejahtera,Bangunan & Material,Malang,Jawa Timur,3,100,180,120,60,Tinggi,2016,Transfer & Tunai,Offline,Ada
+Laundry Kilat,Jasa Cuci & Setrika,Denpasar,Bali,2,15,40,25,15,Sedang,2022,Qris,Instagram,Ada
+Toko Roti Manis,Minuman & Makanan,Makassar,Sulawesi Selatan,4,35,95,60,35,Tinggi,2020,Tunai & QRIS,Offline & GoFood,Tidak
+Service elektronik,Jasa Perbaikan,Palembang,Sumatera Selatan,2,25,55,30,25,Sedang,2019,Tunai & Transfer,Offline,Tidak
+Kafe Nusantara,Minuman & Makanan,Bogor,Jawa Barat,7,70,220,150,70,Tinggi,2018,Tunai & QRIS & Transfer,Grab Food & Shopee Food,Ada
+Toko Fashion Muslim,Fashion & Pakaian,Bekasi,Jawa Barat,3,30,85,50,35,Tinggi,2021,Qris & Transfer,Tokopedia & Shopee & Instagram,Ada
+Bengkel Motor Baru,Montir & Otomotif,Tangerang,Banten,2,40,75,45,30,Sedang,2017,Tunai & QRIS,Offline,Ada
+Rumah Makan Padang,Minuman & Makanan,Jambi,Sumatera,4,25,80,55,25,Sedang,2019,Tunai & QRIS,Offline & GoFood,Tidak
+Toko Sembako Murah,Minuman & Makanan,Pekanbaru,Riau,2,20,60,40,20,Sedang,2020,Tunai,Offline,Tidak
+Potong Rambut Modern,Kecantikan & Perawatan,Manado,Sulawesi Utara,3,10,45,25,20,Sedang,2021,Tunai & QRIS,Instagram,Tidak
+Toko ATK & Perlengkapan,Perlengkapan & ATK,Surakarta,Jawa Tengah,2,15,35,20,15,Rendah,2022,Tunai,Offline,Tidak
+Warnet & Game Online,Jasa Digital,Sidoarjo,Jawa Timur,3,50,100,70,30,Sedang,2018,Tunai & QRIS,Offline,Tidak
+Cuci Motor Steam,Jasa Cuci & Setrika,Tasikmalaya,Jawa Barat,2,12,38,22,16,Sedang,2023,Qris & Tunai,Instagram,Ada
+Toko Obat Herbal,Kesehatan & Herbal,Aceh,Aceh,2,18,42,28,14,Rendah,2020,Tunai & QRIS,Offline & Shopee,Tidak
+Katering Sehat,Minuman & Makanan,Depok,Jawa Barat,5,30,110,70,40,Tinggi,2021,Qris & Transfer,Instagram & GoFood,Ada
+Galeri Seni & Kerajinan,Seni & Kerajinan,Ubud,Bali,4,25,70,40,30,Tinggi,2017,Tunai & QRIS & Transfer,Offline & Etsy,Ada
+Toko Parfum & Kosmetik,Kecantikan & Perawatan,Mataram,NTB,2,22,55,35,20,Sedang,2022,Qris & Tunai,Instagram & Shopee,Ada
+Print & Fotokopi,Jasa Cetak & Fotokopi,Padang Sumatera Barat,Sumatera Barat,2,8,25,15,10,Rendah,2019,Tunai,Offline,Tidak
+Toko Besi & Bangunan,Bangunan & Material,Medan,Sumatera Utara,3,80,140,95,45,Tinggi,2016,Transfer & Tunai,Offline,Ada
+Kursus Komputer & Desain,Jasa Pendidikan,Cirebon,Jawa Barat,4,20,85,45,40,Tinggi,2020,Transfer & QRIS,Instagram & Website,Ada
+Totel & Sembako,Minuman & Makanan,Pontianak,Kalimantan Barat,2,15,50,32,18,Sedang,2021,Tunai,Offline,Tidak
+Bengkel Las & Besi,Bangunan & Material,Banjarmasin,Kalimantan Selatan,3,35,70,45,25,Sedang,2018,Tunai & Transfer,Offline,Tidak
+Laundry & Dry Clean,Jasa Cuci & Setrika,Tangerang Selatan,Banten,4,25,80,50,30,Sedang,2019,Qris & Tunai,GoLife & Instagram,Ada
+Toko Mainan Anak,Perlengkapan & Anak,Bandar Lampung,Lampung,2,20,45,28,17,Rendah,2022,Tunai & QRIS,Shopee & Tokopedia,Tidak
+Klinik Kecantikan,Kecantikan & Perawatan,Jimbaran,Bali,8,120,350,220,130,Tinggi,2019,Tunai & QRIS & Kartu,Website & Instagram,Ada

@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional
+from sqlalchemy import select, func
 
 
 class APIQuotaService:
@@ -7,10 +8,10 @@ class APIQuotaService:
         self.session = session
 
     TIER_LIMITS = {
-        "free": {"rpm": 60, "daily": 10000, "monthly": 300000},
-        "starter": {"rpm": 300, "daily": 100000, "monthly": 3000000},
-        "pro": {"rpm": 1000, "daily": 500000, "monthly": 15000000},
-        "enterprise": {"rpm": 5000, "daily": 5000000, "monthly": 150000000},
+        "free": {"rpm": 60, "daily": 10000, "monthly": 300000, "training_daily": 5, "training_monthly": 100},
+        "starter": {"rpm": 300, "daily": 100000, "monthly": 3000000, "training_daily": 20, "training_monthly": 500},
+        "pro": {"rpm": 1000, "daily": 500000, "monthly": 15000000, "training_daily": 100, "training_monthly": 3000},
+        "enterprise": {"rpm": 5000, "daily": 5000000, "monthly": 150000000, "training_daily": 500, "training_monthly": 15000},
     }
 
     async def get_or_create_quota(self, user_id):
@@ -94,11 +95,44 @@ class APIQuotaService:
         return {"tier": tier, "limits": limits}
 
     async def get_usage(self, user_id):
+        from app.models.experiment import Experiment
+        from sqlalchemy import func
+
         quota = await self.get_or_create_quota(user_id)
         limits = self.TIER_LIMITS.get(quota.tier, self.TIER_LIMITS["free"])
+
+        now = datetime.utcnow()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        month_start = today_start.replace(day=1)
+
+        training_today = 0
+        training_month = 0
+        try:
+            result = await self.session.execute(
+                select(func.count(Experiment.id)).where(
+                    Experiment.owner_id == user_id,
+                    Experiment.created_at >= today_start,
+                )
+            )
+            training_today = result.scalar() or 0
+
+            result = await self.session.execute(
+                select(func.count(Experiment.id)).where(
+                    Experiment.owner_id == user_id,
+                    Experiment.created_at >= month_start,
+                )
+            )
+            training_month = result.scalar() or 0
+        except Exception:
+            pass
+
         return {
             "tier": quota.tier,
             "rpm": {"current": quota.current_rpm, "limit": limits["rpm"]},
             "daily": {"current": quota.current_daily, "limit": limits["daily"]},
             "monthly": {"current": quota.current_monthly, "limit": limits["monthly"]},
+            "training": {
+                "daily": {"current": training_today, "limit": limits["training_daily"]},
+                "monthly": {"current": training_month, "limit": limits["training_monthly"]},
+            },
         }
