@@ -65,6 +65,7 @@ const navigation = [
   { name: 'Validasi Data', href: '/data-validation', icon: FileCheck },
   { name: 'Monitoring', href: '/monitoring', icon: Settings },
   { name: 'Log Audit', href: '/audit-logs', icon: History },
+  { name: 'Kebijakan Privasi', href: '/privacy', icon: Shield },
   { name: 'Pengaturan', href: '/settings', icon: UserCircle },
 ];
 

@@ -120,24 +120,36 @@ export default function ModelsPage() {
               className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
             />
             <div className="relative">
-              <select
-                value={createForm.algorithm}
-                onChange={(e) => setCreateForm({ ...createForm, algorithm: e.target.value })}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-              >
-                {algorithmsList.length === 0 && <option value="">Memuat algoritma...</option>}
-                {algorithmsList.map((alg) => (
-                  <option key={alg} value={alg}>{ALGORITHMS[alg]?.label || alg}</option>
-                ))}
-              </select>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Algoritma</label>
+              <div className="grid grid-cols-1 gap-1.5 max-h-64 overflow-y-auto rounded-lg border border-gray-200 p-2">
+                {algorithmsList.length === 0 && (
+                  <p className="text-xs text-gray-400 px-2 py-1">Memuat algoritma...</p>
+                )}
+                {algorithmsList.map((alg) => {
+                  const info = ALGORITHMS[alg];
+                  const isSelected = createForm.algorithm === alg;
+                  return (
+                    <button
+                      key={alg}
+                      type="button"
+                      onClick={() => setCreateForm({ ...createForm, algorithm: alg })}
+                      className={`w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                        isSelected
+                          ? 'bg-primary-50 border border-primary-300 text-primary-700'
+                          : 'hover:bg-gray-50 border border-transparent'
+                      }`}
+                    >
+                      <span className="font-medium">{info?.label || alg}</span>
+                      {info && (
+                        <span className="ml-2 text-xs text-gray-400">— {info.bestFor}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
               {createForm.algorithm && ALGORITHMS[createForm.algorithm] && (
-                <div className="mt-1.5 flex items-start gap-1.5 rounded-md bg-gray-50 px-3 py-2">
-                  <Tooltip content={ALGORITHMS[createForm.algorithm].description} position="bottom" className="!whitespace-normal !max-w-xs">
-                    <span className="inline-flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-gray-200 text-[10px] text-gray-600">
-                      ?
-                    </span>
-                  </Tooltip>
-                  <p className="text-xs text-gray-500">{ALGORITHMS[createForm.algorithm].bestFor}</p>
+                <div className="mt-1.5 rounded-md bg-blue-50 px-3 py-2 text-xs text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
+                  {ALGORITHMS[createForm.algorithm].description}
                 </div>
               )}
             </div>

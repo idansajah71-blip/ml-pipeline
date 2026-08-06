@@ -9,6 +9,7 @@ import Link from 'next/link';
 export default function RegisterPage() {
   const router = useRouter();
   const [form, setForm] = useState({ email: '', username: '', password: '', full_name: '' });
+  const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -101,9 +102,29 @@ export default function RegisterPage() {
             />
             <p className="mt-1 text-xs text-gray-500">Must be at least 8 characters</p>
           </div>
+          <div className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              id="consent"
+              checked={agreed}
+              onChange={(e) => setAgreed(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            />
+            <label htmlFor="consent" className="text-xs text-gray-600">
+              Saya menyetujui{' '}
+              <Link href="/privacy" className="text-primary-600 hover:underline" target="_blank">
+                Kebijakan Privasi
+              </Link>{' '}
+              dan{' '}
+              <Link href="/privacy" className="text-primary-600 hover:underline" target="_blank">
+                Syarat & Ketentuan
+              </Link>{' '}
+              ML Pipeline
+            </label>
+          </div>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !agreed}
             className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
           >
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
