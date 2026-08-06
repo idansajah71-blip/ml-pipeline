@@ -62,6 +62,7 @@ const navigation = [
   { name: 'Kuota API', href: '/quota', icon: Gauge },
   { name: 'MLflow', href: '/mlflow', icon: LineChart },
   { name: 'Benchmark', href: '/benchmark', icon: BarChart },
+  { name: 'Panduan Algoritma', href: '/panduan-algoritma', icon: Wand2 },
   { name: 'Validasi Data', href: '/data-validation', icon: FileCheck },
   { name: 'Monitoring', href: '/monitoring', icon: Settings },
   { name: 'Log Audit', href: '/audit-logs', icon: History },

@@ -251,6 +251,11 @@ export const quota = {
   setTier: (tier: string) => api.put('/quota/tier', { tier }),
 };
 
+export const recommendations = {
+  analyze: (datasetId: string, targetColumn: string) =>
+    api.get(`/recommendations/${datasetId}/analyze`, { params: { target_column: targetColumn } }),
+};
+
 export const modelVersions = {
   create: (data: { model_id: string; changelog?: string }) =>
     api.post('/model-versions', data),

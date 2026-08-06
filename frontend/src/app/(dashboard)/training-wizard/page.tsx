@@ -21,8 +21,9 @@ import {
   Tag,
 } from 'lucide-react';
 import { useToast } from '@/components/Toast';
-import { models, datasets as datasetsApi } from '@/lib/api';
+import { models, datasets as datasetsApi, recommendations } from '@/lib/api';
 import { useDatasets } from '@/lib/hooks';
+import Link from 'next/link';
 
 type WizardStep = 'upload' | 'target' | 'purpose' | 'preview' | 'mode' | 'review' | 'training' | 'results';
 
@@ -49,14 +50,13 @@ const STEPS: { key: WizardStep; label: string; icon: any }[] = [
 
 const MAX_FILE_SIZE_MB = 100;
 
-const ALGORITHM_LABELS: Record<string, string> = {
-  random_forest: 'Random Forest',
-  gradient_boosting: 'Gradient Boosting',
-  logistic_regression: 'Logistik Regresi',
-  svm: 'Support Vector Machine',
-  knn: 'K-Nearest Tetangga',
-  decision_tree: 'Pohon Keputusan',
-};
+import { ALGORITHMS, REGRESSION_ALGORITHMS } from '@/lib/algorithms';
+import Tooltip from '@/components/Tooltip';
+import { NEED_SCENARIOS } from '@/lib/recommendations';
+
+const ALGORITHM_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(ALGORITHMS).map(([k, v]) => [k, v.label])
+);
 
 export default function TrainingWizard() {
   const router = useRouter();
@@ -79,6 +79,8 @@ export default function TrainingWizard() {
   const [columns, setColumns] = useState<string[]>([]);
   const [trainingProgress, setTrainingProgress] = useState(0);
   const [trainingStep, setTrainingStep] = useState('');
+  const [recommendation, setRecommendation] = useState<any>(null);
+  const [recommendationLoading, setRecommendationLoading] = useState(false);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -410,6 +412,30 @@ export default function TrainingWizard() {
               </button>
             </div>
 
+            {/* Concrete scenarios based on selection */}
+            {state.predictionType && (
+              <div className="rounded-xl border border-primary-200 bg-primary-50/50 p-4">
+                <p className="mb-2 text-xs font-semibold text-primary-700 uppercase tracking-wide">Contoh skenario konkret:</p>
+                <div className="space-y-2">
+                  {NEED_SCENARIOS
+                    .filter((s) => state.predictionType === 'number' ? s.problemType === 'regression' : s.problemType === 'classification')
+                    .slice(0, 3)
+                    .map((scenario) => (
+                      <div key={scenario.id} className="flex items-start gap-2 rounded-lg bg-white p-3 border border-primary-100">
+                        <CheckCircle2 className="h-4 w-4 text-primary-500 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">{scenario.need}</p>
+                          <p className="text-xs text-gray-500">{scenario.exampleUseCase}</p>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+                <Link href="/panduan-algoritma" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary-600 hover:text-primary-700">
+                  Lihat semua skenario <ArrowRight className="h-3 w-3" />
+                </Link>
+              </div>
+            )}
+
             <div className="flex justify-between">
               <button
                 onClick={() => setCurrentStep('target')}
@@ -419,7 +445,16 @@ export default function TrainingWizard() {
                 Kembali
               </button>
               <button
-                onClick={() => setCurrentStep('preview')}
+                onClick={() => {
+                  setCurrentStep('preview');
+                  if (state.datasetId && state.targetColumn && !recommendation) {
+                    setRecommendationLoading(true);
+                    recommendations.analyze(state.datasetId, state.targetColumn)
+                      .then((res) => setRecommendation(res.data))
+                      .catch(() => {})
+                      .finally(() => setRecommendationLoading(false));
+                  }
+                }}
                 disabled={!state.predictionType}
                 className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
               >
@@ -494,6 +529,72 @@ export default function TrainingWizard() {
                 </div>
               )}
             </div>
+
+            {/* Auto-recommendation */}
+            {recommendationLoading && (
+              <div className="rounded-xl border border-primary-200 bg-primary-50 p-4">
+                <div className="flex items-center gap-2 text-sm text-primary-700">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Menganalisis dataset untuk rekomendasi...
+                </div>
+              </div>
+            )}
+
+            {recommendation && !recommendationLoading && (
+              <div className="rounded-xl border-2 border-primary-200 bg-primary-50/50 p-5">
+                <div className="mb-3 flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-primary-600" />
+                  <h3 className="font-semibold text-primary-900">Rekomendasi Otomatis</h3>
+                </div>
+
+                <div className="mb-3 rounded-lg bg-white p-3 border border-primary-100">
+                  <p className="text-sm text-gray-700">
+                    <span className="font-medium">Kolom &quot;{state.targetColumn}&quot;</span> → {recommendation.reason}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {recommendation.rows} baris, {recommendation.columns} kolom, {recommendation.missing_pct}% missing values
+                  </p>
+                </div>
+
+                <div className="mb-3">
+                  <p className="mb-1.5 text-xs font-semibold text-primary-700 uppercase">Algoritma yang disarankan:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {recommendation.suggested_algorithms.slice(0, 4).map((algo: any) => (
+                      <span key={algo.key} className="inline-flex items-center gap-1 rounded-full bg-white border border-primary-200 px-2.5 py-1 text-xs font-medium text-primary-700">
+                        <CheckCircle2 className="h-3 w-3 text-green-500" />
+                        {algo.key.replace(/_/g, ' ')}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {recommendation.warnings.length > 0 && (
+                  <div className="mb-3 rounded-lg bg-amber-50 border border-amber-200 p-3">
+                    {recommendation.warnings.map((w: string, i: number) => (
+                      <p key={i} className="text-xs text-amber-700">{w}</p>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setState((prev) => ({
+                        ...prev,
+                        predictionType: recommendation.suggested_problem_type === 'regression' ? 'number' : 'category',
+                      }));
+                      toast('success', `Tipe prediksi diatur ke ${recommendation.suggested_problem_type === 'regression' ? 'Regresi' : 'Klasifikasi'}`);
+                    }}
+                    className="rounded-lg bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700"
+                  >
+                    Pakai saran ini
+                  </button>
+                  <Link href="/panduan-algoritma" className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50">
+                    Lihat panduan lengkap
+                  </Link>
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-between">
               <button
@@ -597,15 +698,30 @@ export default function TrainingWizard() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Pilih Algoritma
                 </label>
-                <select
-                  value={state.algorithm}
-                  onChange={(e) => setState((prev) => ({ ...prev, algorithm: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
-                >
-                  {Object.entries(ALGORITHM_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
+                <div className="space-y-2">
+                  {Object.entries(ALGORITHMS).map(([value, info]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setState((prev) => ({ ...prev, algorithm: value }))}
+                      className={`w-full rounded-lg border p-3 text-left transition-all ${
+                        state.algorithm === value
+                          ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-500/20'
+                          : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-900">{info.label}</span>
+                        <Tooltip content={info.description} position="left" className="!whitespace-normal !max-w-xs">
+                          <span className="ml-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-gray-100 text-xs text-gray-500 hover:bg-gray-200">
+                            ?
+                          </span>
+                        </Tooltip>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500">{info.bestFor}</p>
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
             )}
 

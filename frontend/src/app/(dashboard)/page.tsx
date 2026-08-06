@@ -1,10 +1,47 @@
 'use client';
 
-import { Database, Brain, FlaskConical, Zap, Activity, Rocket, ArrowRight } from 'lucide-react';
+import { Database, Brain, FlaskConical, Zap, Activity, Rocket, ArrowRight, Search, BarChart3, HelpCircle } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { useModels, useDatasets, useExperiments } from '@/lib/hooks';
 import Link from 'next/link';
+
+const ICONS: Record<string, any> = { Brain, Search, BarChart3, HelpCircle };
+
+const QUICKSTART_CARDS = [
+  {
+    id: 'new-prediction',
+    title: 'Bikin Prediksi Baru',
+    description: 'Unggah data dan latih model pertama Anda',
+    icon: 'Brain',
+    href: '/training-wizard',
+    color: 'bg-blue-50 text-blue-600 border-blue-200 hover:border-blue-300',
+  },
+  {
+    id: 'explore-models',
+    title: 'Lihat Model Orang Lain',
+    description: 'Temukan model siap pakai di marketplace',
+    icon: 'Search',
+    href: '/marketplace',
+    color: 'bg-green-50 text-green-600 border-green-200 hover:border-green-300',
+  },
+  {
+    id: 'compare-models',
+    title: 'Bandingin Model',
+    description: 'Bandingkan performa berbagai algoritma',
+    icon: 'BarChart3',
+    href: '/benchmark',
+    color: 'bg-purple-50 text-purple-600 border-purple-200 hover:border-purple-300',
+  },
+  {
+    id: 'understand-platform',
+    title: 'Belum Ngerti Platform?',
+    description: 'Pelajari dasar-dasar ML Pipeline',
+    icon: 'HelpCircle',
+    href: '/onboarding',
+    color: 'bg-amber-50 text-amber-600 border-amber-200 hover:border-amber-300',
+  },
+];
 
 const stats = [
   { key: 'models', title: 'Total Model', icon: Brain, color: 'bg-blue-50 text-blue-600', href: '/models' },
@@ -47,6 +84,29 @@ export default function DashboardPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Dasbor</h1>
         <p className="text-gray-500">Ringkasan ML Pipeline Anda</p>
+      </div>
+
+      {/* Bantu Saya Mulai */}
+      <div>
+        <h2 className="mb-3 text-sm font-semibold text-gray-500 uppercase tracking-wide">Bantu Saya Mulai</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {QUICKSTART_CARDS.map((card) => {
+            const Icon = ICONS[card.icon];
+            return (
+              <Link
+                key={card.id}
+                href={card.href}
+                className={`group rounded-xl border-2 p-4 transition-all ${card.color}`}
+              >
+                <div className="mb-2 flex items-center gap-2">
+                  <Icon className="h-5 w-5" />
+                  <span className="font-semibold text-sm">{card.title}</span>
+                </div>
+                <p className="text-xs opacity-80">{card.description}</p>
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
