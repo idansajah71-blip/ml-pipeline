@@ -49,6 +49,7 @@ const navigation = [
   { name: 'Explainability', href: '/explain', icon: PieChart },
   { name: 'Eksperimen', href: '/experiments', icon: FlaskConical, tour: 'experiments' },
   { name: 'Perbandingan', href: '/experiment-compare', icon: ArrowRightLeft },
+  { name: 'Marketplace', href: '/marketplace', icon: Store },
   { name: 'Prediksi', href: '/predictions', icon: Zap },
   { name: 'A/B Testing', href: '/ab-tests', icon: BarChart3 },
   { name: 'Kualitas Data', href: '/data-quality', icon: Shield },

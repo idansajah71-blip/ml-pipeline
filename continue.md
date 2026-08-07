@@ -19,7 +19,7 @@
 
 ```
 ✅ Backend FastAPI      - 35+ API modules, 30+ DB models, 15 Celery tasks
-✅ Frontend Next.js     - 22 pages, 22 nav links, dark mode, drag-drop upload, training wizard
+✅ Frontend Next.js     - 37 pages, 28+ nav links, dark mode, drag-drop upload, training wizard
 ✅ PostgreSQL           - 20+ tables dengan Alembic migrations
 ✅ Redis                - Caching, rate limiting, WebSocket pub/sub
 ✅ Celery               - Async training, batch prediction, auto-retrain, cleanup, retention
@@ -30,29 +30,24 @@
 ✅ Documentation        - Docusaurus 17 halaman + Training Wizard Guide + FAQ
 ✅ Monitoring           - Prometheus, Grafana, Loki
 ✅ Security             - JWT+RBAC, rate limiting, IP reputation, API keys, fail-fast config
+✅ UX Improvements      - Global search, breadcrumb, favorites, smart fields, funnel tracking
 ```
 
 ---
 
-## UPDATE TERBARU (5 Agustus 2026)
+## UPDATE TERBARU (7 Agustus 2026)
 
-### Phase 42-48: Production Readiness & User Experience
+### Phase 55-61: UX Improvements & Analytics
 
 | Phase | Feature | Status |
 |-------|---------|--------|
-| 42 | JWT_SECRET_KEY fail-fast (production validation) | ✅ |
-| 43 | One-Hot Encoding (ganti LabelEncoder) | ✅ |
-| 44 | Sanitize exception messages | ✅ |
-| 45 | Training mode (simple/advanced) | ✅ |
-| 46 | AutoML pipeline (auto select model) | ✅ |
-| 47 | Hyperparameter tuning (GridSearchCV) | ✅ |
-| 48 | Tolerant data validation + actionable messages | ✅ |
-| 49 | Per-user tier-based rate limits | ✅ |
-| 50 | Upload size limits per tier | ✅ |
-| 51 | Training quota limits | ✅ |
-| 52 | Training Wizard (guided flow untuk non-technical) | ✅ |
-| 53 | Documentation (FAQ, User Guide) | ✅ |
-| 54 | Data retention policies & auto-cleanup | ✅ |
+| 55 | Auto-save wizard draft (localStorage, restore banner "Lanjutkan?") | ✅ |
+| 56 | Global search (Cmd+K, cross model/dataset/experiment) | ✅ |
+| 57 | Breadcrumb navigation (all multi-step pages) | ✅ |
+| 58 | Smart field detection (Rp currency, date picker, percent) | ✅ |
+| 59 | Favorites/pin models & datasets (localStorage, float-to-top) | ✅ |
+| 60 | Progressive disclosure (AdvancedSection collapsed by default) | ✅ |
+| 61 | Funnel drop-off tracking (frontend + backend analytics API) | ✅ |
 
 ---
 
@@ -60,6 +55,8 @@
 
 ```
 app/
+├── api/
+│   └── analytics.py                # Funnel tracking API (POST/GET /analytics/funnel)
 ├── core/
 │   ├── error_utils.py              # Sanitize error messages
 │   └── config.py                   # Updated: fail-fast validation
@@ -74,9 +71,19 @@ app/
 └── schemas/
     └── model.py                    # Updated: TrainingMode enum
 
-frontend/src/app/(dashboard)/
-└── training-wizard/
-    └── page.tsx                    # Guided training wizard
+frontend/src/
+├── components/
+│   ├── AdvancedSection.tsx         # Progressive disclosure (collapsible advanced options)
+│   ├── Breadcrumb.tsx              # Auto breadcrumb from URL path
+│   ├── FavoriteStar.tsx            # Pin/unpin star for models & datasets
+│   └── GlobalSearch.tsx            # Cmd+K global search modal
+├── lib/
+│   ├── useWizardDraft.ts           # Auto-save/restore wizard draft (localStorage)
+│   ├── useFavorites.ts             # Favorites hook (localStorage, cross-tab sync)
+│   └── useFunnelTracker.ts         # Funnel tracking hook (fire-and-forget analytics)
+└── app/(dashboard)/
+    └── training-wizard/
+        └── page.tsx                # Guided training wizard + draft restore banner
 
 docs/
 ├── training-wizard-guide.md        # User guide
@@ -524,7 +531,7 @@ cd frontend && npm run dev
 celery -A app.core.celery_app:celery_app worker --loglevel=info --concurrency=2
 
 # Celery Beat (7 periodic tasks)
-celery -A app.core.celery_app:celery_app beat --loglevel=info
+    celery -A app.core.celery_app:celery_app beat --loglevel=info
 
 # Docker
 docker compose up -d
@@ -569,10 +576,11 @@ cd frontend && npm run typecheck
 | `32f8281` | 30-35 | Versioning, Compare, Monitoring, Webhooks, Lineage, Metrics |
 | `eec495d` | 36-41 | Explainability, Ensemble, Data Versioning, Marketplace, Costs |
 | TBD | 42-54 | Security fixes, AutoML, Training Wizard, Data Retention |
+| TBD | 55-61 | UX improvements: wizard draft, search, breadcrumb, favorites, funnel |
 
 ---
 
 *File ini dibuat pada: 2026-07-30*  
-*Terakhir diupdate: 5 Agustus 2026*  
-*Total phases: 54/54 SELESAI*  
+*Terakhir diupdate: 7 Agustus 2026*  
+*Total phases: 61/61 SELESAI*  
 *GitHub: https://github.com/idansajah71-blip/ml-pipeline*

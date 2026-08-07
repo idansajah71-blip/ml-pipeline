@@ -13,12 +13,16 @@ class ExperimentStatus(str, Enum):
 
 
 class ExperimentBase(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     name: str
     description: Optional[str] = None
     parameters: Dict[str, Any] = {}
 
 
 class ExperimentCreate(ExperimentBase):
+    model_config = {"protected_namespaces": ()}
+
     dataset_id: UUID
     model_id: UUID
 
@@ -35,7 +39,7 @@ class ExperimentResponse(ExperimentBase):
     created_at: datetime
     completed_at: Optional[datetime] = None
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "protected_namespaces": ()}
 
 
 class ExperimentListResponse(BaseModel):

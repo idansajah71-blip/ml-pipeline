@@ -40,6 +40,8 @@ class SystemInfo(BaseModel):
 
 
 class ModelMetrics(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     model_id: str
     prediction_count: int = 0
     avg_latency_ms: float = 0.0

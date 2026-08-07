@@ -23,12 +23,16 @@ logger = logging.getLogger(__name__)
 
 
 class ExplainGlobalRequest(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     model_id: UUID
     n_samples: int = 100
     method: str = "shap"
 
 
 class ExplainPredictionRequest(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     model_id: UUID
     input_data: dict
     method: str = "shap"

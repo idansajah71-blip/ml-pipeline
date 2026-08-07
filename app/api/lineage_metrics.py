@@ -35,6 +35,8 @@ class LineageResponse(BaseModel):
 
 
 class MetricCreate(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     name: str
     metric_type: str
     query_or_formula: str
@@ -43,6 +45,8 @@ class MetricCreate(BaseModel):
 
 
 class MetricResponse(BaseModel):
+    model_config = {"from_attributes": True, "protected_namespaces": ()}
+
     id: UUID
     name: str
     metric_type: str

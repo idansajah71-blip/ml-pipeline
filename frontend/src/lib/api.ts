@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { LoginPayload, RegisterPayload, TokenResponse, Stats, Dataset, MLModel, Experiment, ABTest } from '@/types';
+import { LoginPayload, RegisterPayload, TokenResponse, Stats, Dataset, MLModel, Experiment, ABTest, PredictionFeedbackResponse } from '@/types';
 
 declare module 'axios' {
   interface AxiosRequestConfig {
@@ -11,18 +11,52 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api/v1';
 
 const api = axios.create({
   baseURL: API_BASE,
-  headers: { 'Content-Type': 'application/json' },
 });
 
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('token');
     if (token) {
+      config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
   }
   return config;
 });
+
+export function formatApiError(err: unknown, fallback = 'Terjadi kesalahan'): string {
+  if (!err) return fallback;
+  const data = (err as any)?.response?.data;
+  const status = (err as any)?.response?.status;
+
+  if (typeof data?.detail === 'string') {
+    return status ? `${data.detail} (${status})` : data.detail;
+  }
+  if (Array.isArray(data?.detail)) {
+    const msgs = data.detail
+      .map((d: any) => {
+        const loc = d?.loc ? `[${String(d.loc).replace(/,/g, ' -> ')}] ` : '';
+        return `${loc}${d?.msg ?? String(d)}`;
+      })
+      .join('; ');
+    return status ? `${msgs} (${status})` : msgs;
+  }
+  if (data?.rule && data?.matched) {
+    return `Request diblokir: ${data.detail}. Aturan=${data.rule}. Context="${data.context ?? ''}"`;
+  }
+  if (data?.errors && Array.isArray(data.errors)) {
+    const msgs = data.errors.map(String).join('; ');
+    return status ? `${msgs} (${status})` : msgs;
+  }
+  const msg = (err as any)?.message;
+  if (msg && msg !== 'Request failed with status code 400') {
+    return status ? `${msg} (${status})` : msg;
+  }
+  if (status) {
+    return `${fallback} (HTTP ${status})`;
+  }
+  return fallback;
+}
 
 api.interceptors.response.use(
   (response) => response,
@@ -70,20 +104,23 @@ export const auth = {
 export const datasets = {
   list: () => api.get<Dataset[]>('/datasets'),
   get: (id: string) => api.get<Dataset>(`/datasets/${id}`),
+
   upload: (formData: FormData) =>
-    api.post<Dataset>('/datasets', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }),
+    api.post<Dataset>('/datasets', formData),
+
+  update: (id: string, data: Partial<Pick<Dataset, 'name' | 'description' | 'target_column' | 'tags'>>) =>
+    api.put<Dataset>(`/datasets/${id}`, data),
+
   preview: (id: string) => api.get(`/datasets/${id}/preview`),
   profile: (id: string, targetColumn?: string) => {
     const params = targetColumn ? `?target_column=${targetColumn}` : '';
     return api.get(`/datasets/${id}/profile${params}`);
   },
   delete: (id: string) => api.delete(`/datasets/${id}`),
+  trash: () => api.get<Dataset[]>('/datasets/trash'),
+  restore: (id: string) => api.post(`/datasets/${id}/restore`, null),
   importGoogleSheet: (formData: FormData) =>
-    api.post<Dataset>('/datasets/import/google-sheet', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }),
+    api.post<Dataset>('/datasets/import/google-sheet', formData),
 };
 
 export const models = {
@@ -97,8 +134,12 @@ export const models = {
     api.post(`/models/${id}/predict`, data),
   batchPredict: (id: string, data: { data: Record<string, any>[] }) =>
     api.post(`/models/${id}/predict/batch`, data),
+  feedbackPrediction: (id: string, predictionId: string, data: { correct: boolean; comment?: string }) =>
+    api.post<PredictionFeedbackResponse>(`/models/${id}/predict/${predictionId}/feedback`, data),
   deploy: (id: string) => api.post(`/models/${id}/deploy`),
   delete: (id: string) => api.delete(`/models/${id}`),
+  trash: () => api.get<MLModel[]>('/models/trash'),
+  restore: (id: string) => api.post(`/models/${id}/restore`, null),
   stage: (id: string, data: { stage: string }) =>
     api.post(`/models/${id}/stage`, data),
   rollback: (id: string) => api.post(`/models/${id}/rollback`),
@@ -329,16 +370,20 @@ export const dataVersions = {
 };
 
 export const marketplaceApi = {
-  discover: (tag?: string, search?: string) => {
-    const params: any = {};
-    if (tag) params.tag = tag;
-    if (search) params.search = search;
-    return api.get('/marketplace/discover', { params });
-  },
-  share: (data: { model_id: string; is_public?: boolean; tags?: string[] }) =>
+  categories: () => api.get('/marketplace/categories'),
+  discover: (params?: { tag?: string; search?: string; category?: string; is_platform?: boolean }) =>
+    api.get('/marketplace/discover', { params }),
+  platformModels: () => api.get('/marketplace/platform-models'),
+  getModel: (shareId: string) => api.get(`/marketplace/${shareId}`),
+  share: (data: { model_id: string; is_public?: boolean; tags?: string[]; permission?: string }) =>
     api.post('/marketplace/share', data),
   download: (shareId: string) => api.post(`/marketplace/${shareId}/download`),
-  rate: (shareId: string, rating: number) => api.post(`/marketplace/${shareId}/rate`, null, { params: { rating } }),
+  rate: (shareId: string, rating: number, review?: string) =>
+    api.post(`/marketplace/${shareId}/rate`, { rating, review }),
+  matchColumns: (shareId: string, userColumns: string[]) =>
+    api.post('/marketplace/column-match', { share_id: shareId, user_columns: userColumns }),
+  platformPredict: (data: { share_id: string; data: Record<string, any>[]; column_mapping?: Record<string, string> }) =>
+    api.post('/marketplace/platform-predict', data),
 };
 
 export const costTracking = {

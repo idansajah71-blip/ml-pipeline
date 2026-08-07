@@ -5,6 +5,8 @@ from datetime import datetime
 
 
 class DataQualityConfig(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     missing_threshold: float = Field(default=5.0, ge=0, le=100)
     z_threshold: float = Field(default=3.0, gt=0)
     expected_types: Optional[dict] = None
@@ -34,6 +36,8 @@ class DataQualityReportResponse(BaseModel):
 
 
 class BatchJobCreate(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     name: str = Field(..., max_length=255)
     model_id: UUID
     input_file_path: str
@@ -57,7 +61,7 @@ class BatchJobResponse(BaseModel):
     completed_at: Optional[datetime] = None
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "protected_namespaces": ()}
 
 
 class BatchJobListResponse(BaseModel):
@@ -66,6 +70,8 @@ class BatchJobListResponse(BaseModel):
 
 
 class BenchmarkResult(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     avg_latency_ms: float
     p50_latency_ms: float
     p95_latency_ms: float
@@ -76,6 +82,8 @@ class BenchmarkResult(BaseModel):
 
 
 class PruneResult(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     total_features: int
     kept_features: int
     pruned_features: int
@@ -86,6 +94,8 @@ class PruneResult(BaseModel):
 
 
 class ExportResult(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     format: str
     path: str
     size_bytes: int
@@ -110,6 +120,8 @@ class AuditLogListResponse(BaseModel):
 
 
 class StatisticalResult(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     test_name: str
     statistic: float
     p_value: float
@@ -121,6 +133,8 @@ class StatisticalResult(BaseModel):
 
 
 class ABTestMetricsResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     test_id: UUID
     model_a_requests: int
     model_b_requests: int

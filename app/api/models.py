@@ -17,6 +17,7 @@ from app.schemas.model import (
     ModelCreate, ModelResponse, ModelUpdate, ModelListResponse,
     TrainRequest, TrainResponse, PredictRequest, PredictResponse,
     BatchPredictRequest, BatchPredictResponse,
+    PredictionFeedbackRequest, PredictionFeedbackResponse,
     ModelStageUpdate, ModelCardUpdate, AutoMLRequest, AutoMLResponse,
     ExplainRequest, ExplainResponse, TaskStatusResponse,
 )
@@ -113,7 +114,34 @@ async def delete_model(
         raise HTTPException(status_code=404, detail="Model not found")
     await cache_delete(f"model:{model_id}")
     await cache_delete(f"user_models:{current_user.id}")
-    return {"message": "Model deleted successfully"}
+    return {"message": "Model archived successfully"}
+
+
+@router.get("/trash", response_model=List[ModelResponse])
+async def list_trash_models(
+    skip: int = 0,
+    limit: int = 100,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = ModelService(db)
+    models = await service.get_archived_models(current_user.id, skip=skip, limit=limit)
+    return [ModelResponse.model_validate(m) for m in models]
+
+
+@router.post("/{model_id}/restore")
+async def restore_model(
+    model_id: UUID,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = ModelService(db)
+    restored = await service.restore_model(model_id, current_user.id)
+    if not restored:
+        raise HTTPException(status_code=404, detail="Model not found")
+    await cache_delete(f"model:{model_id}")
+    await cache_delete(f"user_models:{current_user.id}")
+    return {"message": "Model restored successfully"}
 
 
 @router.post("/{model_id}/train", response_model=TrainResponse)
@@ -162,6 +190,7 @@ async def predict(
     latency_ms = int((time.time() - start_time) * 1000)
 
     if "predictions" in result:
+        stored_predictions = []
         for pred in result["predictions"]:
             db_prediction = Prediction(
                 input_data=predict_data.data[pred.get("index", 0)] if pred.get("index", 0) < len(predict_data.data) else {},
@@ -172,11 +201,47 @@ async def predict(
                 model_id=model_id,
             )
             db.add(db_prediction)
+            stored_predictions.append((pred, db_prediction))
         await db.flush()
+        result_predictions = []
+        for pred, db_prediction in stored_predictions:
+            result_predictions.append({
+                "id": str(db_prediction.id),
+                "index": pred.get("index", 0),
+                "prediction": pred.get("prediction", ""),
+                "probability": pred.get("probability"),
+                "probabilities": pred.get("probabilities"),
+            })
+        result["predictions"] = result_predictions
 
     result["model_version"] = model.version
     result["latency_ms"] = latency_ms
     return result
+
+
+@router.post("/{model_id}/predict/{prediction_id}/feedback", response_model=PredictionFeedbackResponse)
+async def feedback_prediction(
+    model_id: UUID,
+    prediction_id: UUID,
+    feedback_request: PredictionFeedbackRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    stmt = await db.execute(select(Prediction).where(Prediction.id == prediction_id, Prediction.model_id == model_id))
+    prediction = stmt.scalar_one_or_none()
+    if not prediction:
+        raise HTTPException(status_code=404, detail="Prediction not found")
+
+    prediction.feedback_correct = feedback_request.correct
+    prediction.feedback_comment = feedback_request.comment
+    db.add(prediction)
+    await db.flush()
+
+    return PredictionFeedbackResponse(
+        status="recorded",
+        prediction_id=prediction_id,
+        correct=feedback_request.correct,
+    )
 
 
 @router.post("/{model_id}/predict/batch", response_model=BatchPredictResponse)
@@ -206,7 +271,9 @@ async def batch_predict(
     result = pipeline.predict(batch_data.data, model.feature_names)
     latency_ms = int((time.time() - start_time) * 1000)
 
+    result_predictions = []
     if "predictions" in result:
+        stored_predictions = []
         for pred in result["predictions"]:
             idx = pred.get("index", 0)
             db_prediction = Prediction(
@@ -218,10 +285,19 @@ async def batch_predict(
                 model_id=model_id,
             )
             db.add(db_prediction)
+            stored_predictions.append((pred, db_prediction))
         await db.flush()
+        for pred, db_prediction in stored_predictions:
+            result_predictions.append({
+                "id": str(db_prediction.id),
+                "index": pred.get("index", 0),
+                "prediction": pred.get("prediction", ""),
+                "probability": pred.get("probability"),
+                "probabilities": pred.get("probabilities"),
+            })
 
     return BatchPredictResponse(
-        predictions=result.get("predictions", []),
+        predictions=result_predictions,
         model_version=model.version,
         latency_ms=latency_ms,
         total=len(batch_data.data),

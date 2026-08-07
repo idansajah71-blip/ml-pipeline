@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Float, Integer, Index
+from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Float, Integer, Boolean, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -17,6 +17,8 @@ class Prediction(Base):
     confidence = Column(Float)
     latency_ms = Column(Integer)
     model_id = Column(UUID(as_uuid=True), ForeignKey("models.id"), nullable=False)
+    feedback_correct = Column(Boolean, nullable=True)
+    feedback_comment = Column(String(500), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     model = relationship("MLModel", back_populates="predictions")

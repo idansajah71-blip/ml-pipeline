@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Brain, Loader2 } from 'lucide-react';
-import { auth } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import Link from 'next/link';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -18,9 +19,7 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      const res = await auth.login({ email, password });
-      localStorage.setItem('token', res.data.access_token);
-      localStorage.setItem('user', JSON.stringify(res.data.user));
+      await login(email, password);
       router.push('/');
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Login failed');

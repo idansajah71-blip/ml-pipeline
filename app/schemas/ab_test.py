@@ -13,12 +13,16 @@ class ABTestStatus(str, Enum):
 
 
 class ABTestBase(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
     traffic_split: int = Field(default=50, ge=0, le=100)
 
 
 class ABTestCreate(ABTestBase):
+    model_config = {"protected_namespaces": ()}
+
     model_a_id: UUID
     model_b_id: UUID
 
@@ -44,7 +48,7 @@ class ABTestResponse(ABTestBase):
     ended_at: Optional[datetime] = None
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "protected_namespaces": ()}
 
 
 class ABTestListResponse(BaseModel):

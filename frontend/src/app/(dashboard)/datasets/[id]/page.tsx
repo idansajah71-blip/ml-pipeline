@@ -34,7 +34,7 @@ export default function DatasetDetailPage() {
 
   const handleDelete = async () => {
     if (!dataset) return;
-    if (!confirm('Delete this dataset?')) return;
+    if (!confirm('Archive this dataset? It will move to the trash and can be restored later.')) return;
     await datasets.delete(dataset.id);
     router.push('/datasets');
   };

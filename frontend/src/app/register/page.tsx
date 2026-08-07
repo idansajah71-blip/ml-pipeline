@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Brain, Loader2, ArrowLeft } from 'lucide-react';
-import { auth } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import Link from 'next/link';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { register } = useAuth();
   const [form, setForm] = useState({ email: '', username: '', password: '', full_name: '' });
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState('');
@@ -25,9 +26,7 @@ export default function RegisterPage() {
     }
 
     try {
-      const res = await auth.register(form);
-      localStorage.setItem('token', res.data.access_token);
-      localStorage.setItem('user', JSON.stringify(res.data.user));
+      await register(form);
       router.push('/');
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Registration failed');

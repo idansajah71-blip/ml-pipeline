@@ -256,36 +256,74 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
 class InputSanitizationMiddleware(BaseHTTPMiddleware):
     DANGEROUS_PATTERNS = [
-        r"<script.*?>.*?</script>",
-        r"javascript:",
-        r"on\w+\s*=",
-        r"union\s+select",
-        r"drop\s+table",
-        r"insert\s+into",
-        r"delete\s+from",
-        r"--\s*$",
-        r";\s*drop",
-        r"'\s*or\s*'",
+        (r"<script[\s>].*?</script>", 0, "xss_script_tag"),
+        (r"javascript:\s*\w+", re.IGNORECASE, "xss_javascript_url"),
+        (r"\bon[a-z]+\s*=\s*[\"']", re.IGNORECASE, "xss_event_handler"),
+        (r"\bunion\s+(?:all\s+)?select\b", re.IGNORECASE, "sqli_union_select"),
+        (r";\s*drop\s+(?:table|database|view|column)", re.IGNORECASE, "sqli_drop_table"),
+        (r";\s*insert\s+into\s+\w+", re.IGNORECASE, "sqli_insert_into"),
+        (r";\s*delete\s+from\s+\w+", re.IGNORECASE, "sqli_delete_from"),
+        (r";\s*update\s+\w+\s+set\b", re.IGNORECASE, "sqli_update_set"),
+        (r"'\s*or\s*'\s*\d+\s*=\s*\d+", re.IGNORECASE, "sqli_tautology"),
     ]
 
+    MAX_SCAN_SIZE_BYTES = 1_048_576  # 1MB — jangan scan lebih dari ini
+
     async def dispatch(self, request: Request, call_next):
-        if request.method in ["POST", "PUT", "PATCH"]:
-            try:
-                body = await request.body()
-                if body:
-                    body_str = body.decode("utf-8", errors="ignore")
-                    for pattern in self.DANGEROUS_PATTERNS:
-                        if re.search(pattern, body_str, re.IGNORECASE):
-                            logger.warning(
-                                "Potentially dangerous input detected",
-                                path=request.url.path,
-                                pattern=pattern,
-                            )
-                            return JSONResponse(
-                                status_code=status.HTTP_400_BAD_REQUEST,
-                                content={"detail": "Invalid input detected"},
-                            )
-            except Exception:
-                pass
+        if request.method not in ["POST", "PUT", "PATCH"]:
+            return await call_next(request)
+
+        content_type = request.headers.get("content-type", "")
+
+        if "multipart/form-data" in content_type:
+            return await call_next(request)
+
+        if request.url.path.startswith("/docs") or request.url.path.startswith("/openapi.json") or request.url.path.startswith("/redoc"):
+            return await call_next(request)
+
+        try:
+            body = await request.body()
+            if not body or len(body) == 0:
+                return await call_next(request)
+
+            if len(body) > self.MAX_SCAN_SIZE_BYTES:
+                logger.info(
+                    f"Skipping input sanitization scan for large body ({len(body)} bytes)",
+                    path=request.url.path,
+                )
+                return await call_next(request)
+
+            body_str = body.decode("utf-8", errors="ignore")
+
+            if not body_str.strip():
+                return await call_next(request)
+
+            for pattern, flags, rule_name in self.DANGEROUS_PATTERNS:
+                match = re.search(pattern, body_str, flags)
+                if match:
+                    matched_snippet = match.group(0)[:80]
+                    char_pos = match.start()
+                    context_start = max(0, char_pos - 20)
+                    context_end = min(len(body_str), char_pos + 60)
+                    context = body_str[context_start:context_end].replace("\n", " ")
+                    logger.warning(
+                        "Potentially dangerous input detected (blocked)",
+                        path=request.url.path,
+                        pattern=rule_name,
+                        matched=matched_snippet,
+                        context=context,
+                    )
+                    return JSONResponse(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        content={
+                            "detail": f"Invalid input detected ({rule_name})",
+                            "rule": rule_name,
+                            "matched": matched_snippet,
+                            "context": context,
+                            "path": request.url.path,
+                        },
+                    )
+        except Exception as e:
+            logger.debug(f"Input sanitization scan skipped: {e}")
 
         return await call_next(request)

@@ -16,11 +16,15 @@ router = APIRouter(prefix="/model-versions", tags=["Model Versioning"])
 
 
 class VersionCreate(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     model_id: UUID
     changelog: Optional[str] = None
 
 
 class VersionResponse(BaseModel):
+    model_config = {"from_attributes": True, "protected_namespaces": ()}
+
     id: UUID
     model_id: UUID
     version_number: int
@@ -28,10 +32,11 @@ class VersionResponse(BaseModel):
     metrics: dict
     changelog: Optional[str]
     created_at: datetime
-    model_config = {"from_attributes": True}
 
 
 class LineageCreate(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     model_id: UUID
     parent_model_id: Optional[UUID] = None
     relationship_type: str
@@ -39,16 +44,19 @@ class LineageCreate(BaseModel):
 
 
 class LineageResponse(BaseModel):
+    model_config = {"from_attributes": True, "protected_namespaces": ()}
+
     id: UUID
     model_id: UUID
     parent_model_id: Optional[UUID]
     relationship_type: str
     metadata_json: dict
     created_at: datetime
-    model_config = {"from_attributes": True}
 
 
 class ArtifactResponse(BaseModel):
+    model_config = {"from_attributes": True, "protected_namespaces": ()}
+
     id: UUID
     model_id: UUID
     name: str
@@ -56,7 +64,6 @@ class ArtifactResponse(BaseModel):
     file_path: Optional[str]
     size_bytes: int
     created_at: datetime
-    model_config = {"from_attributes": True}
 
 
 @router.post("", response_model=VersionResponse, status_code=201)

@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
-import { Upload, Trash2, Eye, Database, Download } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Upload, Trash2, Eye, Database, Download, Star } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import DragDropUpload from '@/components/DragDropUpload';
 import EmptyState from '@/components/EmptyState';
 import ConfirmModal from '@/components/ConfirmModal';
+import FavoriteStar from '@/components/FavoriteStar';
 import { datasets } from '@/lib/api';
 import { useDatasets } from '@/lib/hooks';
+import { useFavorites } from '@/lib/useFavorites';
 import Link from 'next/link';
 
 const SAMPLE_DATASETS = [
@@ -23,10 +25,17 @@ const SAMPLE_DATASETS = [
 
 export default function DatasetsPage() {
   const { datasets: datasetsList, isLoading, mutate } = useDatasets();
+  const { favoriteIds, isFavorite } = useFavorites('dataset');
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({ name: '', description: '', target_column: '' });
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+
+  // Pinned datasets float to top
+  const sortedDatasets = useMemo(() => ([
+    ...datasetsList.filter((d) => isFavorite(d.id)),
+    ...datasetsList.filter((d) => !isFavorite(d.id)),
+  ]), [datasetsList, favoriteIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleUpload = async () => {
     if (!selectedFile || !formData.name) return;
@@ -75,15 +84,33 @@ export default function DatasetsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dataset</h1>
           <p className="text-gray-500 dark:text-gray-400">Unggah dan kelola dataset Anda</p>
         </div>
+        <Link
+          href="/datasets/trash"
+          className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+        >
+          Lihat Sampah Dataset
+        </Link>
       </div>
 
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Unggah Dataset</h2>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Unggah Dataset</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Gunakan template Excel untuk memulai dengan format kolom yang jelas.</p>
+          </div>
+          <a
+            href="/templates/dataset-template.xlsx"
+            download
+            className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+          >
+            Unduh Template Excel
+          </a>
+        </div>
         <div className="grid grid-cols-1 gap-4">
           <input
             type="text"
@@ -129,6 +156,12 @@ export default function DatasetsPage() {
         />
       ) : (
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          {favoriteIds.length > 0 && (
+            <div className="flex items-center gap-2 border-b border-gray-100 px-6 py-2 text-xs font-medium text-yellow-600 dark:border-gray-700 dark:text-yellow-400">
+              <Star className="h-3.5 w-3.5 fill-yellow-400" />
+              Dataset favorit ditampilkan di atas
+            </div>
+          )}
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
@@ -141,11 +174,16 @@ export default function DatasetsPage() {
               </tr>
             </thead>
             <tbody>
-              {datasetsList.map((ds) => (
-                <tr key={ds.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+              {sortedDatasets.map((ds) => (
+                <tr key={ds.id} className={`border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 ${isFavorite(ds.id) ? 'bg-yellow-50/40 dark:bg-yellow-900/10' : ''}`}>
                   <td className="px-6 py-4">
-                    <p className="font-medium text-gray-900 dark:text-white">{ds.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{ds.description || 'Tanpa deskripsi'}</p>
+                    <div className="flex items-center gap-2">
+                      <FavoriteStar id={ds.id} type="dataset" />
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">{ds.name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{ds.description || 'Tanpa deskripsi'}</p>
+                      </div>
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">{ds.rows_count?.toLocaleString()}</td>
                   <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">{ds.columns_count}</td>
@@ -159,16 +197,10 @@ export default function DatasetsPage() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      <Link
-                        href={`/datasets/${ds.id}`}
-                        className="text-primary-600 hover:text-primary-800"
-                      >
+                      <Link href={`/datasets/${ds.id}`} className="text-primary-600 hover:text-primary-800">
                         <Eye className="h-4 w-4" />
                       </Link>
-                      <button
-                        onClick={() => setDeleteTarget({ id: ds.id, name: ds.name })}
-                        className="text-red-500 hover:text-red-700"
-                      >
+                      <button onClick={() => setDeleteTarget({ id: ds.id, name: ds.name })} className="text-red-500 hover:text-red-700">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>

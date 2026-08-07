@@ -35,13 +35,13 @@ export default function BatchJobsPage() {
     }
   };
 
-  const formatDate = (d: string | null) => d ? new Date(d).toLocaleString() : '-';
+  const formatDate = (d: string | null) => d ? new Date(d).toLocaleString('id-ID') : '-';
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Batch Predictions</h1>
-        <p className="text-gray-500 dark:text-gray-400">Run bulk predictions and download results</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Prediksi Batch</h1>
+        <p className="text-gray-500 dark:text-gray-400">Jalankan prediksi massal dan unduh hasilnya</p>
       </div>
 
       {loading ? (
@@ -49,19 +49,19 @@ export default function BatchJobsPage() {
       ) : jobs.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 py-16">
           <Layers className="mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" />
-          <p className="text-gray-500 dark:text-gray-400">No batch jobs yet</p>
+          <p className="text-gray-500 dark:text-gray-400">Belum ada batch job</p>
         </div>
       ) : (
         <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700 text-left text-sm font-medium text-gray-500 dark:text-gray-400">
-                <th className="px-6 py-4">Name</th>
+                <th className="px-6 py-4">Nama</th>
                 <th className="px-6 py-4">Status</th>
                 <th className="px-6 py-4">Progress</th>
-                <th className="px-6 py-4">Avg Latency</th>
-                <th className="px-6 py-4">Created</th>
-                <th className="px-6 py-4">Actions</th>
+                <th className="px-6 py-4">Rata-rata Latensi</th>
+                <th className="px-6 py-4">Dibuat</th>
+                <th className="px-6 py-4">Aksi</th>
               </tr>
             </thead>
             <tbody>
@@ -74,7 +74,9 @@ export default function BatchJobsPage() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
                       {statusIcon(job.status)}
-                      <span className="text-sm capitalize text-gray-700 dark:text-gray-300">{job.status}</span>
+                      <span className="text-sm capitalize text-gray-700 dark:text-gray-300">
+                        {{'pending':'Menunggu','running':'Berjalan','completed':'Selesai','failed':'Gagal'}[job.status] ?? job.status}
+                      </span>
                     </div>
                   </td>
                   <td className="px-6 py-4">
@@ -101,7 +103,7 @@ export default function BatchJobsPage() {
                         className="flex items-center gap-1 text-primary-600 hover:text-primary-800 text-sm"
                       >
                         <Download className="h-4 w-4" />
-                        Download
+                        Unduh
                       </a>
                     )}
                   </td>

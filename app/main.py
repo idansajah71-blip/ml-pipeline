@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request, Response, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import time
@@ -15,6 +16,7 @@ from app.api import feature_store, serving, organizations, quota
 from app.api import model_versions, experiment_compare, feature_monitoring, webhooks, lineage_metrics
 from app.api import explainability_dashboard, ensemble, data_versioning, marketplace, cost_tracking
 from app.api import mlflow_tracking, model_benchmark, data_validation_api, recommendations
+from app.api import analytics
 from app.core.security_middleware import (
     RateLimitMiddleware,
     SecurityHeadersMiddleware,
@@ -79,10 +81,28 @@ app.add_middleware(
 
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
-app.add_middleware(InputSanitizationMiddleware)
-app.add_middleware(TrainingQuotaMiddleware)
-app.add_middleware(UploadSizeLimitMiddleware, default_max_mb=100)
 app.add_middleware(RateLimitMiddleware, default_limit=100, default_window=60)
+app.add_middleware(UploadSizeLimitMiddleware, default_max_mb=100)
+app.add_middleware(TrainingQuotaMiddleware)
+app.add_middleware(InputSanitizationMiddleware)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    errors = []
+    for err in exc.errors():
+        loc = " -> ".join(str(x) for x in err.get("loc", []))
+        errors.append(f"[{loc}] {err.get('msg', err)}")
+    detail = "Validation failed: " + "; ".join(errors) if errors else "Validation failed"
+    log_error(exc, context=f"Validation error on {request.method} {request.url.path}")
+    return JSONResponse(
+        status_code=422,
+        content={
+            "detail": detail,
+            "errors": [err.get("msg", str(err)) for err in exc.errors()],
+            "locations": [list(err.get("loc", [])) for err in exc.errors()],
+        },
+    )
 
 
 @app.exception_handler(HTTPException)
@@ -136,6 +156,7 @@ app.include_router(mlflow_tracking.router, prefix="/api/v1")
 app.include_router(model_benchmark.router, prefix="/api/v1")
 app.include_router(data_validation_api.router, prefix="/api/v1")
 app.include_router(recommendations.router, prefix="/api/v1")
+app.include_router(analytics.router, prefix="/api/v1")
 
 
 @app.get("/health")

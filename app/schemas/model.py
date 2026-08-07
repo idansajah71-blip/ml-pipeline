@@ -24,6 +24,8 @@ class ProblemType(str, Enum):
 
 
 class ModelBase(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
     algorithm: str = Field(..., min_length=1, max_length=100)
@@ -56,7 +58,7 @@ class ModelResponse(ModelBase):
     created_at: datetime
     updated_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "protected_namespaces": ()}
 
 
 class ModelListResponse(BaseModel):
@@ -82,13 +84,25 @@ class TrainResponse(BaseModel):
     task_id: Optional[str] = None
 
 
+class PredictionItem(BaseModel):
+    id: Optional[UUID] = None
+    index: Optional[int] = None
+    prediction: str
+    probability: Optional[float] = None
+    probabilities: Optional[Dict[str, float]] = None
+
+
 class PredictRequest(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     data: List[Dict[str, Any]]
     model_id: Optional[UUID] = None
 
 
 class PredictResponse(BaseModel):
-    predictions: List[Dict[str, Any]]
+    model_config = {"protected_namespaces": ()}
+
+    predictions: List[PredictionItem]
     model_version: int
     latency_ms: int
 
@@ -98,10 +112,23 @@ class BatchPredictRequest(BaseModel):
 
 
 class BatchPredictResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     predictions: List[Dict[str, Any]]
     model_version: int
     latency_ms: int
     total: int
+
+
+class PredictionFeedbackRequest(BaseModel):
+    correct: bool
+    comment: Optional[str] = None
+
+
+class PredictionFeedbackResponse(BaseModel):
+    status: str
+    prediction_id: UUID
+    correct: bool
 
 
 class ModelStageUpdate(BaseModel):
@@ -109,6 +136,8 @@ class ModelStageUpdate(BaseModel):
 
 
 class ModelCardUpdate(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     model_card: Dict[str, Any]
 
 
@@ -146,11 +175,15 @@ class TaskStatusResponse(BaseModel):
 
 
 class BenchmarkRequest(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     model_id: UUID
     n_runs: int = Field(default=100, ge=10, le=1000)
 
 
 class BenchmarkResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     algorithm: str
     problem_type: str
     metrics: Dict[str, Any]
@@ -164,6 +197,8 @@ class BenchmarkResponse(BaseModel):
 
 
 class TuningRequest(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     model_id: UUID
     n_trials: int = Field(default=50, ge=10, le=500)
     cv: int = Field(default=5, ge=2, le=10)

@@ -8,7 +8,7 @@ from app.core.database import get_db
 from app.core.security import get_current_active_user
 from app.core.error_utils import sanitize_error_message, log_error
 from app.models.user import User
-from app.schemas.dataset import DatasetResponse, DatasetCreate, DatasetPreview, DatasetProfileResponse
+from app.schemas.dataset import DatasetResponse, DatasetCreate, DatasetUpdate, DatasetPreview, DatasetProfileResponse
 from app.services.dataset_service import DatasetService
 from app.ml.data_utils import validate_magic_bytes, SUPPORTED_FORMATS
 
@@ -67,6 +67,31 @@ async def list_datasets(
     return [DatasetResponse.model_validate(d) for d in datasets]
 
 
+@router.get("/trash", response_model=List[DatasetResponse])
+async def list_trash_datasets(
+    skip: int = 0,
+    limit: int = 100,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = DatasetService(db)
+    datasets = await service.get_archived_datasets(current_user.id, skip=skip, limit=limit)
+    return [DatasetResponse.model_validate(d) for d in datasets]
+
+
+@router.post("/{dataset_id}/restore")
+async def restore_dataset(
+    dataset_id: UUID,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = DatasetService(db)
+    restored = await service.restore_dataset(dataset_id, current_user.id)
+    if not restored:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    return {"message": "Dataset restored successfully"}
+
+
 @router.get("/all", response_model=List[DatasetResponse])
 async def list_all_datasets(
     skip: int = 0,
@@ -103,6 +128,24 @@ async def preview_dataset(
     return preview
 
 
+@router.put("/{dataset_id}", response_model=DatasetResponse)
+async def update_dataset(
+    dataset_id: UUID,
+    update_data: DatasetUpdate,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = DatasetService(db)
+    dataset = await service.update_dataset(
+        dataset_id,
+        update_data.model_dump(exclude_unset=True),
+        current_user.id,
+    )
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+    return DatasetResponse.model_validate(dataset)
+
+
 @router.delete("/{dataset_id}")
 async def delete_dataset(
     dataset_id: UUID,
@@ -113,7 +156,7 @@ async def delete_dataset(
     deleted = await service.delete_dataset(dataset_id, current_user.id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    return {"message": "Dataset deleted successfully"}
+    return {"message": "Dataset archived successfully"}
 
 
 @router.get("/{dataset_id}/profile", response_model=DatasetProfileResponse)

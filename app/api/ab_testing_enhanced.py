@@ -81,40 +81,6 @@ async def get_ab_test_metrics(
     )
 
 
-@router.post("/{test_id}/route")
-async def route_ab_test_prediction(
-    test_id: UUID,
-    db: AsyncSession = Depends(get_db),
-):
-    result = await db.execute(select(ABTest).where(ABTest.id == test_id))
-    test = result.scalar_one_or_none()
-    if not test:
-        raise HTTPException(status_code=404, detail="A/B test not found")
-
-    if test.status != ABTestStatus.ACTIVE:
-        raise HTTPException(status_code=400, detail="A/B test is not active")
-
-    use_model_b = random.randint(1, 100) <= test.traffic_split
-
-    if use_model_b:
-        test.model_b_requests += 1
-        selected_model_id = test.model_b_id
-        group = "B"
-    else:
-        test.model_a_requests += 1
-        selected_model_id = test.model_a_id
-        group = "A"
-
-    await db.flush()
-
-    return {
-        "model_id": str(selected_model_id),
-        "group": group,
-        "traffic_split": test.traffic_split,
-        "test_id": str(test.id),
-    }
-
-
 @router.post("/{test_id}/record")
 async def record_prediction_outcome(
     test_id: UUID,

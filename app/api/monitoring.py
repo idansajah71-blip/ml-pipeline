@@ -183,6 +183,8 @@ async def get_model_performance(
 
 
 class PredictionHistoryQuery(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     model_id: Optional[UUID] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
@@ -385,6 +387,8 @@ async def trigger_retrain(
 
 
 class LatencySLARequest(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     model_id: UUID
     sla_threshold_ms: float = 500.0
     window_hours: int = 24

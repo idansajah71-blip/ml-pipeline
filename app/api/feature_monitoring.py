@@ -16,6 +16,8 @@ router = APIRouter(prefix="/feature-monitoring", tags=["Feature Monitoring"])
 
 
 class DriftAlertResponse(BaseModel):
+    model_config = {"from_attributes": True, "protected_namespaces": ()}
+
     id: UUID
     feature_name: str
     model_id: Optional[UUID]

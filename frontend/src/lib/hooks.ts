@@ -74,6 +74,18 @@ export function useDataset(id: string | undefined) {
   return { dataset: data ?? null, isLoading, isError: error, mutate };
 }
 
+export function useDeletedDatasets() {
+  const { data, error, isLoading, mutate } = useSWR<Dataset[]>(
+    'deleted-datasets',
+    () => datasets.trash().then((r) => r.data),
+    {
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+    }
+  );
+  return { datasets: data ?? [], isLoading, isError: error, mutate };
+}
+
 export function useDatasetPreview(id: string | undefined) {
   const { data, error, isLoading } = useSWR(
     id ? `dataset-preview-${id}` : null,
@@ -94,6 +106,14 @@ export function useDatasetProfile(id: string | undefined, targetColumn?: string)
 
 export function useModels() {
   const { data, error, isLoading, mutate } = useSWR<MLModel[]>('models', modelsFetcher, {
+    revalidateOnFocus: true,
+    revalidateOnReconnect: true,
+  });
+  return { models: data ?? [], isLoading, isError: error, mutate };
+}
+
+export function useDeletedModels() {
+  const { data, error, isLoading, mutate } = useSWR<MLModel[]>('deleted-models', () => models.trash().then((r) => r.data), {
     revalidateOnFocus: true,
     revalidateOnReconnect: true,
   });

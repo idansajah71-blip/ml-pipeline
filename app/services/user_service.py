@@ -73,10 +73,12 @@ class UserService:
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        api_key = generate_api_key()
-        user.api_key = api_key
+        import hashlib
+        raw_key = generate_api_key()
+        key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+        user.api_key = key_hash
         await self.db.flush()
-        return api_key
+        return raw_key
 
     async def get_all_users(self, skip: int = 0, limit: int = 100) -> list[User]:
         result = await self.db.execute(select(User).offset(skip).limit(limit))

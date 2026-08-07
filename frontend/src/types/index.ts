@@ -89,6 +89,20 @@ export interface Stats {
   training_experiments: number;
 }
 
+export interface PredictionItem {
+  id: string;
+  index?: number;
+  prediction: string | number;
+  probability?: number;
+  probabilities?: Record<string, number>;
+}
+
+export interface PredictionFeedbackResponse {
+  status: string;
+  prediction_id: string;
+  correct: boolean;
+}
+
 export interface LoginPayload {
   email: string;
   password: string;
@@ -157,11 +171,7 @@ export interface SystemInfo {
 }
 
 export interface PredictionResult {
-  predictions: Array<{
-    prediction: string | number;
-    probability?: number;
-    probabilities?: Record<string, number>;
-  }>;
+  predictions: PredictionItem[];
   latency_ms: number;
 }
 

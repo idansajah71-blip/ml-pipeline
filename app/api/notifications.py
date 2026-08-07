@@ -157,6 +157,8 @@ async def trigger_notification(
 
 
 class DriftCheckRequest(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     model_id: UUID
     reference_window: int = 100
     current_window: int = 50
@@ -164,6 +166,8 @@ class DriftCheckRequest(BaseModel):
 
 
 class DriftCheckResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     model_id: str
     drift_detected: bool
     drift_score: float

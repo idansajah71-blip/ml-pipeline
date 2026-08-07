@@ -17,6 +17,8 @@ router = APIRouter(prefix="/ensemble", tags=["Multi-model Ensemble"])
 
 
 class EnsembleCreate(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     name: str
     description: Optional[str] = None
     model_ids: List[UUID]
@@ -25,6 +27,8 @@ class EnsembleCreate(BaseModel):
 
 
 class EnsembleResponse(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     id: str
     name: str
     strategy: str

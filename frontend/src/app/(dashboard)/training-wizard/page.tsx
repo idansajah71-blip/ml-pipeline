@@ -19,10 +19,15 @@ import {
   AlertTriangle,
   Hash,
   Tag,
+  RotateCcw,
 } from 'lucide-react';
 import { useToast } from '@/components/Toast';
-import { models, datasets as datasetsApi, recommendations } from '@/lib/api';
+import Badge from '@/components/Badge';
+import AdvancedSection from '@/components/AdvancedSection';
+import { models, datasets as datasetsApi, recommendations, quota, experiments, formatApiError } from '@/lib/api';
 import { useDatasets } from '@/lib/hooks';
+import { useWizardDraft, loadDraft, clearDraft } from '@/lib/useWizardDraft';
+import { useFunnelTracker } from '@/lib/useFunnelTracker';
 import Link from 'next/link';
 
 type WizardStep = 'upload' | 'target' | 'purpose' | 'preview' | 'mode' | 'review' | 'training' | 'results';
@@ -58,6 +63,53 @@ const ALGORITHM_LABELS: Record<string, string> = Object.fromEntries(
   Object.entries(ALGORITHMS).map(([k, v]) => [k, v.label])
 );
 
+const GLOSSARY = {
+  accuracy: {
+    label: 'akurasi',
+    description: 'Seberapa sering model kamu benar. Lebih tinggi berarti prediksi lebih bisa dipercaya.',
+  },
+  overfitting: {
+    label: 'overfitting',
+    description: 'Model yang terlalu fokus menghafal data lama, jadi nanti mudah bingung kalau data baru sedikit beda.',
+  },
+  epoch: {
+    label: 'epoch',
+    description: 'Satu kali model melihat semua data pelatihan sekali. Semakin banyak epoch, model belajar lebih banyak, tapi bisa juga terlalu banyak.',
+  },
+  feature: {
+    label: 'fitur',
+    description: 'Kolom informasi yang digunakan model untuk belajar, misalnya umur, pendapatan, atau skor kredit.',
+  },
+  target: {
+    label: 'target',
+    description: 'Apa yang ingin kamu prediksi, misalnya churn, harga, atau kategori produk.',
+  },
+  dataset: {
+    label: 'dataset',
+    description: 'Kumpulan data yang dipakai untuk melatih model. Anggap ini sebagai buku latihan atau contoh soal.',
+  },
+  trainingDataset: {
+    label: 'dataset training',
+    description: 'Data yang digunakan model untuk belajar. Ini seperti soal latihan untuk murid.',
+  },
+  testingDataset: {
+    label: 'dataset testing',
+    description: 'Data yang digunakan untuk menguji model setelah dilatih, supaya kita tahu model benar-benar ngerti pola.',
+  },
+};
+
+function GlossaryTerm({ term }: { term: keyof typeof GLOSSARY }) {
+  const item = GLOSSARY[term];
+  return (
+    <Tooltip content={item.description} position="top" className="!max-w-sm">
+      <span className="inline-flex cursor-help items-center gap-1 text-primary-600 hover:text-primary-800">
+        {item.label}
+        <span className="rounded-full bg-primary-100 px-1 text-[10px] font-semibold text-primary-700">?</span>
+      </span>
+    </Tooltip>
+  );
+}
+
 export default function TrainingWizard() {
   const router = useRouter();
   const { toast } = useToast();
@@ -73,6 +125,47 @@ export default function TrainingWizard() {
     algorithm: 'random_forest',
     trainingResult: null,
   });
+
+  // ── Draft restore ────────────────────────────────────────────────────────
+  const [draftToRestore, setDraftToRestore] = useState(() => loadDraft());
+  const [showDraftBanner, setShowDraftBanner] = useState(() => !!loadDraft());
+
+  // ── Funnel tracker ───────────────────────────────────────────────────────
+  const { transition, abandon } = useFunnelTracker('training-wizard');
+
+  // Wrap setCurrentStep so every transition is tracked automatically
+  const goToStep = useCallback((next: WizardStep) => {
+    setCurrentStep((prev) => {
+      if (prev !== next) transition(prev, next);
+      return next;
+    });
+  }, [transition]);
+
+  // Track abandon when user navigates away mid-funnel
+  useEffect(() => {
+    const handleUnload = () => {
+      if (!['training', 'results'].includes(currentStep)) {
+        abandon(currentStep, { datasetName: state.datasetName });
+      }
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
+  }, [currentStep, state.datasetName, abandon]);
+
+  // ── Auto-save draft ──────────────────────────────────────────────────────
+  const activeForDraft = !['training', 'results'].includes(currentStep);
+  useWizardDraft(
+    currentStep,
+    {
+      datasetId: state.datasetId,
+      datasetName: state.datasetName,
+      targetColumn: state.targetColumn,
+      predictionType: state.predictionType,
+      mode: state.mode,
+      algorithm: state.algorithm,
+    },
+    activeForDraft,
+  );
   const [uploading, setUploading] = useState(false);
   const [training, setTraining] = useState(false);
   const [previewData, setPreviewData] = useState<any[] | null>(null);
@@ -81,13 +174,88 @@ export default function TrainingWizard() {
   const [trainingStep, setTrainingStep] = useState('');
   const [recommendation, setRecommendation] = useState<any>(null);
   const [recommendationLoading, setRecommendationLoading] = useState(false);
+  const [quotaInfo, setQuotaInfo] = useState<any | null>(null);
+  const [quotaLoading, setQuotaLoading] = useState(false);
+  const [previousExperiments, setPreviousExperiments] = useState<any[] | null>(null);
+  const [previousLoading, setPreviousLoading] = useState(false);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSavedTargetRef = useRef<{ datasetId: string | null; targetColumn: string | null }>({
+    datasetId: null,
+    targetColumn: null,
+  });
+  const [savingTarget, setSavingTarget] = useState(false);
 
   useEffect(() => {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, []);
+
+  const fetchQuotaInfo = useCallback(async () => {
+    setQuotaLoading(true);
+    try {
+      const res = await quota.get();
+      setQuotaInfo(res.data);
+    } catch {
+      setQuotaInfo(null);
+    } finally {
+      setQuotaLoading(false);
+    }
+  }, []);
+
+  const fetchPreviousExperiments = useCallback(async () => {
+    if (!state.datasetId) return;
+    setPreviousLoading(true);
+    try {
+      const res = await experiments.list({ status: 'completed' });
+      const items = res.data.items || [];
+      const filtered = items
+        .filter((item: any) => item.dataset_id === state.datasetId)
+        .filter((item: any) => item.id !== state.trainingResult?.id)
+        .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 3);
+      setPreviousExperiments(filtered);
+    } catch {
+      setPreviousExperiments(null);
+    } finally {
+      setPreviousLoading(false);
+    }
+  }, [state.datasetId, state.trainingResult]);
+
+  useEffect(() => {
+    if (currentStep === 'review') {
+      fetchQuotaInfo();
+    }
+  }, [currentStep, fetchQuotaInfo]);
+
+  useEffect(() => {
+    if (currentStep === 'results') {
+      fetchPreviousExperiments();
+    }
+  }, [currentStep, fetchPreviousExperiments]);
+
+  const persistTargetToBackend = useCallback(async () => {
+    if (!state.datasetId || !state.targetColumn) return true;
+    const last = lastSavedTargetRef.current;
+    if (last.datasetId === state.datasetId && last.targetColumn === state.targetColumn) {
+      return true;
+    }
+    setSavingTarget(true);
+    try {
+      await datasetsApi.update(state.datasetId, { target_column: state.targetColumn });
+      lastSavedTargetRef.current = {
+        datasetId: state.datasetId,
+        targetColumn: state.targetColumn,
+      };
+      mutateDatasets();
+      return true;
+    } catch (err: unknown) {
+      toast('error', formatApiError(err, 'Gagal menyimpan kolom target'));
+      return false;
+    } finally {
+      setSavingTarget(false);
+    }
+  }, [state.datasetId, state.targetColumn, mutateDatasets, toast]);
 
   const handleFileSelect = useCallback(async (file: File | null) => {
     if (!file) return;
@@ -122,10 +290,9 @@ export default function TrainingWizard() {
       setPreviewData(preview?.head || preview?.data || null);
 
       toast('success', 'Dataset berhasil diunggah');
-      setCurrentStep('target');
+      goToStep('target');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Gagal mengunggah file';
-      toast('error', message);
+      toast('error', formatApiError(err, 'Gagal mengunggah file'));
     } finally {
       setUploading(false);
     }
@@ -162,13 +329,13 @@ export default function TrainingWizard() {
         if (step === 'completed' || status.result) {
           if (pollRef.current) clearInterval(pollRef.current);
           setState((prev) => ({ ...prev, trainingResult: status }));
-          setCurrentStep('results');
+          goToStep('results');
           setTraining(false);
           toast('success', 'Training berhasil diselesaikan!');
         } else if (step === 'failed') {
           if (pollRef.current) clearInterval(pollRef.current);
           toast('error', status.error || 'Training gagal');
-          setCurrentStep('review');
+          goToStep('review');
           setTraining(false);
         }
       } catch {
@@ -186,7 +353,7 @@ export default function TrainingWizard() {
     setTraining(true);
     setTrainingProgress(0);
     setTrainingStep('Mempersiapkan...');
-    setCurrentStep('training');
+    goToStep('training');
 
     try {
       const modelResp = await models.create({
@@ -211,14 +378,14 @@ export default function TrainingWizard() {
         pollTaskStatus(trainResult.task_id);
       } else {
         setState((prev) => ({ ...prev, trainingResult: trainResult }));
-        setCurrentStep('results');
+        clearDraft(); // training done — draft no longer needed
+        goToStep('results');
         setTraining(false);
         toast('success', 'Training berhasil diselesaikan!');
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Training gagal';
-      toast('error', message);
-      setCurrentStep('review');
+      toast('error', formatApiError(err, 'Training gagal'));
+      goToStep('review');
       setTraining(false);
     }
   };
@@ -275,16 +442,27 @@ export default function TrainingWizard() {
               <div className="rounded-xl border border-gray-200 bg-white p-4">
                 <p className="mb-3 text-sm font-medium text-gray-700">Atau pilih dataset yang sudah ada:</p>
                 <select
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const ds = datasetsList.find((d) => d.id === e.target.value);
-                    if (ds) {
-                      setState((prev) => ({
-                        ...prev,
-                        datasetId: ds.id,
-                        datasetName: ds.name,
-                      }));
-                      setCurrentStep('target');
+                    if (!ds) return;
+                    setState((prev) => ({
+                      ...prev,
+                      datasetId: ds.id,
+                      datasetName: ds.name,
+                      targetColumn: (ds as any).target_column || prev.targetColumn,
+                    }));
+                    lastSavedTargetRef.current = { datasetId: null, targetColumn: null };
+                    try {
+                      const previewRes = await datasetsApi.preview(ds.id);
+                      const preview = previewRes.data as any;
+                      const cols = preview?.columns || (ds as any).column_names || [];
+                      setColumns(cols);
+                      setPreviewData(preview?.head || preview?.data || null);
+                    } catch {
+                      const cols = (ds as any).column_names || [];
+                      setColumns(cols);
                     }
+                    goToStep('target');
                   }}
                   className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
                 >
@@ -304,7 +482,10 @@ export default function TrainingWizard() {
             <div className="text-center">
               <h2 className="text-xl font-semibold text-gray-900">Pilih Kolom Target</h2>
               <p className="mt-2 text-gray-500">
-                Kolom mana yang ingin Anda prediksi?
+                Kolom mana yang ingin Anda prediksi? <GlossaryTerm term="target" />
+              </p>
+              <p className="mt-2 text-sm text-gray-500">
+                Kami butuh target supaya model tahu apa yang harus ditebak — seperti memberi tugas "tebak harga" atau "tebak churn".
               </p>
             </div>
 
@@ -345,19 +526,32 @@ export default function TrainingWizard() {
 
             <div className="flex justify-between">
               <button
-                onClick={() => setCurrentStep('upload')}
+                onClick={() => goToStep('upload')}
                 className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Kembali
               </button>
               <button
-                onClick={() => setCurrentStep('purpose')}
-                disabled={!state.targetColumn}
+                onClick={async () => {
+                  if (!state.targetColumn) return;
+                  const ok = await persistTargetToBackend();
+                  if (ok) goToStep('purpose');
+                }}
+                disabled={!state.targetColumn || savingTarget}
                 className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
               >
-                Selanjutnya
-                <ArrowRight className="h-4 w-4" />
+                {savingTarget ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Menyimpan...
+                  </>
+                ) : (
+                  <>
+                    Selanjutnya
+                    <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -369,7 +563,18 @@ export default function TrainingWizard() {
             <div className="text-center">
               <h2 className="text-xl font-semibold text-gray-900">Apa yang Ingin Anda Prediksi?</h2>
               <p className="mt-2 text-gray-500">
-                Pilih jenis prediksi yang sesuai dengan kebutuhan Anda
+                Pilih jenis prediksi yang sesuai dengan kebutuhan Anda.
+              </p>
+              <p className="mt-3 text-sm text-gray-500">
+                Di sini kita memutuskan apakah model harus menebak nilai angka atau memilih kategori yang tepat.
+                Ini mirip memilih apakah Anda ingin memperkirakan suhu besok atau menentukan apakah email itu spam atau bukan.
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+              <p className="text-sm font-medium text-blue-800">Analogi cepat</p>
+              <p className="mt-2 text-sm text-blue-700">
+                Prediksi angka seperti memperkirakan jumlah pelanggan, sedangkan prediksi kategori seperti memilih warna atau jenis barang.
               </p>
             </div>
 
@@ -441,15 +646,17 @@ export default function TrainingWizard() {
 
             <div className="flex justify-between">
               <button
-                onClick={() => setCurrentStep('target')}
+                onClick={() => goToStep('target')}
                 className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Kembali
               </button>
               <button
-                onClick={() => {
-                  setCurrentStep('preview');
+                onClick={async () => {
+                  if (!state.predictionType) return;
+                  await persistTargetToBackend();
+                  goToStep('preview');
                   if (state.datasetId && state.targetColumn) {
                     setRecommendationLoading(true);
                     setRecommendation(null);
@@ -459,7 +666,7 @@ export default function TrainingWizard() {
                       .finally(() => setRecommendationLoading(false));
                   }
                 }}
-                disabled={!state.predictionType}
+                disabled={!state.predictionType || savingTarget}
                 className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
               >
                 Selanjutnya
@@ -476,6 +683,13 @@ export default function TrainingWizard() {
               <h2 className="text-xl font-semibold text-gray-900">Pratinjau Data</h2>
               <p className="mt-2 text-gray-500">
                 Periksa data Anda sebelum memulai training
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+              <p className="text-sm font-medium text-blue-800">Mengapa ini penting?</p>
+              <p className="mt-2 text-sm text-blue-700">
+                Pratinjau membantu Anda memastikan kolom target sudah benar dan melihat apakah ada nilai kosong atau format yang tidak konsisten.
               </p>
             </div>
 
@@ -603,14 +817,14 @@ export default function TrainingWizard() {
 
             <div className="flex justify-between">
               <button
-                onClick={() => setCurrentStep('purpose')}
+                onClick={() => goToStep('purpose')}
                 className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Kembali
               </button>
               <button
-                onClick={() => setCurrentStep('mode')}
+                onClick={() => goToStep('mode')}
                 className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
               >
                 Selanjutnya
@@ -627,6 +841,9 @@ export default function TrainingWizard() {
               <h2 className="text-xl font-semibold text-gray-900">Pilih Mode Training</h2>
               <p className="mt-2 text-gray-500">
                 Bagaimana Anda ingin melatih model?
+              </p>
+              <p className="mt-3 text-sm text-gray-500">
+                Mode simple akan membuat proses lebih cepat dan otomatis, sedangkan mode advanced memberi Anda kontrol ekstra jika Anda ingin mencoba opsi lain.
               </p>
             </div>
 
@@ -699,10 +916,7 @@ export default function TrainingWizard() {
             </div>
 
             {state.mode === 'advanced' && (
-              <div className="rounded-xl border border-gray-200 bg-white p-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Pilih Algoritma
-                </label>
+              <AdvancedSection label="Pilih Algoritma" defaultOpen={true}>
                 <p className="mb-3 text-xs text-gray-500">
                   {state.predictionType === 'number'
                     ? 'Menampilkan algoritma Regresi (untuk prediksi angka)'
@@ -732,19 +946,19 @@ export default function TrainingWizard() {
                     </button>
                   ))}
                 </div>
-              </div>
+              </AdvancedSection>
             )}
 
             <div className="flex justify-between">
               <button
-                onClick={() => setCurrentStep('preview')}
+                onClick={() => goToStep('preview')}
                 className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Kembali
               </button>
               <button
-                onClick={() => setCurrentStep('review')}
+                onClick={() => goToStep('review')}
                 className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
               >
                 Selanjutnya
@@ -806,9 +1020,73 @@ export default function TrainingWizard() {
               </div>
             )}
 
+            <div className="rounded-lg border border-gray-200 bg-blue-50 p-4">
+              <div className="flex gap-3">
+                <Info className="h-5 w-5 text-blue-500 flex-shrink-0" />
+                <div className="text-sm text-blue-700">
+                  <p className="font-medium">Tenang, semua berjalan otomatis</p>
+                  <p className="mt-1">
+                    Proses training dijalankan di server. Jika ada masalah antrian tugas, sistem akan memperbaiki secara otomatis sehingga training tetap bisa berlangsung.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Perkiraan Kuota Training</p>
+                  <p className="text-sm text-gray-500">Training ini akan menggunakan satu unit kuota training.</p>
+                </div>
+                {quotaLoading ? (
+                  <span className="text-sm text-gray-500">Memuat kuota...</span>
+                ) : null}
+              </div>
+              {quotaInfo ? (
+                <div className="space-y-3">
+                  <div className="rounded-lg bg-gray-50 p-4">
+                    <div className="flex items-center justify-between text-sm text-gray-700">
+                      <span>Training hari ini</span>
+                      <span>{quotaInfo.training?.daily?.current ?? 0}/{quotaInfo.training?.daily?.limit ?? 0}</span>
+                    </div>
+                    <div className="mt-2 h-2 w-full rounded-full bg-gray-200">
+                      <div
+                        className="h-full rounded-full bg-primary-600"
+                        style={{ width: `${Math.min(100, ((quotaInfo.training?.daily?.current ?? 0) / Math.max(1, quotaInfo.training?.daily?.limit ?? 1)) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="rounded-lg bg-gray-50 p-4">
+                    <div className="flex items-center justify-between text-sm text-gray-700">
+                      <span>Training bulan ini</span>
+                      <span>{quotaInfo.training?.monthly?.current ?? 0}/{quotaInfo.training?.monthly?.limit ?? 0}</span>
+                    </div>
+                    <div className="mt-2 h-2 w-full rounded-full bg-gray-200">
+                      <div
+                        className="h-full rounded-full bg-primary-600"
+                        style={{ width: `${Math.min(100, ((quotaInfo.training?.monthly?.current ?? 0) / Math.max(1, quotaInfo.training?.monthly?.limit ?? 1)) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  {(quotaInfo.training?.daily && quotaInfo.training.daily.current + 1 > quotaInfo.training.daily.limit) && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                      Peringatan: training ini mungkin akan melewati batas harian Anda.
+                    </div>
+                  )}
+                  {(quotaInfo.training?.monthly && quotaInfo.training.monthly.current + 1 > quotaInfo.training.monthly.limit) && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                      Peringatan: training ini mungkin akan melewati batas bulanan Anda.
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">Tidak dapat memuat data kuota saat ini.</p>
+              )}
+            </div>
+
             <div className="flex justify-between">
               <button
-                onClick={() => setCurrentStep('mode')}
+                onClick={() => goToStep('mode')}
                 className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -905,68 +1183,135 @@ export default function TrainingWizard() {
                 </div>
               </div>
               <h2 className="text-xl font-semibold text-gray-900">Training Selesai!</h2>
-              <p className="mt-2 text-gray-500">
-                Model Anda telah berhasil dilatih
-              </p>
+              <p className="mt-2 text-gray-500">Model Anda telah berhasil dilatih</p>
             </div>
 
             {state.trainingResult && (
-              <div className="rounded-xl border border-gray-200 bg-white p-6">
-                <h3 className="mb-4 font-semibold text-gray-900">Ringkasan Hasil</h3>
-
-                {state.trainingResult.results?.human_summary && (
-                  <div className="space-y-4">
-                    <div className="rounded-lg bg-gray-50 p-4">
-                      <p className="text-sm text-gray-700">
-                        {state.trainingResult.results.human_summary.performance?.description}
-                      </p>
+              <>
+                <div className="rounded-xl border border-green-200 bg-green-50 p-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-green-700">Sertifikat Penyelesaian</p>
+                      <p className="mt-1 text-sm text-green-700">Anda telah menyelesaikan Training Wizard dan siap mencoba model Anda.</p>
                     </div>
+                    <Badge variant="success">Pemula</Badge>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg width="900" height="600" viewBox="0 0 900 600" xmlns="http://www.w3.org/2000/svg">\n  <rect width="900" height="600" fill="#f8fafc" rx="24" />\n  <rect x="48" y="48" width="804" height="504" fill="#ffffff" rx="20" stroke="#d1d5db" stroke-width="2" />\n  <text x="450" y="130" text-anchor="middle" font-family="Inter, sans-serif" font-size="34" font-weight="700" fill="#111827">Sertifikat Penyelesaian</text>\n  <text x="450" y="190" text-anchor="middle" font-family="Inter, sans-serif" font-size="18" fill="#4b5563">Telah menyelesaikan Training Wizard di platform ML Pipeline</text>\n  <text x="450" y="260" text-anchor="middle" font-family="Inter, sans-serif" font-size="24" font-weight="600" fill="#111827">${state.datasetName || 'Dataset Anda'}</text>\n  <text x="450" y="300" text-anchor="middle" font-family="Inter, sans-serif" font-size="18" fill="#6b7280">Target: ${state.targetColumn || 'N/A'}</text>\n  <text x="450" y="340" text-anchor="middle" font-family="Inter, sans-serif" font-size="16" fill="#6b7280">Algoritma: ${state.mode === 'simple' ? 'Auto' : state.algorithm}</text>\n  <text x="450" y="420" text-anchor="middle" font-family="Inter, sans-serif" font-size="16" fill="#111827">Tanggal: ${new Date().toLocaleDateString('id-ID')}</text>\n  <text x="450" y="470" text-anchor="middle" font-family="Inter, sans-serif" font-size="14" fill="#6b7280">Selamat! Anda siap mengambil langkah berikutnya dalam pembelajaran machine learning.</text>\n</svg>`;
+                      const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+                      const url = URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = 'sertifikat-training-wizard.svg';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      URL.revokeObjectURL(url);
+                    }}
+                    className="mt-4 inline-flex items-center justify-center rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
+                  >
+                    Unduh Sertifikat
+                  </button>
+                </div>
 
-                    {state.trainingResult.results.human_summary.warnings?.length > 0 && (
-                      <div className="rounded-lg bg-yellow-50 p-4">
-                        <div className="flex gap-3">
-                          <AlertCircle className="h-5 w-5 text-yellow-500 flex-shrink-0" />
-                          <div>
-                            <p className="text-sm font-medium text-yellow-800">Peringatan:</p>
-                            <ul className="mt-1 space-y-1">
-                              {state.trainingResult.results.human_summary.warnings.map((w: string, i: number) => (
-                                <li key={i} className="text-sm text-yellow-700">{w}</li>
-                              ))}
-                            </ul>
+                <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-6">
+                  <div>
+                    <h3 className="mb-4 font-semibold text-gray-900">Ringkasan Hasil</h3>
+                    {state.trainingResult.results?.human_summary ? (
+                      <div className="space-y-4">
+                        <div className="rounded-lg bg-gray-50 p-4">
+                          <p className="text-sm text-gray-700">
+                            {state.trainingResult.results.human_summary.performance?.description}
+                          </p>
+                        </div>
+                        {state.trainingResult.results.human_summary.warnings?.length > 0 && (
+                          <div className="rounded-lg bg-yellow-50 p-4">
+                            <div className="flex gap-3">
+                              <AlertCircle className="h-5 w-5 text-yellow-500 flex-shrink-0" />
+                              <div>
+                                <p className="text-sm font-medium text-yellow-800">Peringatan:</p>
+                                <ul className="mt-1 space-y-1">
+                                  {state.trainingResult.results.human_summary.warnings.map((w: string, i: number) => (
+                                    <li key={i} className="text-sm text-yellow-700">{w}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-4">
+                        {state.trainingResult.results?.metrics?.accuracy !== undefined && (
+                          <div className="rounded-lg bg-gray-50 p-4">
+                            <p className="text-xs text-gray-500">Akurasi</p>
+                            <p className="text-lg font-semibold text-gray-900">
+                              {(state.trainingResult.results.metrics.accuracy * 100).toFixed(1)}%
+                            </p>
+                          </div>
+                        )}
+                        {state.trainingResult.results?.metrics?.f1_macro !== undefined && (
+                          <div className="rounded-lg bg-gray-50 p-4">
+                            <p className="text-xs text-gray-500">Skor F1</p>
+                            <p className="text-lg font-semibold text-gray-900">
+                              {(state.trainingResult.results.metrics.f1_macro * 100).toFixed(1)}%
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Eksperimen Terakhir</p>
+                      <p className="text-sm text-gray-500">Bandingkan dengan hasil training sebelumnya pada dataset ini.</p>
+                    </div>
+                    {previousLoading ? (
+                      <span className="text-sm text-gray-500">Memuat...</span>
+                    ) : null}
+                  </div>
+
+                  {previousLoading ? (
+                    <div className="rounded-lg bg-white p-4 text-sm text-gray-500">Memuat eksperimen sebelumnya...</div>
+                  ) : previousExperiments && previousExperiments.length > 0 ? (
+                    <div className="space-y-3">
+                      {previousExperiments.map((exp) => (
+                        <div key={exp.id} className="rounded-lg bg-white p-4 border border-gray-200">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="font-medium text-gray-900">{exp.name}</p>
+                              <p className="text-xs text-gray-500">{exp.parameters?.algorithm || 'unknown'} • {new Date(exp.created_at).toLocaleDateString('id-ID')}</p>
+                            </div>
+                            <span className="text-xs font-semibold text-gray-700">{exp.status}</span>
+                          </div>
+                          <div className="mt-3 grid grid-cols-2 gap-3 text-sm text-gray-600">
+                            <div className="rounded-lg bg-gray-50 p-3">
+                              <p className="text-xs text-gray-500">Akurasi</p>
+                              <p className="font-semibold text-gray-900">{exp.metrics?.accuracy !== undefined ? `${(exp.metrics.accuracy * 100).toFixed(1)}%` : '-'}</p>
+                            </div>
+                            <div className="rounded-lg bg-gray-50 p-3">
+                              <p className="text-xs text-gray-500">Skor F1</p>
+                              <p className="font-semibold text-gray-900">{exp.metrics?.f1_macro !== undefined ? `${(exp.metrics.f1_macro * 100).toFixed(1)}%` : '-'}</p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {!state.trainingResult.results?.human_summary && (
-                  <div className="grid grid-cols-2 gap-4">
-                    {state.trainingResult.results?.metrics?.accuracy !== undefined && (
-                      <div className="rounded-lg bg-gray-50 p-4">
-                        <p className="text-xs text-gray-500">Akurasi</p>
-                        <p className="text-lg font-semibold text-gray-900">
-                          {(state.trainingResult.results.metrics.accuracy * 100).toFixed(1)}%
-                        </p>
-                      </div>
-                    )}
-                    {state.trainingResult.results?.metrics?.f1_macro !== undefined && (
-                      <div className="rounded-lg bg-gray-50 p-4">
-                        <p className="text-xs text-gray-500">Skor F1</p>
-                        <p className="text-lg font-semibold text-gray-900">
-                          {(state.trainingResult.results.metrics.f1_macro * 100).toFixed(1)}%
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-lg bg-white p-4 text-sm text-gray-500">Belum ada eksperimen sebelumnya pada dataset ini.</div>
+                  )}
+                </div>
+              </>
             )}
 
             <div className="flex justify-center gap-4">
               <button
                 onClick={() => {
-                  setCurrentStep('upload');
+                  goToStep('upload');
                   setState({
                     datasetFile: null,
                     datasetId: null,
@@ -977,6 +1322,8 @@ export default function TrainingWizard() {
                     algorithm: 'random_forest',
                     trainingResult: null,
                   });
+                  clearDraft();
+                  setShowDraftBanner(false);
                   setPreviewData(null);
                   setColumns([]);
                   setTrainingProgress(0);
@@ -995,6 +1342,8 @@ export default function TrainingWizard() {
             </div>
           </div>
         );
+      default:
+        return null;
     }
   };
 
@@ -1004,6 +1353,58 @@ export default function TrainingWizard() {
         <h1 className="text-2xl font-bold text-gray-900">Training Wizard</h1>
         <p className="text-gray-500">Latih model dalam beberapa langkah sederhana</p>
       </div>
+
+      {/* ── Draft restore banner ─────────────────────────────────────────── */}
+      {showDraftBanner && draftToRestore && (
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-700 dark:bg-amber-900/20">
+          <div className="flex items-center gap-3">
+            <RotateCcw className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+            <div>
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                Ada draft yang belum selesai
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-400">
+                {draftToRestore.state.datasetName
+                  ? `Dataset: ${draftToRestore.state.datasetName} · Step: ${draftToRestore.currentStep}`
+                  : `Terakhir disimpan: ${new Date(draftToRestore.savedAt).toLocaleString('id-ID')}`}
+              </p>
+            </div>
+          </div>
+          <div className="flex shrink-0 gap-2">
+            <button
+              onClick={() => {
+                const d = draftToRestore;
+                setState((prev) => ({
+                  ...prev,
+                  datasetId: d.state.datasetId,
+                  datasetName: d.state.datasetName,
+                  targetColumn: d.state.targetColumn,
+                  predictionType: d.state.predictionType,
+                  mode: d.state.mode,
+                  algorithm: d.state.algorithm,
+                }));
+                // Restore columns from the existing datasets list if available
+                goToStep(d.currentStep as WizardStep);
+                setShowDraftBanner(false);
+                toast('success', 'Draft dipulihkan — lanjutkan dari langkah sebelumnya');
+              }}
+              className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700"
+            >
+              Lanjutkan
+            </button>
+            <button
+              onClick={() => {
+                clearDraft();
+                setShowDraftBanner(false);
+                setDraftToRestore(null);
+              }}
+              className="rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-700 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-400"
+            >
+              Mulai baru
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-between">
         {STEPS.map((step, index) => {

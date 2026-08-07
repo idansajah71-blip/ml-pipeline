@@ -244,10 +244,9 @@ def _load_excel_all_sheets(
     Sheets with different columns are skipped with a warning.
     """
     try:
-        kwargs = {'io': io.BytesIO(file_content)}
-        if engine:
-            kwargs['engine'] = engine
-        xls = pd.ExcelFile(**kwargs)
+        # pandas 2.x: `io` must be passed as a positional argument, not a keyword
+        buf = io.BytesIO(file_content)
+        xls = pd.ExcelFile(buf, engine=engine) if engine else pd.ExcelFile(buf)
     except Exception as e:
         raise ValueError(f"Gagal membaca file Excel: {e}")
 

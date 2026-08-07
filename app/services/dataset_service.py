@@ -61,7 +61,7 @@ class DatasetService:
             column_names=data_info['columns'],
             column_types=data_info['dtypes'],
             target_column=target_col,
-            tags=dataset_data.tags,
+            tags=dataset_data.tags or [],
             owner_id=owner_id,
         )
 
@@ -77,7 +77,16 @@ class DatasetService:
     async def get_user_datasets(self, owner_id: UUID, skip: int = 0, limit: int = 100) -> List[Dataset]:
         result = await self.db.execute(
             select(Dataset)
-            .where(Dataset.owner_id == owner_id)
+            .where(Dataset.owner_id == owner_id, Dataset.is_archived == False)
+            .offset(skip)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def get_archived_datasets(self, owner_id: UUID, skip: int = 0, limit: int = 100) -> List[Dataset]:
+        result = await self.db.execute(
+            select(Dataset)
+            .where(Dataset.owner_id == owner_id, Dataset.is_archived == True)
             .offset(skip)
             .limit(limit)
         )
@@ -90,10 +99,19 @@ class DatasetService:
         if dataset.owner_id != owner_id:
             raise HTTPException(status_code=403, detail="Not authorized")
 
-        if os.path.exists(dataset.file_path):
-            os.remove(dataset.file_path)
+        dataset.is_archived = True
+        await self.db.flush()
+        return True
 
-        await self.db.delete(dataset)
+    async def restore_dataset(self, dataset_id: UUID, owner_id: UUID) -> bool:
+        dataset = await self.get_dataset(dataset_id)
+        if not dataset:
+            return False
+        if dataset.owner_id != owner_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+
+        dataset.is_archived = False
+        await self.db.flush()
         return True
 
     async def get_dataset_preview(self, dataset_id: UUID) -> dict:
@@ -111,3 +129,28 @@ class DatasetService:
     async def get_all_datasets(self, skip: int = 0, limit: int = 100) -> List[Dataset]:
         result = await self.db.execute(select(Dataset).offset(skip).limit(limit))
         return list(result.scalars().all())
+
+    async def update_dataset(
+        self,
+        dataset_id: UUID,
+        update_data: dict,
+        owner_id: UUID,
+    ) -> Optional[Dataset]:
+        dataset = await self.get_dataset(dataset_id)
+        if not dataset:
+            return None
+        if dataset.owner_id != owner_id:
+            from fastapi import HTTPException
+            raise HTTPException(status_code=403, detail="Not authorized")
+
+        for field, value in update_data.items():
+            if value is None:
+                continue
+            if not hasattr(dataset, field):
+                continue
+            setattr(dataset, field, value)
+
+        self.db.add(dataset)
+        await self.db.flush()
+        await self.db.refresh(dataset)
+        return dataset

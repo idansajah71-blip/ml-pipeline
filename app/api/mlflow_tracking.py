@@ -27,6 +27,8 @@ class MLflowConfigRequest(BaseModel):
 
 
 class MLflowRunLogRequest(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     model_id: UUID
     parameters: Dict[str, Any] = {}
     metrics: Dict[str, Any] = {}

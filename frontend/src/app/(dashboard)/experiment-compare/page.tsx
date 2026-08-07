@@ -49,12 +49,12 @@ export default function ExperimentComparePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Experiment Comparison</h1>
-        <p className="text-gray-500 dark:text-gray-400">Compare experiments and view leaderboard</p>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Perbandingan Eksperimen</h1>
+        <p className="text-gray-500 dark:text-gray-400">Bandingkan beberapa eksperimen dan lihat papan peringkat</p>
       </div>
 
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Select Experiments (2-5)</h2>
+        <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Pilih Eksperimen (2–5)</h2>
         {loading ? <LoadingSpinner size="sm" /> : (
           <>
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2 mb-4 max-h-64 overflow-auto">
@@ -65,15 +65,15 @@ export default function ExperimentComparePage() {
                   }`}>
                   <div>
                     <p className="font-medium text-gray-900 dark:text-white">{exp.name}</p>
-                    <p className="text-xs text-gray-500">{exp.results?.algorithm || 'unknown'}</p>
+                    <p className="text-xs text-gray-500">{exp.results?.algorithm || 'tidak diketahui'}</p>
                   </div>
-                  <span className="text-xs text-gray-500">{new Date(exp.created_at).toLocaleDateString()}</span>
+                  <span className="text-xs text-gray-500">{new Date(exp.created_at).toLocaleDateString('id-ID')}</span>
                 </button>
               ))}
             </div>
             <button onClick={handleCompare} disabled={selectedIds.length < 2 || comparing}
               className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50">
-              {comparing ? 'Comparing...' : `Compare ${selectedIds.length} experiments`}
+              {comparing ? 'Membandingkan...' : `Bandingkan ${selectedIds.length} Eksperimen`}
               <ArrowRight className="h-4 w-4" />
             </button>
           </>
@@ -83,13 +83,13 @@ export default function ExperimentComparePage() {
       {comparison && (
         <div className="space-y-6">
           <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
-            <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Comparison Results</h2>
+            <h2 className="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Hasil Perbandingan</h2>
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200 dark:border-gray-700">
-                    <th className="px-4 py-2 text-left font-medium text-gray-500">Experiment</th>
-                    <th className="px-4 py-2 text-left font-medium text-gray-500">Algorithm</th>
+                    <th className="px-4 py-2 text-left font-medium text-gray-500">Eksperimen</th>
+                    <th className="px-4 py-2 text-left font-medium text-gray-500">Algoritma</th>
                     {Object.keys(comparison.metric_comparison).map(metric => (
                       <th key={metric} className="px-4 py-2 text-left font-medium text-gray-500">{metric}</th>
                     ))}
@@ -126,7 +126,7 @@ export default function ExperimentComparePage() {
                   <span className="text-gray-600 dark:text-gray-300">Max: {stats.max.toFixed(4)}</span>
                 </div>
                 <div className="mt-1 text-center text-lg font-bold text-gray-900 dark:text-white">{stats.mean.toFixed(4)}</div>
-                <p className="text-center text-xs text-gray-500">Spread: {stats.spread.toFixed(4)}</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Spread: {stats.spread.toFixed(4)}</p>
               </div>
             ))}
           </div>
@@ -136,18 +136,18 @@ export default function ExperimentComparePage() {
       <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6">
         <div className="flex items-center gap-2 mb-4">
           <Trophy className="h-5 w-5 text-yellow-500" />
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Leaderboard</h2>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Papan Peringkat</h2>
         </div>
         {leaderboard.length === 0 ? (
-          <p className="text-sm text-gray-500">No completed experiments yet</p>
+          <p className="text-sm text-gray-500">Belum ada eksperimen selesai</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700 text-left">
                 <th className="px-4 py-2 font-medium text-gray-500">#</th>
-                <th className="px-4 py-2 font-medium text-gray-500">Experiment</th>
-                <th className="px-4 py-2 font-medium text-gray-500">Algorithm</th>
-                <th className="px-4 py-2 font-medium text-gray-500">Accuracy</th>
+                <th className="px-4 py-2 font-medium text-gray-500">Eksperimen</th>
+                <th className="px-4 py-2 font-medium text-gray-500">Algoritma</th>
+                <th className="px-4 py-2 font-medium text-gray-500">Akurasi</th>
                 <th className="px-4 py-2 font-medium text-gray-500">F1 Macro</th>
               </tr>
             </thead>

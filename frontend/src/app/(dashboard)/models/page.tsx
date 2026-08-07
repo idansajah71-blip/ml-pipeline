@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Plus, Trash2, Rocket, Brain, Loader2, Eye } from 'lucide-react';
+import { Plus, Trash2, Rocket, Brain, Loader2, Eye, Star } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import Pagination from '@/components/Pagination';
 import SearchInput from '@/components/SearchInput';
 import { CardSkeleton } from '@/components/Skeleton';
 import { useToast } from '@/components/Toast';
+import FavoriteStar from '@/components/FavoriteStar';
 import { models, datasets as datasetsApi, algorithms } from '@/lib/api';
 import { useModels, useDatasets, useAlgorithms } from '@/lib/hooks';
+import { useFavorites } from '@/lib/useFavorites';
 import { ALGORITHMS } from '@/lib/algorithms';
 import Tooltip from '@/components/Tooltip';
 import Link from 'next/link';
@@ -21,6 +23,7 @@ export default function ModelsPage() {
   const { models: modelsList, isLoading, mutate } = useModels();
   const { datasets: datasetsList } = useDatasets();
   const { classificationAlgorithms: algorithmsList } = useAlgorithms();
+  const { favoriteIds, isFavorite } = useFavorites('model');
   const [showCreate, setShowCreate] = useState(false);
   const [training, setTraining] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState({ name: '', algorithm: 'random_forest', target_column: '', description: '' });
@@ -28,13 +31,18 @@ export default function ModelsPage() {
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Pinned models float to top
   const filteredModels = useMemo(() => {
-    return modelsList.filter(
+    const matched = modelsList.filter(
       (m) =>
         m.name.toLowerCase().includes(search.toLowerCase()) ||
         m.algorithm.toLowerCase().includes(search.toLowerCase())
     );
-  }, [modelsList, search]);
+    return [
+      ...matched.filter((m) => isFavorite(m.id)),
+      ...matched.filter((m) => !isFavorite(m.id)),
+    ];
+  }, [modelsList, search, favoriteIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalPages = Math.ceil(filteredModels.length / ITEMS_PER_PAGE);
   const paginatedModels = filteredModels.slice(
@@ -86,26 +94,34 @@ export default function ModelsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this model?')) return;
+    if (!confirm('Archive this model? It will move to the trash and can be restored later.')) return;
     await models.delete(id);
     mutate();
-    toast('success', 'Model deleted successfully');
+    toast('success', 'Model archived successfully');
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Models</h1>
           <p className="text-gray-500 dark:text-gray-400">Create, train, and manage your ML models</p>
         </div>
-        <button
-          onClick={() => setShowCreate(!showCreate)}
-          className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
-        >
-          <Plus className="h-4 w-4" />
-          Create Model
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Link
+            href="/models/trash"
+            className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+          >
+            View Model Trash
+          </Link>
+          <button
+            onClick={() => setShowCreate(!showCreate)}
+            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
+          >
+            <Plus className="h-4 w-4" />
+            Create Model
+          </button>
+        </div>
       </div>
 
       {showCreate && (
@@ -192,15 +208,25 @@ export default function ModelsPage() {
         </div>
       ) : (
         <>
+          {/* Pinned section label */}
+          {favoriteIds.length > 0 && !search && (
+            <div className="flex items-center gap-2 text-xs font-medium text-yellow-600 dark:text-yellow-400">
+              <Star className="h-3.5 w-3.5 fill-yellow-400" />
+              Model favorit ditampilkan di atas
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {paginatedModels.map((model) => (
-              <div key={model.id} className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
+              <div key={model.id} className={`rounded-xl border bg-white p-5 dark:bg-gray-800 ${isFavorite(model.id) ? 'border-yellow-300 dark:border-yellow-600/50' : 'border-gray-200 dark:border-gray-700'}`}>
                 <div className="mb-3 flex items-start justify-between">
                   <div>
                     <h3 className="font-semibold text-gray-900 dark:text-white">{model.name}</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400">{model.algorithm} v{model.version}</p>
                   </div>
-                  <StatusBadge status={model.status} />
+                  <div className="flex items-center gap-1">
+                    <FavoriteStar id={model.id} type="model" />
+                    <StatusBadge status={model.status} />
+                  </div>
                 </div>
 
                 {model.metrics?.accuracy !== undefined && (

@@ -50,12 +50,12 @@ export default function MonitoringPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Monitoring</h1>
-        <p className="text-gray-500">System and model performance metrics</p>
+        <p className="text-gray-500">Metrik performa sistem dan model</p>
       </div>
 
       {stats && (
         <div className="rounded-xl border border-gray-200 bg-white p-6">
-          <h2 className="mb-4 text-lg font-semibold">Pipeline Stats</h2>
+          <h2 className="mb-4 text-lg font-semibold">Statistik Pipeline</h2>
           <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {Object.entries(stats).map(([key, value]) => (
               <div key={key} className="rounded-lg bg-gray-50 p-4">

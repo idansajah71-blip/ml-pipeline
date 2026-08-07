@@ -10,6 +10,7 @@ interface AuthContextType {
   token: string | null;
   refreshToken: string | null;
   login: (email: string, password: string) => Promise<void>;
+  register: (data: { email: string; username: string; password: string; full_name?: string }) => Promise<void>;
   logout: () => void;
   refreshAccessToken: () => Promise<string | null>;
   loading: boolean;
@@ -20,6 +21,7 @@ const AuthContext = createContext<AuthContextType>({
   token: null,
   refreshToken: null,
   login: async () => {},
+  register: async () => {},
   logout: () => {},
   refreshAccessToken: async () => null,
   loading: true,
@@ -74,6 +76,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCookie('token', newToken, 7);
   };
 
+  const register = async (data: { email: string; username: string; password: string; full_name?: string }) => {
+    const res = await auth.register(data);
+    const newToken = res.data.access_token;
+    const newRefresh = res.data.refresh_token;
+    const newUser = res.data.user;
+    setToken(newToken);
+    setRefreshToken(newRefresh);
+    setUser(newUser);
+    localStorage.setItem('token', newToken);
+    localStorage.setItem('refresh_token', newRefresh);
+    localStorage.setItem('user', JSON.stringify(newUser));
+    setCookie('token', newToken, 7);
+  };
+
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {
     const storedRefresh = refreshToken || localStorage.getItem('refresh_token');
     if (!storedRefresh) return null;
@@ -107,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return React.createElement(
     AuthContext.Provider,
-    { value: { user, token, refreshToken, login, logout, refreshAccessToken, loading } },
+    { value: { user, token, refreshToken, login, register, logout, refreshAccessToken, loading } },
     children
   );
 }

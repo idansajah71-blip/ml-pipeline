@@ -19,6 +19,8 @@ router = APIRouter(prefix="/serving", tags=["Model Serving"])
 
 
 class EndpointCreate(BaseModel):
+    model_config = {"protected_namespaces": ()}
+
     name: str
     model_id: UUID
     description: Optional[str] = None
@@ -28,6 +30,8 @@ class EndpointCreate(BaseModel):
 
 
 class EndpointResponse(BaseModel):
+    model_config = {"from_attributes": True, "protected_namespaces": ()}
+
     id: UUID
     name: str
     model_id: UUID
@@ -37,7 +41,6 @@ class EndpointResponse(BaseModel):
     rate_limit_rpm: int
     is_active: int
     created_at: datetime
-    model_config = {"from_attributes": True}
 
 
 class PredictionRequest(BaseModel):

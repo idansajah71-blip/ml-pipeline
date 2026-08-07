@@ -36,7 +36,24 @@ class ModelService:
         target_column: str,
         owner_id: str,
     ) -> str:
-        from app.ml.tasks import train_model_task
+        try:
+            from app.ml.tasks import train_model_task
+        except ImportError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Async training is temporarily unavailable. Training will continue synchronously. "
+                    "Install celery/redis if you want background training."
+                ),
+            )
+        if train_model_task is None or not hasattr(train_model_task, "delay"):
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Async training is temporarily unavailable. Training will continue synchronously. "
+                    "Install celery/redis if you want background training."
+                ),
+            )
 
         result = train_model_task.delay(
             model_id=str(model_id),
@@ -47,7 +64,7 @@ class ModelService:
             target_column=target_column,
             owner_id=str(owner_id),
         )
-        return result.id
+        return getattr(result, "id", str(uuid.uuid4()))
 
     async def create_model(self, model_data: ModelCreate, owner_id: UUID) -> MLModel:
         model = MLModel(
@@ -70,12 +87,44 @@ class ModelService:
     async def get_user_models(self, owner_id: UUID, skip: int = 0, limit: int = 100) -> List[MLModel]:
         result = await self.db.execute(
             select(MLModel)
-            .where(MLModel.owner_id == owner_id)
+            .where(MLModel.owner_id == owner_id, MLModel.status != ModelStatus.ARCHIVED)
             .order_by(MLModel.created_at.desc())
             .offset(skip)
             .limit(limit)
         )
         return list(result.scalars().all())
+
+    async def get_archived_models(self, owner_id: UUID, skip: int = 0, limit: int = 100) -> List[MLModel]:
+        result = await self.db.execute(
+            select(MLModel)
+            .where(MLModel.owner_id == owner_id, MLModel.status == ModelStatus.ARCHIVED)
+            .order_by(MLModel.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def delete_model(self, model_id: UUID, owner_id: UUID) -> bool:
+        model = await self.get_model(model_id)
+        if not model:
+            return False
+        if model.owner_id != owner_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+
+        model.status = ModelStatus.ARCHIVED
+        await self.db.flush()
+        return True
+
+    async def restore_model(self, model_id: UUID, owner_id: UUID) -> bool:
+        model = await self.get_model(model_id)
+        if not model:
+            return False
+        if model.owner_id != owner_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+
+        model.status = ModelStatus.TRAINED
+        await self.db.flush()
+        return True
 
     async def train_model(
         self,
@@ -112,20 +161,29 @@ class ModelService:
         await self.db.flush()
 
         if train_request.async_training:
-            task_id = self._dispatch_async_training(
-                model_id=str(model.id),
-                experiment_id=str(experiment.id),
-                dataset_path=dataset.file_path,
-                algorithm=train_request.algorithm,
-                parameters=train_request.parameters,
-                target_column=target_col,
-                owner_id=str(owner_id),
-            )
-            model.task_id = task_id
-            model.status = ModelStatus.TRAINING
-            await self.db.flush()
-            await self.db.refresh(experiment)
-            return experiment
+            try:
+                task_id = self._dispatch_async_training(
+                    model_id=str(model.id),
+                    experiment_id=str(experiment.id),
+                    dataset_path=dataset.file_path,
+                    algorithm=train_request.algorithm,
+                    parameters=train_request.parameters,
+                    target_column=target_col,
+                    owner_id=str(owner_id),
+                )
+                model.task_id = task_id
+                model.status = ModelStatus.TRAINING
+                await self.db.flush()
+                await self.db.refresh(experiment)
+                return experiment
+            except HTTPException as exc:
+                if exc.status_code == 503:
+                    logger.warning(
+                        "Async training unavailable, falling back to synchronous training: %s",
+                        exc.detail,
+                    )
+                else:
+                    raise
 
         try:
             with open(dataset.file_path, "rb") as f:

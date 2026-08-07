@@ -38,6 +38,26 @@ SAFE_ERROR_MESSAGES = {
     'ModuleNotFoundError': 'Required dependency missing',
 }
 
+TECHNICAL_ERROR_TRANSLATIONS = [
+    (re.compile(r'celery', re.IGNORECASE),
+     'Background training is temporarily unavailable. Training will continue synchronously if possible.'),
+    (re.compile(r'redis', re.IGNORECASE),
+     'The queue service is temporarily unavailable. Please try again shortly.'),
+    (re.compile(r'asyncpg', re.IGNORECASE),
+     'There is a temporary database issue. Please try again or contact support.'),
+    (re.compile(r'no module named ["\']celery["\']', re.IGNORECASE),
+     'Background training is temporarily unavailable. Training will continue synchronously.'),
+    (re.compile(r'failed to parse|error parsing', re.IGNORECASE),
+     'Unable to read the uploaded file. Please verify the file format and content.'),
+]
+
+
+def translate_error_message(message: str) -> str:
+    for pattern, translated in TECHNICAL_ERROR_TRANSLATIONS:
+        if pattern.search(message):
+            return translated
+    return message
+
 
 def sanitize_error_message(error: Exception, include_type: bool = False) -> str:
     """
@@ -61,6 +81,10 @@ def sanitize_error_message(error: Exception, include_type: bool = False) -> str:
 
     if not raw_message:
         return base_message
+
+    translated = translate_error_message(raw_message)
+    if translated != raw_message:
+        return translated
 
     sanitized = raw_message
 
