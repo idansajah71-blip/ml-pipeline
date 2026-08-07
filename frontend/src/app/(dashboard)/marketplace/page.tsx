@@ -71,6 +71,21 @@ const MODEL_ICON_MAP: Record<string, React.ElementType> = {
   'platform-6': Settings,
   'platform-7': Brain,
   'platform-8': ShieldCheck,
+  'platform-9': Layers,
+  'platform-10': Target,
+  'platform-11': Zap,
+  'platform-12': BarChart2,
+  'platform-13': Lock,
+  'platform-14': TrendingUp,
+  'platform-15': Users,
+  'platform-16': TrendingUp,
+  'platform-17': ShieldCheck,
+  'platform-18': BarChart2,
+  'platform-19': Brain,
+  'platform-20': Settings,
+  'platform-21': Target,
+  'platform-22': BarChart2,
+  'platform-23': Users,
 };
 
 const CATEGORY_ICON_MAP: Record<string, React.ElementType> = {
