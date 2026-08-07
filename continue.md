@@ -648,26 +648,87 @@ cd frontend && npm run typecheck
 | TBD | 42-54 | Security fixes, AutoML, Training Wizard, Data Retention |
 | TBD | 55-61 | UX improvements: wizard draft, search, breadcrumb, favorites, funnel |
 | TBD | 62-68 | Real ML models, shared model predictions, smart marketplace form, usage stats |
+| TBD | 69-74 | Full marketplace lifecycle: readiness scoring, rich publish, user model predict, feedback, contributor |
 
 ---
 
-## FILE BARU (PHASE 62-68)
+## PHASE 69-74: FULL MARKETPLACE LIFECYCLE (Alur Ideal Bikin Model → Dipakai Orang Lain)
+
+### Phase 69: Readiness Scoring (Tahap 1)
+- `app/ml/readiness.py`: `compute_readiness_score()` — 0-100 score based on:
+  - Primary metric (accuracy/R²): 40 pts
+  - Secondary metrics (precision/recall/F1/MAE ratio): 20 pts
+  - Training data size: 20 pts
+  - Feature count: 10 pts
+  - Cross-validation stability: 10 pts
+- Returns: score, label ("Siap Dipublikasikan"/"Perlu Perbaikan"/"Belum Siap"), grade (A-F), factors, recommendations
+- MLModel new fields: `readiness_score`, `readiness_label`, `readiness_details`, `training_samples`, `cv_scores`
+- Computed automatically after training in `model_service.py`
+- Frontend: Readiness score bar + grade badge + recommendations in training wizard results
+
+### Phase 70: Rich Publish Form (Tahap 2)
+- ModelShare DB model with: `use_case`, `limitations`, `example_inputs`, `training_data_summary`
+- Share endpoint accepts rich metadata: use_case description, limitations, example inputs
+- Quality validation: warns if use_case not provided
+
+### Phase 71: User Model Prediction (Tahap 3 — KRUSIAL)
+- `_load_user_model()`: loads `model.joblib` + `processor.joblib` from `ml_artifacts/model_{id}_v{version}/`
+- `_predict_user_model()`: full pipeline prediction using MLPipeline (preprocessing + model)
+- Fallback: raw prediction if pipeline preprocessing fails
+- Stores predictions in DB with latency tracking
+- Marketplace predict now works for both platform AND user-trained models
+
+### Phase 72: Quality Gates & Transparency (Tahap 4)
+- Auto-moderation: pending/approved/rejected based on accuracy, description, use_case
+- Training data summary in share metadata (samples, features, algorithm, readiness)
+- Transparency: users can see what data the model was trained on
+
+### Phase 73: Feedback System (Tahap 5)
+- ModelFeedback table: rating (1-5), comment, is_accurate, actual_value
+- `POST /marketplace/{share_id}/feedback` — submit feedback
+- `GET /marketplace/{share_id}/feedback-stats` — aggregated stats (avg rating, accuracy %, recent comments)
+
+### Phase 74: Contributor Stats & Badges (Tahap 6)
+- `GET /marketplace/contributor-stats` — total models, downloads, avg rating, feedback count, badge
+- Badge tiers: Baru → Pemula → Kontributor → Kontributor Aktif → Kontributor Elite
+- Based on: model count + avg rating + total downloads
+
+---
+
+## GIT COMMITS
+
+| Commit | Phase | Deskripsi |
+|--------|-------|-----------|
+| `6a609f1` | 1-5 | Celery, Profiling, Experiments, Registry, SHAP |
+| `d86a0d9` | 6-10 | AutoML, Drift, WebSocket, Frontend, Tests |
+| `02b658c` | 11-13 | Retraining, Monitoring, Prediction History |
+| `42fd66b` | 14-17 | Refresh Token, Password Reset, Dark Mode, Drag-Drop |
+| `3c5fc20` | - | Push updates |
+| `f803d89` | 14-17 | Refresh Token, Dark Mode, Drag-Drop (final) |
+| `3a96453` | 18-23 | AB Testing, Data Quality, Batch, Optimization, Audit, K8s |
+| `6ad1733` | 24-29 | Feature Store, Serving, CI/CD, Cleanup, Multi-tenancy, Quota |
+| `32f8281` | 30-35 | Versioning, Compare, Monitoring, Webhooks, Lineage, Metrics |
+| `eec495d` | 36-41 | Explainability, Ensemble, Data Versioning, Marketplace, Costs |
+| TBD | 42-54 | Security fixes, AutoML, Training Wizard, Data Retention |
+| TBD | 55-61 | UX improvements: wizard draft, search, breadcrumb, favorites, funnel |
+| TBD | 62-68 | Real ML models, shared model predictions, smart marketplace form, usage stats |
+| TBD | 69-74 | Full marketplace lifecycle: readiness, publish, predict, feedback, contributor |
+
+---
+
+## FILE BARU (PHASE 69-74)
 
 ```
-scripts/
-├── train_platform_models.py         # Training script 40 model scikit-learn
-
-models/platform/
-├── platform-0.joblib + _meta.json   # 40 trained model artifacts
-├── ... through platform-39.joblib
-
-app/api/marketplace.py               # Updated: real predict, quality validation, moderation, usage stats
-frontend/src/app/(dashboard)/marketplace/page.tsx  # Updated: smart form, status badges, stats display
+app/ml/readiness.py                       # Readiness scoring (0-100, grade A-F)
+app/models/model.py                       # Updated: MLModel + ModelShare + ModelFeedback tables
+app/api/marketplace.py                    # Updated: DB-backed shares, user model predict, feedback, contributor
+app/services/model_service.py             # Updated: readiness scoring after training
+frontend/src/app/(dashboard)/training-wizard/page.tsx  # Updated: readiness score display
 ```
 
 ---
 
 *File ini dibuat pada: 2026-07-30*  
 *Terakhir diupdate: 7 Agustus 2026*  
-*Total phases: 61/61 SELESAI*  
+*Total phases: 74/74 SELESAI*  
 *GitHub: https://github.com/idansajah71-blip/ml-pipeline*

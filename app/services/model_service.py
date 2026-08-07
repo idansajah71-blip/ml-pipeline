@@ -13,6 +13,7 @@ from app.models.dataset import Dataset
 from app.models.experiment import Experiment, ExperimentStatus
 from app.schemas.model import ModelCreate, TrainRequest, TrainingMode
 from app.ml.pipeline import MLPipeline
+from app.ml.readiness import compute_readiness_score
 from app.ml.auto_pipeline import AutoMLPipeline
 from app.core.config import get_settings
 from app.core.error_utils import sanitize_error_message, log_error
@@ -220,6 +221,25 @@ class ModelService:
 
                 if train_request.mode == TrainingMode.SIMPLE and hasattr(pipeline, 'generate_human_summary'):
                     result['human_summary'] = pipeline.generate_human_summary()
+
+                # ── Stage 1: Compute readiness score ────────────────────────
+                data_info = result.get("data_info", {})
+                training_samples = data_info.get("rows", 0) or data_info.get("n_samples", 0)
+                result_type = result.get("problem_type", "classification")
+                cv_scores = result.get("cv_scores") or result.get("cross_validation", {}).get("scores")
+                readiness = compute_readiness_score(
+                    metrics=model.metrics,
+                    feature_count=len(model.feature_names or []),
+                    training_samples=training_samples,
+                    result_type=result_type,
+                    cv_scores=cv_scores,
+                )
+                model.readiness_score = readiness["score"]
+                model.readiness_label = readiness["label"]
+                model.readiness_details = readiness
+                model.training_samples = training_samples
+                model.cv_scores = cv_scores or []
+                result["readiness"] = readiness
 
                 experiment.status = ExperimentStatus.COMPLETED
                 experiment.results = result

@@ -1215,6 +1215,58 @@ export default function TrainingWizard() {
                   </button>
                 </div>
 
+                {state.trainingResult.results?.readiness && (
+                  <div className={`rounded-xl border p-5 ${
+                    state.trainingResult.results.readiness.score >= 80 ? 'border-green-200 bg-green-50' :
+                    state.trainingResult.results.readiness.score >= 50 ? 'border-yellow-200 bg-yellow-50' :
+                    'border-red-200 bg-red-50'
+                  }`}>
+                    <div className="flex items-start gap-4">
+                      <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl text-2xl font-bold ${
+                        state.trainingResult.results.readiness.grade === 'A' ? 'bg-green-600 text-white' :
+                        state.trainingResult.results.readiness.grade === 'B' ? 'bg-blue-600 text-white' :
+                        state.trainingResult.results.readiness.grade === 'C' ? 'bg-yellow-500 text-white' :
+                        'bg-red-500 text-white'
+                      }`}>
+                        {state.trainingResult.results.readiness.grade}
+                      </div>
+                      <div className="flex-1">
+                        <p className={`text-lg font-bold ${
+                          state.trainingResult.results.readiness.score >= 80 ? 'text-green-700' :
+                          state.trainingResult.results.readiness.score >= 50 ? 'text-yellow-700' :
+                          'text-red-700'
+                        }`}>
+                          {state.trainingResult.results.readiness.label}
+                        </p>
+                        <p className="mt-0.5 text-sm text-gray-600">
+                          Skor Kesiapan: {state.trainingResult.results.readiness.score}/100
+                        </p>
+                        <div className="mt-2 h-3 w-full rounded-full bg-gray-200">
+                          <div className={`h-3 rounded-full transition-all ${
+                            state.trainingResult.results.readiness.score >= 80 ? 'bg-green-500' :
+                            state.trainingResult.results.readiness.score >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                          }`} style={{ width: `${state.trainingResult.results.readiness.score}%` }} />
+                        </div>
+                        {state.trainingResult.results.readiness.recommendations?.length > 0 && (
+                          <div className="mt-3 space-y-1">
+                            {state.trainingResult.results.readiness.recommendations.map((r: string, i: number) => (
+                              <p key={i} className="text-xs text-gray-600 flex items-start gap-1.5">
+                                <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gray-400" />
+                                {r}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                        {state.trainingResult.results.readiness.score >= 65 && (
+                          <p className="mt-3 text-sm font-medium text-green-700">
+                            Model ini siap dipublikasikan ke Marketplace!
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="rounded-xl border border-gray-200 bg-white p-6 space-y-6">
                   <div>
                     <h3 className="mb-4 font-semibold text-gray-900">Ringkasan Hasil</h3>
@@ -1339,6 +1391,14 @@ export default function TrainingWizard() {
               >
                 Lihat Semua Model
               </button>
+              {state.trainingResult?.results?.readiness?.score >= 65 && (
+                <button
+                  onClick={() => router.push('/marketplace')}
+                  className="rounded-lg bg-purple-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-purple-700"
+                >
+                  Publikasikan ke Marketplace
+                </button>
+              )}
             </div>
           </div>
         );
