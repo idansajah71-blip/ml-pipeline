@@ -1,0 +1,44 @@
+[
+  {
+    "id": "model-siap-pakai",
+    "label": "Model Siap Pakai",
+    "description": "Langsung pakai tanpa perlu training. Upload data kamu, cocokkan kolom, dapat hasil.",
+    "icon": "zap",
+    "color": "purple"
+  },
+  {
+    "id": "prediksi-harga",
+    "label": "Prediksi Harga & Angka",
+    "description": "Estimasi nilai numerik: harga, penjualan, biaya, permintaan.",
+    "icon": "trending-up",
+    "color": "green"
+  },
+  {
+    "id": "deteksi-churn",
+    "label": "Deteksi Pelanggan Kabur",
+    "description": "Kenali lebih awal pelanggan yang mau pergi sebelum terlambat.",
+    "icon": "users",
+    "color": "orange"
+  },
+  {
+    "id": "klasifikasi-kualitas",
+    "label": "Klasifikasi & Kualitas",
+    "description": "Kategorisasi otomatis: kelulusan, kualitas produk, segmentasi.",
+    "icon": "shield-check",
+    "color": "blue"
+  },
+  {
+    "id": "deteksi-anomali",
+    "label": "Deteksi Anomali & Fraud",
+    "description": "Flagging transaksi, sensor, atau perilaku yang tidak normal.",
+    "icon": "alert-circle",
+    "color": "red"
+  },
+  {
+    "id": "komunitas",
+    "label": "Model Komunitas",
+    "description": "Model yang dibagikan oleh pengguna lain. Bebas digunakan dan dikembangkan.",
+    "icon": "handshake",
+    "color": "gray"
+  }
+]
