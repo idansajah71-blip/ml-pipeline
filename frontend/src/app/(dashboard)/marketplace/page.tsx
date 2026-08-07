@@ -69,6 +69,8 @@ const MODEL_ICON_MAP: Record<string, React.ElementType> = {
   'platform-4': TrendingUp,
   'platform-5': Lock,
   'platform-6': Settings,
+  'platform-7': Brain,
+  'platform-8': ShieldCheck,
 };
 
 const CATEGORY_ICON_MAP: Record<string, React.ElementType> = {
