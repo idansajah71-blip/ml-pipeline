@@ -62,6 +62,68 @@ async def init_db():
         await conn.execute(text(
             "ALTER TABLE predictions ADD COLUMN IF NOT EXISTS feedback_comment VARCHAR(500)"
         ))
+        # Stage 1: Readiness scoring columns
+        await conn.execute(text(
+            "ALTER TABLE models ADD COLUMN IF NOT EXISTS readiness_score INTEGER DEFAULT 0"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE models ADD COLUMN IF NOT EXISTS readiness_label VARCHAR(50)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE models ADD COLUMN IF NOT EXISTS readiness_details JSONB DEFAULT '{}'::jsonb"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE models ADD COLUMN IF NOT EXISTS training_samples INTEGER DEFAULT 0"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE models ADD COLUMN IF NOT EXISTS cv_scores JSONB DEFAULT '[]'::jsonb"
+        ))
+        # Stage 2+3: model_shares table with rich metadata
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS model_shares (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                model_id UUID NOT NULL REFERENCES models(id),
+                shared_by UUID NOT NULL REFERENCES users(id),
+                shared_with_org VARCHAR(255),
+                permission VARCHAR(50) DEFAULT 'read',
+                is_public INTEGER DEFAULT 0,
+                downloads INTEGER DEFAULT 0,
+                rating FLOAT DEFAULT 0.0,
+                rating_count INTEGER DEFAULT 0,
+                tags JSONB DEFAULT '[]'::jsonb,
+                created_at TIMESTAMP DEFAULT NOW(),
+                use_case TEXT,
+                limitations TEXT,
+                example_inputs JSONB DEFAULT '[]'::jsonb,
+                training_data_summary JSONB DEFAULT '{}'::jsonb,
+                status VARCHAR(50) DEFAULT 'pending',
+                review_note TEXT
+            )
+        """))
+        # Stage 5: model_feedback table
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS model_feedback (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                model_id UUID NOT NULL REFERENCES models(id),
+                share_id UUID,
+                user_id UUID NOT NULL REFERENCES users(id),
+                prediction_id UUID,
+                rating INTEGER NOT NULL,
+                comment TEXT,
+                is_accurate BOOLEAN,
+                actual_value VARCHAR(500),
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_model_shares_model_id ON model_shares (model_id)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_model_shares_shared_by ON model_shares (shared_by)"
+        ))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_model_feedback_model_id ON model_feedback (model_id)"
+        ))
         await conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_datasets_owner_id ON datasets (owner_id)"))
         await conn.execute(text(
