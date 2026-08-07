@@ -125,6 +125,7 @@ export const datasets = {
 
 export const models = {
   list: () => api.get<{ total: number; items: MLModel[] }>('/models'),
+  systemList: () => api.get<{ total: number; items: MLModel[] }>('/models/system'),
   get: (id: string) => api.get<MLModel>(`/models/${id}`),
   create: (data: { name: string; algorithm: string; target_column: string; description?: string }) =>
     api.post<MLModel>('/models', data),

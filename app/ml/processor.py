@@ -151,6 +151,29 @@ class DataProcessor:
         metadata['n_features'] = X.shape[1]
         metadata['n_classes'] = len(np.unique(y))
 
+        # Collect column statistics for input validation during prediction
+        column_stats = {}
+        for col in X.columns:
+            if col in X.select_dtypes(include=[np.number]).columns:
+                col_data = X[col].dropna()
+                column_stats[col] = {
+                    'dtype': 'numeric',
+                    'mean': float(col_data.mean()) if len(col_data) > 0 else 0,
+                    'std': float(col_data.std()) if len(col_data) > 0 else 0,
+                    'min': float(col_data.min()) if len(col_data) > 0 else 0,
+                    'max': float(col_data.max()) if len(col_data) > 0 else 0,
+                    'q25': float(col_data.quantile(0.25)) if len(col_data) > 0 else 0,
+                    'q75': float(col_data.quantile(0.75)) if len(col_data) > 0 else 0,
+                }
+            else:
+                unique_vals = X[col].dropna().unique()
+                column_stats[col] = {
+                    'dtype': 'categorical',
+                    'unique_values': [str(v) for v in unique_vals[:50]],
+                    'n_unique': len(unique_vals),
+                }
+        metadata['column_stats'] = column_stats
+
         return X_train, X_test, pd.Series(y_train), pd.Series(y_test), metadata
 
     def preprocess_input(self, data: List[Dict[str, Any]], feature_names: List[str]) -> pd.DataFrame:
@@ -185,3 +208,89 @@ class DataProcessor:
             df[numeric_cols] = self.scaler.transform(df[numeric_cols])
 
         return df
+
+    def validate_input(self, data: List[Dict[str, Any]], feature_names: List[str],
+                       column_stats: Dict[str, Any] = None) -> List[Dict[str, Any]]:
+        """Validate input data against training statistics. Returns list of warnings per row."""
+        if not column_stats:
+            return []
+
+        warnings = []
+        for row_idx, row in enumerate(data):
+            row_warnings = []
+
+            # Check missing features
+            missing_features = [f for f in feature_names if f not in row or row[f] is None or row[f] == '']
+            if missing_features:
+                row_warnings.append({
+                    'type': 'missing_features',
+                    'features': missing_features,
+                    'message': f"Kolom berikut kosong/tidak ada: {', '.join(missing_features)}. Akan diisi otomatis dengan nilai default (0).",
+                    'severity': 'warning',
+                })
+
+            # Validate each feature
+            for feat in feature_names:
+                val = row.get(feat)
+                if val is None or val == '' or feat not in row:
+                    continue
+
+                stats = column_stats.get(feat)
+                if not stats:
+                    continue
+
+                if stats['dtype'] == 'numeric':
+                    try:
+                        num_val = float(val)
+                    except (ValueError, TypeError):
+                        row_warnings.append({
+                            'type': 'type_mismatch',
+                            'feature': feat,
+                            'expected': 'numeric',
+                            'received': str(val),
+                            'message': f"Kolom '{feat}' seharusnya angka, tapi mendapat '{val}'. Akan diisi 0.",
+                            'severity': 'error',
+                        })
+                        continue
+
+                    # Range check: warn if value is outside Q1-3*IQR to Q3+3*IQR
+                    q25 = stats.get('q25', stats.get('min', 0))
+                    q75 = stats.get('q75', stats.get('max', 0))
+                    iqr = q75 - q25
+                    lower_bound = q25 - 1.5 * iqr
+                    upper_bound = q75 + 3.0 * iqr
+
+                    if num_val < lower_bound or num_val > upper_bound:
+                        row_warnings.append({
+                            'type': 'out_of_range',
+                            'feature': feat,
+                            'value': num_val,
+                            'expected_range': [round(lower_bound, 2), round(upper_bound, 2)],
+                            'message': f"Nilai '{num_val}' pada kolom '{feat}' di luar rentang wajar "
+                                       f"({round(lower_bound, 2)} - {round(upper_bound, 2)}). "
+                                       f"Prediksi mungkin kurang akurat.",
+                            'severity': 'warning',
+                        })
+
+                elif stats['dtype'] == 'categorical':
+                    unique_vals = stats.get('unique_values', [])
+                    if str(val) not in unique_vals:
+                        row_warnings.append({
+                            'type': 'unknown_category',
+                            'feature': feat,
+                            'value': str(val),
+                            'known_categories': unique_vals[:10],
+                            'message': f"Kategori '{val}' pada kolom '{feat}' tidak dikenal "
+                                       f"(yang diketahui: {', '.join(unique_vals[:5])}). "
+                                       f"Prediksi mungkin kurang akurat.",
+                            'severity': 'warning',
+                        })
+
+            warnings.append({
+                'row_index': row_idx,
+                'warnings': row_warnings,
+                'has_errors': any(w['severity'] == 'error' for w in row_warnings),
+                'has_warnings': any(w['severity'] == 'warning' for w in row_warnings),
+            })
+
+        return warnings

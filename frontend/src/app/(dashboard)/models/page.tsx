@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Plus, Trash2, Rocket, Brain, Loader2, Eye, Star } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { Plus, Trash2, Rocket, Brain, Loader2, Eye, Star, Zap } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import Pagination from '@/components/Pagination';
@@ -30,10 +30,25 @@ export default function ModelsPage() {
   const [trainForms, setTrainForms] = useState<Record<string, { dataset_id: string }>>({});
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [systemModels, setSystemModels] = useState<any[]>([]);
+  const [showSystem, setShowSystem] = useState(false);
+
+  // Fetch system (platform) models
+  useEffect(() => {
+    models.systemList().then((res) => setSystemModels(res.data.items || [])).catch(() => {});
+  }, []);
+
+  // Merge user models + system models
+  const allModels = useMemo(() => {
+    const userModels = modelsList.map((m) => ({ ...m, _isSystem: false }));
+    const sysModels = systemModels.map((m) => ({ ...m, _isSystem: true }));
+    return [...userModels, ...sysModels];
+  }, [modelsList, systemModels]);
 
   // Pinned models float to top
   const filteredModels = useMemo(() => {
-    const matched = modelsList.filter(
+    const source = showSystem ? allModels : allModels.filter((m) => !m._isSystem);
+    const matched = source.filter(
       (m) =>
         m.name.toLowerCase().includes(search.toLowerCase()) ||
         m.algorithm.toLowerCase().includes(search.toLowerCase())
@@ -42,7 +57,7 @@ export default function ModelsPage() {
       ...matched.filter((m) => isFavorite(m.id)),
       ...matched.filter((m) => !isFavorite(m.id)),
     ];
-  }, [modelsList, search, favoriteIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [allModels, search, favoriteIds, showSystem]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalPages = Math.ceil(filteredModels.length / ITEMS_PER_PAGE);
   const paginatedModels = filteredModels.slice(

@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     ENABLE_METRICS: bool = True
     LOG_LEVEL: str = "INFO"
 
+    # Marketplace sandbox limits
+    MARKETPLACE_MAX_INPUT_ROWS: int = 100
+    MARKETPLACE_PREDICTION_TIMEOUT_SECONDS: int = 30
+    MARKETPLACE_MAX_MODEL_CACHE_SIZE: int = 50
+
     @field_validator("JWT_SECRET_KEY")
     @classmethod
     def validate_jwt_secret(cls, v: str, info) -> str:

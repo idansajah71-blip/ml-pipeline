@@ -65,6 +65,56 @@ async def list_models(
     return response
 
 
+@router.get("/system")
+async def list_system_models(
+    current_user: User = Depends(get_current_active_user),
+):
+    """Return platform (built-in) models for the models page."""
+    import json as _json
+    from pathlib import Path
+
+    _data_dir = Path(__file__).resolve().parent
+    with open(_data_dir / "marketplace" / "platform_models.json") as f:
+        platform_models = _json.load(f)
+
+    items = []
+    for m in platform_models:
+        items.append({
+            "id": m["id"],
+            "name": m["model_name"],
+            "description": m.get("description", ""),
+            "algorithm": m.get("algorithm", ""),
+            "version": 1,
+            "status": "trained",
+            "file_path": None,
+            "metrics": m.get("metrics", {}),
+            "parameters": {},
+            "feature_names": m.get("feature_names", []),
+            "target_column": m.get("target_column"),
+            "tags": m.get("tags", []),
+            "is_default": 0,
+            "task_id": None,
+            "stage": "production",
+            "parent_model_id": None,
+            "model_card": {
+                "use_case": m.get("use_case"),
+                "result_label": m.get("result_label"),
+                "result_unit": m.get("result_unit"),
+                "result_type": m.get("result_type"),
+                "category": m.get("category"),
+                "is_platform_model": True,
+            },
+            "owner_id": str(current_user.id),
+            "created_at": "2026-01-01T00:00:00",
+            "updated_at": "2026-01-01T00:00:00",
+            "readiness_score": 100,
+            "readiness_label": "Siap Dipublikasikan",
+            "training_samples": 500,
+            "is_system": True,
+        })
+    return {"total": len(items), "items": items}
+
+
 @router.get("/{model_id}", response_model=ModelResponse)
 async def get_model(
     model_id: UUID,

@@ -229,6 +229,29 @@ class AutoProcessor:
         metadata['n_classes'] = len(np.unique(y))
         metadata['warnings'] = warnings_list
 
+        # Collect column statistics for input validation during prediction
+        column_stats = {}
+        for col in X.columns:
+            if col in X.select_dtypes(include=[np.number]).columns:
+                col_data = X[col].dropna()
+                column_stats[col] = {
+                    'dtype': 'numeric',
+                    'mean': float(col_data.mean()) if len(col_data) > 0 else 0,
+                    'std': float(col_data.std()) if len(col_data) > 0 else 0,
+                    'min': float(col_data.min()) if len(col_data) > 0 else 0,
+                    'max': float(col_data.max()) if len(col_data) > 0 else 0,
+                    'q25': float(col_data.quantile(0.25)) if len(col_data) > 0 else 0,
+                    'q75': float(col_data.quantile(0.75)) if len(col_data) > 0 else 0,
+                }
+            else:
+                unique_vals = X[col].dropna().unique()
+                column_stats[col] = {
+                    'dtype': 'categorical',
+                    'unique_values': [str(v) for v in unique_vals[:50]],
+                    'n_unique': len(unique_vals),
+                }
+        metadata['column_stats'] = column_stats
+
         return X_train, X_test, pd.Series(y_train), pd.Series(y_test), metadata
 
     def preprocess_input(self, data: List[Dict[str, Any]], feature_names: List[str]) -> pd.DataFrame:

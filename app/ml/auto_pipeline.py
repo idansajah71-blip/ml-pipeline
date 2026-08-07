@@ -101,6 +101,10 @@ class AutoMLPipeline:
                 'mode': 'simple',
             }
 
+            # Record library versions for compatibility checking
+            from app.ml.version_compat import record_library_versions
+            self.training_metadata['library_versions'] = record_library_versions()
+
             if preprocess_metadata.get('warnings'):
                 self.training_metadata['warnings'] = preprocess_metadata['warnings']
 
@@ -155,6 +159,28 @@ class AutoMLPipeline:
             if hasattr(self.trainer.model, 'predict_proba'):
                 probabilities = self.trainer.model.predict_proba(input_df)
 
+            # Get uncertainty estimates from cross-validation std
+            problem_type = self.training_metadata.get('problem_type', 'classification')
+            cv_data = self.training_metadata.get('cross_validation', {})
+            metrics = self.training_metadata.get('metrics', {})
+
+            cv_std = 0.0
+            if problem_type == 'regression':
+                r2_scores = cv_data.get('r2', {}).get('scores', [])
+                if r2_scores:
+                    import numpy as np
+                    cv_std = float(np.std(r2_scores))
+                else:
+                    rmse = metrics.get('rmse', 0)
+                    cv_std = rmse * 0.1 if rmse else 0.05
+            else:
+                acc_scores = cv_data.get('accuracy', {}).get('scores', [])
+                if acc_scores:
+                    import numpy as np
+                    cv_std = float(np.std(acc_scores))
+                else:
+                    cv_std = 0.05
+
             latency_ms = int((time.time() - start_time) * 1000)
 
             results = []
@@ -164,15 +190,32 @@ class AutoMLPipeline:
                     'index': i,
                 }
                 if probabilities is not None:
-                    result['probability'] = float(probabilities[i].max())
+                    max_prob = float(probabilities[i].max())
+                    result['probability'] = max_prob
                     result['probabilities'] = {
                         str(cls): float(prob) for cls, prob in zip(self.trainer.model.classes_, probabilities[i])
+                    }
+                    if max_prob >= 0.85:
+                        result['confidence_level'] = 'high'
+                    elif max_prob >= 0.6:
+                        result['confidence_level'] = 'medium'
+                    else:
+                        result['confidence_level'] = 'low'
+                elif problem_type == 'regression':
+                    pred_val = float(pred)
+                    z_score = 1.96
+                    margin = z_score * cv_std * abs(pred_val) if pred_val != 0 else z_score * cv_std
+                    result['confidence_interval'] = {
+                        'lower': round(pred_val - margin, 4),
+                        'upper': round(pred_val + margin, 4),
+                        'confidence_level': 'high' if cv_std < 0.05 else ('medium' if cv_std < 0.15 else 'low'),
                     }
                 results.append(result)
 
             return {
                 'predictions': results,
                 'latency_ms': latency_ms,
+                'problem_type': problem_type,
             }
 
         except Exception as e:
@@ -180,6 +223,11 @@ class AutoMLPipeline:
                 'error': str(e),
                 'latency_ms': int((time.time() - start_time) * 1000),
             }
+
+    def validate_input(self, data: List[Dict[str, Any]], feature_names: List[str]) -> List[Dict[str, Any]]:
+        """Validate input data against training statistics. Returns list of warnings per row."""
+        column_stats = self.training_metadata.get('column_stats', {})
+        return self.processor.validate_input(data, feature_names, column_stats)
 
     def save_artifacts(self, base_path: str) -> Dict[str, str]:
         """Save model artifacts to disk."""

@@ -8,17 +8,63 @@ import uuid
 import io
 import os
 import json
-import joblib
 import numpy as np
 from pathlib import Path
+import signal
+from functools import wraps
+import asyncio
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
 from app.models.user import User
-from app.models.model import MLModel, ModelShare, ModelFeedback
+from app.models.model import MLModel, ModelShare, ModelFeedback, ModelReport
 from app.models.prediction import Prediction
+from app.core.config import get_settings
 
 router = APIRouter(prefix="/marketplace", tags=["Model Marketplace"])
+
+# Platform disclaimers
+PLATFORM_DISCLAIMER = (
+    "Model ini dibuat oleh pengguna komunitas, bukan hasil kurasi resmi platform. "
+    "Hasil prediksi bersifat indikatif dan tidak boleh digunakan sebagai satu-satunya "
+    "dasar pengambilan keputusan bisnis, medis, hukum, atau keuangan. "
+    "Gunakan dengan pertimbangan sendiri."
+)
+
+DATA_PRIVACY_WARNING = (
+    "Jangan unggah data pribadi, sensitif, atau rahasia ke model komunitas. "
+    "Data yang dikirimkan akan diproses untuk prediksi dan tidak dijamin keamanannya."
+)
+
+
+# ── Cache eviction helper ─────────────────────────────────────────────────────
+def _evict_cache_if_needed(cache: Dict[str, Any], max_size: int):
+    """Evict oldest entries if cache exceeds max size."""
+    if len(cache) > max_size:
+        keys_to_remove = list(cache.keys())[:len(cache) - max_size + 10]
+        for k in keys_to_remove:
+            cache.pop(k, None)
+
+
+# ── Prediction timeout wrapper ────────────────────────────────────────────────
+class PredictionTimeoutError(Exception):
+    pass
+
+
+def _timeout_handler(signum, frame):
+    raise PredictionTimeoutError("Prediksi melewati batas waktu")
+
+
+async def _run_with_timeout(coro, timeout_seconds: int):
+    """Run an async coroutine with a timeout. Raises HTTPException on timeout."""
+    try:
+        return await asyncio.wait_for(coro, timeout=timeout_seconds)
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail=f"Prediksi melewati batas waktu ({timeout_seconds} detik). "
+                   "Coba kurangi jumlah data atau gunakan model yang lebih sederhana."
+        )
 
 # ── Real ML model loading (for platform models) ──────────────────────────────
 MODELS_DIR = Path(__file__).resolve().parent.parent.parent / "models" / "platform"
@@ -26,16 +72,18 @@ _model_cache: Dict[str, Any] = {}
 
 
 def _load_platform_model(model_id: str):
-    """Load a trained joblib model, with in-memory caching."""
+    """Load a trained joblib model, with in-memory caching. Uses safe_load for security."""
     if model_id in _model_cache:
         return _model_cache[model_id]
     joblib_path = MODELS_DIR / f"{model_id}.joblib"
     meta_path = MODELS_DIR / f"{model_id}_meta.json"
     if not joblib_path.exists() or not meta_path.exists():
         return None
-    model = joblib.load(joblib_path)
+    from app.core.safe_joblib import safe_load
+    model = safe_load(str(joblib_path))
     with open(meta_path) as f:
         meta = json.load(f)
+    _evict_cache_if_needed(_model_cache, get_settings().MARKETPLACE_MAX_MODEL_CACHE_SIZE)
     _model_cache[model_id] = {"model": model, "meta": meta}
     return _model_cache[model_id]
 
@@ -54,19 +102,28 @@ _user_model_cache: Dict[str, Any] = {}
 
 
 def _load_user_model(file_path: str):
-    """Load a user-trained model + processor from disk, with caching."""
+    """Load a user-trained model + processor from disk, with caching.
+    Uses safe_load to prevent arbitrary code execution from untrusted .joblib files.
+    """
     if file_path in _user_model_cache:
         return _user_model_cache[file_path]
     artifact_dir = os.path.dirname(file_path)
     model_path = os.path.join(artifact_dir, "model.joblib")
     processor_path = os.path.join(artifact_dir, "processor.joblib")
+    metadata_path = os.path.join(artifact_dir, "metadata.json")
     if not os.path.exists(model_path):
         return None
-    model_data = joblib.load(model_path)
+    from app.core.safe_joblib import safe_load
+    model_data = safe_load(model_path)
     processor = None
     if os.path.exists(processor_path):
-        processor = joblib.load(processor_path)
-    result = {"model_data": model_data, "processor": processor}
+        processor = safe_load(processor_path)
+    metadata = {}
+    if os.path.exists(metadata_path):
+        with open(metadata_path, 'r') as f:
+            metadata = json.load(f)
+    result = {"model_data": model_data, "processor": processor, "metadata": metadata}
+    _evict_cache_if_needed(_user_model_cache, get_settings().MARKETPLACE_MAX_MODEL_CACHE_SIZE)
     _user_model_cache[file_path] = result
     return result
 
@@ -140,6 +197,15 @@ class PlatformModelPredict(BaseModel):
     data: List[Dict[str, Any]]
     column_mapping: Optional[Dict[str, str]] = None
 
+    def model_post_init(self, __context):
+        from app.core.config import get_settings
+        settings = get_settings()
+        if len(self.data) > settings.MARKETPLACE_MAX_INPUT_ROWS:
+            raise ValueError(
+                f"Terlalu banyak data: {len(self.data)} baris. "
+                f"Maksimal {settings.MARKETPLACE_MAX_INPUT_ROWS} baris per prediksi."
+            )
+
 
 class FeedbackCreate(BaseModel):
     model_config = {"protected_namespaces": ()}
@@ -149,6 +215,14 @@ class FeedbackCreate(BaseModel):
     is_accurate: Optional[bool] = None
     actual_value: Optional[str] = None
     prediction_id: Optional[str] = None
+
+
+REPORT_REASONS = ["inaccurate", "inappropriate", "misleading", "outdated", "other"]
+
+
+class ReportCreate(BaseModel):
+    reason: str  # must be one of REPORT_REASONS
+    description: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -175,6 +249,32 @@ def _similarity_score(a: str, b: str) -> float:
 def _share_to_dict(share: ModelShare, model: MLModel = None) -> Dict[str, Any]:
     """Convert a DB ModelShare to a dict for API responses."""
     m = model or share.model
+
+    # Compute model confidence indicator
+    model_confidence = "unknown"
+    if m:
+        metrics = m.metrics or {}
+        accuracy = metrics.get("accuracy", metrics.get("f1", 0))
+        r2 = metrics.get("r2", 0)
+        readiness = m.readiness_score or 0
+        training_samples = m.training_samples or 0
+
+        # Score: 40% accuracy, 30% readiness, 30% data size
+        confidence_score = 0
+        if accuracy > 0:
+            confidence_score += min(40, accuracy * 40)
+        elif r2 > 0:
+            confidence_score += min(40, r2 * 40)
+        confidence_score += min(30, readiness * 0.3)
+        confidence_score += min(30, min(30, training_samples / 100))
+
+        if confidence_score >= 70:
+            model_confidence = "high"
+        elif confidence_score >= 40:
+            model_confidence = "medium"
+        else:
+            model_confidence = "low"
+
     return {
         "id": str(share.id),
         "model_id": str(share.model_id),
@@ -199,14 +299,28 @@ def _share_to_dict(share: ModelShare, model: MLModel = None) -> Dict[str, Any]:
         "metrics": m.metrics if m else {},
         "readiness_score": m.readiness_score if m else None,
         "readiness_label": m.readiness_label if m else None,
+        "model_confidence": model_confidence,
+        "lifecycle_stage": share.lifecycle_stage if hasattr(share, 'lifecycle_stage') else "active",
+        "deprecation_note": share.deprecation_note if hasattr(share, 'deprecation_note') else None,
+        "deprecated_at": share.deprecated_at.isoformat() if hasattr(share, 'deprecated_at') and share.deprecated_at else None,
+        "last_trained_at": share.last_trained_at.isoformat() if hasattr(share, 'last_trained_at') and share.last_trained_at else (m.updated_at.isoformat() if m and m.updated_at else None),
         "is_platform_model": False,
         "status": share.status,
+        "disclaimer": PLATFORM_DISCLAIMER,
+        "data_privacy_warning": DATA_PRIVACY_WARNING,
     }
 
 
 def _platform_model_to_dict(m: Dict[str, Any]) -> Dict[str, Any]:
     """Ensure platform model dict has standard fields."""
-    return {**m, "is_platform_model": True, "status": "approved"}
+    return {
+        **m,
+        "is_platform_model": True,
+        "status": "approved",
+        "disclaimer": "Model ini merupakan model platform yang sudah dikurasi. "
+                      "Meskipun sudah diuji, hasil prediksi tetap bersifat indikatif.",
+        "data_privacy_warning": DATA_PRIVACY_WARNING,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -335,11 +449,18 @@ async def platform_predict(
     Run inference on any marketplace model (platform or user-shared).
     Platform models: loads joblib from models/platform/.
     User models: loads from ml_artifacts with processor preprocessing.
+    Enforces prediction timeout and input size limits.
     """
+    settings = get_settings()
+    timeout = settings.MARKETPLACE_PREDICTION_TIMEOUT_SECONDS
+
     # ── Try platform model first ──────────────────────────────────────────
     model_meta = next((m for m in PLATFORM_MODELS if m["id"] == data.share_id), None)
     if model_meta:
-        return await _predict_platform_model(data, model_meta, current_user)
+        return await _run_with_timeout(
+            _predict_platform_model(data, model_meta, current_user),
+            timeout
+        )
 
     # ── Try DB share (user-trained model) ─────────────────────────────────
     stmt = select(ModelShare, MLModel).join(MLModel, ModelShare.model_id == MLModel.id).where(ModelShare.id == UUID(data.share_id))
@@ -349,7 +470,10 @@ async def platform_predict(
         raise HTTPException(status_code=404, detail="Model tidak ditemukan")
 
     share, ml_model = row
-    return await _predict_user_model(data, share, ml_model, current_user, db)
+    return await _run_with_timeout(
+        _predict_user_model(data, share, ml_model, current_user, db),
+        timeout
+    )
 
 
 async def _predict_platform_model(data, model_meta, current_user):
@@ -434,13 +558,15 @@ async def _predict_platform_model(data, model_meta, current_user):
         "result_type": result_type,
         "predictions": predictions,
         "total": len(predictions),
+        "data_privacy_warning": DATA_PRIVACY_WARNING,
     }
 
 
 async def _predict_user_model(data, share, ml_model, current_user, db):
     """
-    Stage 3: Predict using user-trained models from disk.
-    Loads model.joblib + processor.joblib, applies preprocessing, runs prediction.
+    Predict using user-trained models from disk.
+    Loads model.joblib + processor.joblib, applies full preprocessing pipeline, runs prediction.
+    Detects training mode (simple/advanced) from metadata to use correct pipeline class.
     """
     if not ml_model.file_path or not os.path.exists(ml_model.file_path):
         raise HTTPException(status_code=400, detail="File model tidak ditemukan di disk")
@@ -451,48 +577,54 @@ async def _predict_user_model(data, share, ml_model, current_user, db):
 
     model_data = loaded["model_data"]
     processor = loaded["processor"]
+    metadata = loaded.get("metadata", {})
     sklearn_model = model_data.get("model") if isinstance(model_data, dict) else model_data
 
     if sklearn_model is None:
         raise HTTPException(status_code=500, detail="Model object tidak valid")
 
-    # Build a temporary MLPipeline-like object for preprocessing
-    from app.ml.pipeline import MLPipeline
-    pipeline = MLPipeline()
+    # Check library version compatibility
+    from app.ml.version_compat import check_version_compatibility, record_library_versions
+    model_lib_versions = metadata.get("library_versions", {})
+    current_lib_versions = record_library_versions()
+    version_warnings = check_version_compatibility(model_lib_versions, current_lib_versions)
+
+    # If critical mismatch, warn but still allow prediction (don't block)
+    has_critical = any(w['severity'] == 'critical' for w in version_warnings)
+
+    # Detect training mode and use the correct pipeline class
+    training_mode = metadata.get("mode", "advanced")
     artifact_dir = os.path.dirname(ml_model.file_path)
+
+    if training_mode == "simple":
+        from app.ml.auto_pipeline import AutoMLPipeline
+        pipeline = AutoMLPipeline()
+    else:
+        from app.ml.pipeline import MLPipeline
+        pipeline = MLPipeline()
+
     try:
         pipeline.load_artifacts(artifact_dir)
-    except Exception:
-        pass  # Fallback: try without full pipeline
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Gagal memuat preprocessor dari artifact: {str(e)}. "
+                   "Model mungkin perlu dilatih ulang."
+        )
 
-    # Use the existing predict infrastructure
+    # Validate input data against training statistics
+    input_warnings = pipeline.validate_input(data.data, ml_model.feature_names)
+
     import time
     start_time = time.time()
     try:
         result = pipeline.predict(data.data, ml_model.feature_names)
     except Exception as e:
-        # Fallback: raw prediction without preprocessing
-        predictions = []
-        for i, row in enumerate(data.data):
-            feature_vals = []
-            for fname in (ml_model.feature_names or []):
-                v = row.get(fname, 0)
-                try:
-                    feature_vals.append(float(v))
-                except (ValueError, TypeError):
-                    feature_vals.append(0.0)
-            X = np.array([feature_vals])
-            try:
-                pred = sklearn_model.predict(X)[0]
-                proba = sklearn_model.predict_proba(X)[0] if hasattr(sklearn_model, 'predict_proba') else None
-                pred_result = {"index": i, "prediction": pred, "result_type": "classification"}
-                if proba is not None:
-                    pred_result["probability"] = round(float(max(proba)), 3)
-                    pred_result["probabilities"] = {str(idx): round(float(p), 3) for idx, p in enumerate(proba)}
-                predictions.append(pred_result)
-            except Exception as e2:
-                predictions.append({"index": i, "prediction": "Error", "error": str(e2), "result_type": "error"})
-        result = {"predictions": predictions, "result_type": "classification"}
+        raise HTTPException(
+            status_code=500,
+            detail=f"Prediksi gagal saat preprocessing: {str(e)}. "
+                   "Pastikan input sesuai dengan format data training."
+        )
 
     latency_ms = int((time.time() - start_time) * 1000)
 
@@ -519,6 +651,9 @@ async def _predict_user_model(data, share, ml_model, current_user, db):
     result["result_type"] = result.get("result_type", "classification")
     result["latency_ms"] = latency_ms
     result["model_version"] = ml_model.version
+    result["input_validation"] = input_warnings
+    if version_warnings:
+        result["version_warnings"] = version_warnings
     return result
 
 
@@ -800,6 +935,212 @@ async def get_contributor_stats(
         "total_feedback_received": total_feedback,
         "badge": badge,
     }
+
+
+# ── Reporting: users can report problematic models ────────────────────────────
+
+@router.post("/{share_id}/report", status_code=201)
+async def report_model(
+    share_id: str,
+    data: ReportCreate,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Report a marketplace model for inaccurate, inappropriate, or misleading content."""
+    if data.reason not in REPORT_REASONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Alasan tidak valid. Pilihan: {', '.join(REPORT_REASONS)}"
+        )
+
+    # Find the share and model
+    stmt = select(ModelShare, MLModel).join(MLModel, ModelShare.model_id == MLModel.id).where(ModelShare.id == UUID(share_id))
+    result = await db.execute(stmt)
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Model tidak ditemukan")
+
+    share, ml_model = row
+
+    # Check if user already reported this model
+    existing_stmt = select(ModelReport).where(
+        ModelReport.share_id == UUID(share_id),
+        ModelReport.reported_by == current_user.id,
+        ModelReport.status == "pending",
+    )
+    existing = await db.execute(existing_stmt)
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Kamu sudah melaporkan model ini")
+
+    report = ModelReport(
+        share_id=UUID(share_id),
+        model_id=ml_model.id,
+        reported_by=current_user.id,
+        reason=data.reason,
+        description=data.description,
+        status="pending",
+    )
+    db.add(report)
+    await db.flush()
+    await db.refresh(report)
+
+    return {
+        "status": "reported",
+        "report_id": str(report.id),
+        "message": "Laporan berhasil dikirim. Tim kami akan meninjau laporan Anda.",
+    }
+
+
+@router.get("/reports")
+async def list_reports(
+    status: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List all reports (admin only in production, currently available to all for demo)."""
+    stmt = select(ModelReport, ModelShare, MLModel).join(
+        ModelShare, ModelReport.share_id == ModelShare.id
+    ).join(
+        MLModel, ModelReport.model_id == MLModel.id
+    )
+    if status:
+        stmt = stmt.where(ModelReport.status == status)
+    stmt = stmt.order_by(ModelReport.created_at.desc())
+
+    result = await db.execute(stmt)
+    reports = []
+    for report, share, model in result.all():
+        reports.append({
+            "id": str(report.id),
+            "share_id": str(report.share_id),
+            "model_name": model.name if model else "Unknown",
+            "reason": report.reason,
+            "description": report.description,
+            "status": report.status,
+            "admin_note": report.admin_note,
+            "created_at": report.created_at.isoformat() if report.created_at else None,
+            "reviewed_at": report.reviewed_at.isoformat() if report.reviewed_at else None,
+        })
+
+    return {"reports": reports, "total": len(reports)}
+
+
+@router.post("/reports/{report_id}/review")
+async def review_report(
+    report_id: str,
+    action: str,
+    admin_note: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Review a report: resolve (keep model) or dismiss (reject report). Admin action."""
+    from datetime import datetime, timezone
+
+    stmt = select(ModelReport).where(ModelReport.id == UUID(report_id))
+    result = await db.execute(stmt)
+    report = result.scalar_one_or_none()
+    if not report:
+        raise HTTPException(status_code=404, detail="Laporan tidak ditemukan")
+
+    if action == "resolve":
+        report.status = "resolved"
+        report.admin_note = admin_note or "Laporan ditinjau dan diselesaikan"
+    elif action == "dismiss":
+        report.status = "dismissed"
+        report.admin_note = admin_note or "Laporan ditolak"
+    elif action == "reject_model":
+        # Reject the model itself
+        report.status = "resolved"
+        report.admin_note = admin_note or "Model ditolak berdasarkan laporan"
+        share_stmt = select(ModelShare).where(ModelShare.id == report.share_id)
+        share_result = await db.execute(share_stmt)
+        share = share_result.scalar_one_or_none()
+        if share:
+            share.status = "rejected"
+            share.review_note = f"Ditolak berdasarkan laporan: {report.reason}"
+    else:
+        raise HTTPException(status_code=400, detail="Action harus 'resolve', 'dismiss', atau 'reject_model'")
+
+    report.reviewed_by = current_user.id
+    report.reviewed_at = datetime.now(timezone.utc)
+    await db.flush()
+
+    return {"status": report.status, "report_id": report_id}
+
+
+@router.post("/{share_id}/lifecycle")
+async def update_lifecycle(
+    share_id: str,
+    stage: str,
+    note: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update model lifecycle stage: active, deprecated, or archived."""
+    from datetime import datetime, timezone
+
+    if stage not in ("active", "deprecated", "archived"):
+        raise HTTPException(status_code=400, detail="Stage harus 'active', 'deprecated', atau 'archived'")
+
+    stmt = select(ModelShare).where(ModelShare.id == UUID(share_id))
+    result = await db.execute(stmt)
+    share = result.scalar_one_or_none()
+    if not share:
+        raise HTTPException(status_code=404, detail="Model tidak ditemukan")
+
+    # Only the owner can change lifecycle
+    if str(share.shared_by) != str(current_user.id):
+        raise HTTPException(status_code=403, detail="Bukan model kamu")
+
+    share.lifecycle_stage = stage
+    if stage == "deprecated":
+        share.deprecation_note = note or "Model ini sudah usang dan mungkin tidak akurat"
+        share.deprecated_at = datetime.now(timezone.utc)
+    elif stage == "active":
+        share.deprecation_note = None
+        share.deprecated_at = None
+
+    await db.flush()
+    return {"status": "ok", "lifecycle_stage": stage, "share_id": share_id}
+
+
+@router.get("/{share_id}/versions")
+async def get_model_versions(
+    share_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get all published versions of a model (from the same owner, same model name)."""
+    # First find the share to get the model
+    stmt = select(ModelShare, MLModel).join(MLModel, ModelShare.model_id == MLModel.id).where(ModelShare.id == UUID(share_id))
+    result = await db.execute(stmt)
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="Model tidak ditemukan")
+
+    share, current_model = row
+
+    # Find all shares from the same owner for models with the same name
+    stmt = select(ModelShare, MLModel).join(MLModel, ModelShare.model_id == MLModel.id).where(
+        ModelShare.shared_by == current_model.owner_id,
+        MLModel.name == current_model.name,
+    ).order_by(MLModel.version.desc())
+    result = await db.execute(stmt)
+
+    versions = []
+    for s, m in result.all():
+        versions.append({
+            "share_id": str(s.id),
+            "model_id": str(m.id),
+            "version": m.version,
+            "lifecycle_stage": s.lifecycle_stage if hasattr(s, 'lifecycle_stage') else "active",
+            "created_at": s.created_at.isoformat() if s.created_at else None,
+            "downloads": s.downloads or 0,
+            "rating": s.rating or 0.0,
+            "is_current": str(s.id) == share_id,
+        })
+
+    return {"versions": versions, "total": len(versions)}
 
 
 @router.post("/{share_id}/moderate")

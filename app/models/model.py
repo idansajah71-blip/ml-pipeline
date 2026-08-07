@@ -85,6 +85,12 @@ class ModelShare(Base):
     status = Column(String(50), default="pending")  # pending / approved / rejected
     review_note = Column(Text, nullable=True)
 
+    # ── Stage 7: Lifecycle management ─────────────────────────────────────
+    lifecycle_stage = Column(String(50), default="active")  # active / deprecated / archived
+    deprecation_note = Column(Text, nullable=True)
+    deprecated_at = Column(DateTime, nullable=True)
+    last_trained_at = Column(DateTime, nullable=True)
+
     model = relationship("MLModel", foreign_keys=[model_id])
     user = relationship("User", foreign_keys=[shared_by])
 
@@ -116,4 +122,31 @@ class ModelFeedback(Base):
     __table_args__ = (
         Index("ix_model_feedback_model_id", "model_id"),
         Index("ix_model_feedback_user_id", "user_id"),
+    )
+
+
+class ModelReport(Base):
+    """User reports for marketplace models (inappropriate content, inaccurate, misleading, etc.)."""
+    __tablename__ = "model_reports"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    share_id = Column(UUID(as_uuid=True), nullable=False)
+    model_id = Column(UUID(as_uuid=True), ForeignKey("models.id"), nullable=False)
+    reported_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    reason = Column(String(100), nullable=False)  # inaccurate, inappropriate, misleading, outdated, other
+    description = Column(Text, nullable=True)
+    status = Column(String(50), default="pending")  # pending / reviewed / resolved / dismissed
+    admin_note = Column(Text, nullable=True)
+    reviewed_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    reviewed_at = Column(DateTime, nullable=True)
+
+    model = relationship("MLModel", foreign_keys=[model_id])
+    reporter = relationship("User", foreign_keys=[reported_by])
+    reviewer = relationship("User", foreign_keys=[reviewed_by])
+
+    __table_args__ = (
+        Index("ix_model_reports_share_id", "share_id"),
+        Index("ix_model_reports_status", "status"),
+        Index("ix_model_reports_reported_by", "reported_by"),
     )
