@@ -1,0 +1,1 @@
+{"features": ["jumlah_transaksi", "jam", "lokasi_beda", "frekuensi_hari", "rata_rata", "umur_akun"], "is_regression": false, "metrics": {"accuracy": 0.94, "f1": 0.9109, "precision": 0.8836, "recall": 0.94}}

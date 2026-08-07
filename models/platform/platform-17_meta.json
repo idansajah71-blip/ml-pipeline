@@ -1,0 +1,1 @@
+{"features": ["omset", "biaya", "lama_usaha", "karyawan", "jenis", "kredit", "jaminan"], "is_regression": false, "metrics": {"accuracy": 0.9, "f1": 0.8526, "precision": 0.81, "recall": 0.9}}

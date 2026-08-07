@@ -1,0 +1,1 @@
+{"features": ["topik", "durasi", "modul", "rating_instruktur", "siswa", "sertifikat", "hosting"], "is_regression": true, "metrics": {"r2": 0.9577, "mae": 6.12, "rmse": 7.54}}

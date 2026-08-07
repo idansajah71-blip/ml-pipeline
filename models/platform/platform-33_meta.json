@@ -1,0 +1,1 @@
+{"features": ["warna", "aroma", "bentuk", "ukuran", "kelembaban", "kafein", "tahun"], "is_regression": false, "metrics": {"accuracy": 0.855, "f1": 0.8538, "precision": 0.858, "recall": 0.855, "labels": ["0", "1"]}}

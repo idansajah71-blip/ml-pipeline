@@ -1,0 +1,1 @@
+{"features": ["luas_bangunan", "luas_tanah", "kamar_tidur", "kamar_mandi", "lantai", "tahun", "jarak_pusat"], "is_regression": true, "metrics": {"r2": 0.9853, "mae": 46.21, "rmse": 55.52}}

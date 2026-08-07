@@ -577,6 +577,93 @@ cd frontend && npm run typecheck
 | `eec495d` | 36-41 | Explainability, Ensemble, Data Versioning, Marketplace, Costs |
 | TBD | 42-54 | Security fixes, AutoML, Training Wizard, Data Retention |
 | TBD | 55-61 | UX improvements: wizard draft, search, breadcrumb, favorites, funnel |
+| TBD | 62-68 | Real ML models, shared model predictions, smart marketplace form, usage stats |
+
+---
+
+## PHASE 62-68: REAL ML MODELS & MARKETPLACE FEATURES
+
+### Phase 62: Real Trained ML Models
+- `scripts/train_platform_models.py`: Training script untuk 40 model scikit-learn
+- 40 model `.joblib` artifacts di `models/platform/`
+- Training data: synthetic tapi realistic, 200-500 rows per model
+- Metrics real: accuracy, F1, precision, recall, R², MAE, RMSE
+- Model types: LogisticRegression, RandomForestClassifier, GradientBoostingClassifier, RandomForestRegressor, GradientBoostingRegressor
+
+### Phase 63: Real Predictions (Not Simulation)
+- `marketplace.py`: `_load_platform_model()` - loads joblib model + metadata
+- `marketplace.py`: `platform_predict` rewritten to use real trained models
+- Proper error handling when model file not found (fallback to simulation for community models)
+
+### Phase 64: Enable "Gunakan Model" for All Shared Models
+- Frontend: Removed `is_platform_model` guard on "Gunakan Model" button
+- Community models now accessible for prediction too (simulation fallback)
+
+### Phase 65: Smart Marketplace Form
+- `MarketplaceSmartField` component with auto-detection:
+  - Currency fields (Rp prefix, formatted input) for harga/gaji/biaya
+  - Date picker for tanggal fields
+  - Percent fields (% suffix, 0-100 range)
+  - Text fields with realistic sample placeholders
+- SAMPLE_VALUES dictionary: 300+ field names with realistic default values
+- Currency keyword detection, date keyword detection, percent keyword detection
+
+### Phase 66: Quality Validation Before Sharing
+- `marketplace.py`: `share_model` endpoint now validates:
+  - Warnings for low accuracy (<50%) or R² (<0)
+  - Low quality models flagged but still allowed to share
+  - Warning messages returned in response
+
+### Phase 67: Moderation System
+- Shared models get `status: "pending"` if:
+  - No description provided, OR
+  - Accuracy < 0.5 / R² < 0, OR
+  - model_name contains placeholder words (test, trial, dummy)
+- Auto-approve: models with good metrics and descriptions
+- `POST /marketplace/{share_id}/moderate` endpoint (approve/reject)
+- Frontend: Status badges (⏳ Review, ✓ Disetujui, ✗ Ditolak) in card + detail view
+
+### Phase 7: Usage Statistics for Model Owners
+- `_track_usage()` function records usage events per model
+- `GET /marketplace/{share_id}/stats` - detailed stats (total uses, unique users, downloads, rating)
+- `GET /marketplace/my-models` - user's shared models with usage stats
+- Frontend: Stats section in detail view showing Akurasi, Pengguna, Rating counts
+
+---
+
+## GIT COMMITS
+
+| Commit | Phase | Deskripsi |
+|--------|-------|-----------|
+| `6a609f1` | 1-5 | Celery, Profiling, Experiments, Registry, SHAP |
+| `d86a0d9` | 6-10 | AutoML, Drift, WebSocket, Frontend, Tests |
+| `02b658c` | 11-13 | Retraining, Monitoring, Prediction History |
+| `42fd66b` | 14-17 | Refresh Token, Password Reset, Dark Mode, Drag-Drop |
+| `3c5fc20` | - | Push updates |
+| `f803d89` | 14-17 | Refresh Token, Dark Mode, Drag-Drop (final) |
+| `3a96453` | 18-23 | AB Testing, Data Quality, Batch, Optimization, Audit, K8s |
+| `6ad1733` | 24-29 | Feature Store, Serving, CI/CD, Cleanup, Multi-tenancy, Quota |
+| `32f8281` | 30-35 | Versioning, Compare, Monitoring, Webhooks, Lineage, Metrics |
+| `eec495d` | 36-41 | Explainability, Ensemble, Data Versioning, Marketplace, Costs |
+| TBD | 42-54 | Security fixes, AutoML, Training Wizard, Data Retention |
+| TBD | 55-61 | UX improvements: wizard draft, search, breadcrumb, favorites, funnel |
+| TBD | 62-68 | Real ML models, shared model predictions, smart marketplace form, usage stats |
+
+---
+
+## FILE BARU (PHASE 62-68)
+
+```
+scripts/
+├── train_platform_models.py         # Training script 40 model scikit-learn
+
+models/platform/
+├── platform-0.joblib + _meta.json   # 40 trained model artifacts
+├── ... through platform-39.joblib
+
+app/api/marketplace.py               # Updated: real predict, quality validation, moderation, usage stats
+frontend/src/app/(dashboard)/marketplace/page.tsx  # Updated: smart form, status badges, stats display
+```
 
 ---
 

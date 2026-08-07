@@ -1,0 +1,1 @@
+{"features": ["huruf_kapital", "tautan", "tanda_tanya", "panjang", "kata_gratis", "kata_klik", "pengirim_dikenal"], "is_regression": false, "metrics": {"accuracy": 0.88, "f1": 0.8654, "precision": 0.8837, "recall": 0.88}}

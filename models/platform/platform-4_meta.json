@@ -1,0 +1,1 @@
+{"features": ["harga", "diskon", "iklan", "bulan", "stok", "penjualan_lalu"], "is_regression": true, "metrics": {"r2": 0.9735, "mae": 24.44, "rmse": 30.72}}

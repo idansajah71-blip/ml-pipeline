@@ -1,0 +1,1 @@
+{"features": ["warna", "bintik", "akar", "suhu", "kelembaban", "hujan", "umur"], "is_regression": false, "metrics": {"accuracy": 0.89, "f1": 0.8382, "precision": 0.7923, "recall": 0.89, "labels": ["0", "1", "2", "3"]}}

@@ -1,0 +1,1 @@
+{"features": ["penghuni", "luas", "ac", "kulkas", "tv_jam", "mesin_cuci", "musim"], "is_regression": true, "metrics": {"r2": 0.9542, "mae": 27.51, "rmse": 33.39}}

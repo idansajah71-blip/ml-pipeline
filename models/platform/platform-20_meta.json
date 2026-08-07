@@ -1,0 +1,1 @@
+{"features": ["karyawan", "luas_kantor", "jenis", "perangkat", "sewa", "utilitas"], "is_regression": true, "metrics": {"r2": 0.9908, "mae": 3.21, "rmse": 4.04}}

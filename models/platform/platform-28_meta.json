@@ -1,0 +1,1 @@
+{"features": ["harga_kemarin", "usd", "inflasi", "suku_bunga", "minyak", "saham", "volume"], "is_regression": true, "metrics": {"r2": 0.998, "mae": 4073.09, "rmse": 5076.83}}

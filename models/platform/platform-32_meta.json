@@ -1,0 +1,1 @@
+{"features": ["penjualan_30", "tren", "libur", "musim", "sku", "lead_time", "promo"], "is_regression": true, "metrics": {"r2": 0.9835, "mae": 33.82, "rmse": 42.3}}

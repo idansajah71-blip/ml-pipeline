@@ -27,6 +27,7 @@ interface MarketplaceModel {
   rating: number;
   rating_count: number;
   is_platform_model: boolean;
+  status?: 'pending' | 'approved' | 'rejected';
   icon?: string;
   result_label?: string;
   result_unit?: string;
@@ -190,7 +191,15 @@ function ModelCard({ model, onSelect }: { model: MarketplaceModel; onSelect: () 
             <h3 className="text-sm font-semibold text-gray-900 group-hover:text-primary-600 dark:text-white dark:group-hover:text-primary-400">
               {model.model_name}
             </h3>
-            {model.is_platform_model && <PlatformBadge />}
+            <div className="flex items-center gap-1.5">
+              {model.is_platform_model && <PlatformBadge />}
+              {!model.is_platform_model && model.status === 'pending' && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">⏳ Review</span>
+              )}
+              {!model.is_platform_model && model.status === 'approved' && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">✓ OK</span>
+              )}
+            </div>
           </div>
         </div>
         <ChevronRight className="h-4 w-4 shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5" />
@@ -437,6 +446,21 @@ function ModelDetailView({ model, onBack, onPredict, onRate }: {
               <div className="mt-1 flex flex-wrap items-center gap-2">
                 {model.is_platform_model && <PlatformBadge />}
                 {model.algorithm && <span className="text-xs text-gray-500 dark:text-gray-400">Algoritma: {model.algorithm}</span>}
+                {!model.is_platform_model && model.status === 'pending' && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">
+                    ⏳ Menunggu Review
+                  </span>
+                )}
+                {!model.is_platform_model && model.status === 'approved' && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                    ✓ Disetujui
+                  </span>
+                )}
+                {!model.is_platform_model && model.status === 'rejected' && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                    ✗ Ditolak
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -444,11 +468,9 @@ function ModelDetailView({ model, onBack, onPredict, onRate }: {
             <button onClick={onRate} className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700">
               <Star className="h-4 w-4" /> Beri Rating
             </button>
-            {model.is_platform_model && (
-              <button onClick={onPredict} className="flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700">
-                <Zap className="h-4 w-4" /> Gunakan Model
-              </button>
-            )}
+            <button onClick={onPredict} className="flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700">
+              <Zap className="h-4 w-4" /> Gunakan Model
+            </button>
           </div>
         </div>
 
@@ -458,6 +480,23 @@ function ModelDetailView({ model, onBack, onPredict, onRate }: {
             <Download className="h-4 w-4" />{model.downloads.toLocaleString('id-ID')} digunakan
           </div>
         </div>
+
+        {model.is_platform_model && (
+          <div className="mb-4 grid grid-cols-3 gap-3 rounded-lg bg-gray-50 p-3 dark:bg-gray-700/50">
+            <div className="text-center">
+              <p className="text-lg font-bold text-primary-600 dark:text-primary-400">{(model.metrics?.accuracy ?? 0) > 1 ? ((model.metrics?.accuracy ?? 0)*100).toFixed(1)+'%' : 'N/A'}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Akurasi</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-bold text-primary-600 dark:text-primary-400">{model.downloads.toLocaleString()}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Pengguna</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-bold text-primary-600 dark:text-primary-400">{model.rating_count}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Rating</p>
+            </div>
+          </div>
+        )}
 
         <p className="mb-4 text-gray-600 dark:text-gray-400">{model.description ?? model.use_case}</p>
 
@@ -501,6 +540,153 @@ function ModelDetailView({ model, onBack, onPredict, onRate }: {
           </p>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Smart field detection for marketplace ──────────────────────────────────
+
+type FieldKind = 'currency' | 'date' | 'percent' | 'number' | 'text';
+
+const MKT_CURRENCY_KW = ['harga', 'gaji', 'pendapatan', 'biaya', 'tagihan', 'omset', 'laba', 'revenue', 'cost', 'price', 'salary', 'income', 'sewa', 'tagihan', 'belanja', 'skor', ' nilai'];
+const MKT_DATE_KW = ['tanggal', 'tgl', 'date', 'waktu', 'time', 'bulan', 'tahun'];
+const MKT_PERCENT_KW = ['persen', 'persentase', 'percent', 'rate', 'rasio', 'ratio', 'kelembaban'];
+
+function detectMarketFieldKind(name: string): FieldKind {
+  const n = name.toLowerCase();
+  if (MKT_DATE_KW.some((k) => n.includes(k))) return 'date';
+  if (MKT_CURRENCY_KW.some((k) => n.includes(k))) return 'currency';
+  if (MKT_PERCENT_KW.some((k) => n.includes(k))) return 'percent';
+  return 'text';
+}
+
+/** Realistic sample values per field name pattern */
+const SAMPLE_VALUES: Record<string, string> = {
+  luas_bangunan: '120', luas_tanah: '200', kamar_tidur: '3', kamar_mandi: '2',
+  jumlah_kamar: '3', lantai: '2', tahun: '2020', tahun_produksi: '2019',
+  jarak_pusat: '5', jarak: '150', jarak_km: '150', jarak_tempuh_km: '35000',
+  lama_berlangganan_bulan: '24', total_tagihan: '250000', jumlah_komplain: '2',
+  frekuensi_login_per_bulan: '12', fitur_yang_digunakan: '5', perubahan_paket_6_bulan: '-1',
+  ipk: '3.2', ipk_semester_terakhir: '3.5', persentase_kehadiran: '85',
+  jumlah_mata_kuliah_lulus: '15', jumlah_mata_kuliah_gagal: '1', aktivitas_ekstrakulikuler: '1',
+  beasiswa: '0', harga_jual: '150000', diskon_persen: '10', jumlah_iklan: '20',
+  stok_tersedia: '100', penjualan_bulan_lalu: '250', bulan: '6', volume_penjualan: '300',
+  jumlah_transaksi: '15', jam_transaksi: '14', lokasi_berbeda: '1',
+  frekuensi_per_hari: '8', rata_rata_transaksi_bulanan: '500000', umur_akun_hari: '365',
+  suhu_mesin_celsius: '200', tekanan_bar: '5', kecepatan_rpm: '1500',
+  kelembaban_persen: '60', waktu_proses_menit: '25', shift_kerja: '1',
+  pengalaman: '5', tahun_pengalaman: '5', tingkat_pendidikan: '3', jumlah_skill: '8',
+  skor_keahlian: '75', lokasi_kota: '3', lokasi: '3', jenis_industri: '2',
+  ukuran_perusahaan: '3', pendapatan_per_bulan: '8', total_utang: '20',
+  jumlah_tanggungan: '2', lamanya_kerja_bulan: '48', riwayat_tepat_waktu: '85',
+  jumlah_pinjaman_aktif: '2', skor_kredit: '700', jenis_bahan_bakar: '2',
+  kapasitas_mesin_cc: '1500', kondisi_exterior: '4', kondisi_interior: '4', jumlah_pemilik: '2',
+  warna_daun: '2', bintik_daun: '1', kondisi_akar: '1', suhu_lahan: '28',
+  kelembaban_tanah: '65', curah_hujan_mingguan: '150', umur_tanaman_hari: '90',
+  jumlah_penghuni: '3', luas_rumah_m2: '80', jumlah_ac: '2', jumlah_kulkas: '1',
+  jam_penggunaan_tv: '5', jam_penggunaan_mesin_cuci: '3', musim: '2',
+  pm25: '35', pm10: '50', suhu_celsius: '30', angin: '10', kecepatan_angin_kmh: '10',
+  lalu_lintas_kendaraan: '50', industri_terdekat: '0',
+  jumlah_huruf_kapital: '5', jumlah_tautan: '2', jumlah_akhir_tanda_tanya: '1',
+  panjang_teks: '200', ada_kata_gratis: '0', ada_kata_klik: '0', pengirim_dikenal: '1',
+  jenis_layanan: '2', berat_paket_kg: '5', kota_asal: '1', kota_tujuan: '5',
+  kondisi_cuaca: '1', hari_dalam_minggu: '3', hari: '3',
+  jumlah_emoji: '2', ada_kata_positif: '1', ada_kata_negatif: '0',
+  rating_bintang: '4', jumlah_kalimat: '8', pola_kapital: '0',
+  nama_komoditas: '1', harga_bulan_lalu: '35', persediaan_ton: '100',
+  jumlah_petani: '500', inflasi_persen: '3.5', hari_libur: '0', libur: '0',
+  omset_per_bulan_juta: '25', biaya_operasional_juta: '15', lama_usaha_bulan: '36',
+  jumlah_karyawan: '5', jenis_usaha: '3', riwayat_kredit: '1', jaminan: '1',
+  penjualan_30_hari: '200', tren_penjualan: '5', hari_libur_mendatang: '2',
+  jumlah_sku: '50', lead_time_hari: '7', promo_mendatang: '0',
+  warna_daun_nilai: '7', aroma_intensitas: '6', bentuk_daun: '3',
+  ukuran_daun_mm: '25', kadar_kafein: '2', tahun_panen: '2025',
+  fitur_digunakan: '8', tagihan_bulan: '150', nps_score: '8', referensi_dibuat: '3',
+  ca_125: '15', cea: '2', psa: '4', hemoglobin: '13', leukosit: '7',
+  trombosit: '250', kreatinin: '1', sgot_sgot_rasio: '1.2',
+  booking_online: '1', event_lokasi: '0', cuaca_prediksi: '1',
+  harga_kamar_rata: '500000', tren_liburan: '50',
+  waktu_tunggu_menit: '10', akurasi_pesanan: '1', suhu_makanan: '60',
+  rating_layanan: '4', repeat_order: '1', total_belanja: '150000',
+  curah_hujan_bulan_lalu: '200', suhu_permukaan_laut: '29', kelembaban_relatif: '75',
+  tekanan_udara: '1010', angin_monsum: '1', el_nino_index: '0.5',
+  tinggi_badan_cm: '85', berat_badan_kg: '12', umur_bulan: '24',
+  lingkar_lengan: '15', lingkar_kepala: '48', imunisasi_lengkap: '1', asi_eksklusif: '1',
+  views_per_video: '5000', engagement_rate: '0.05', frekuensi_upload: '3',
+  durasi_rata_video: '12', topik_konten: '5', jumlah_kolaborasi: '2',
+  subscriber: '10000', views: '5000', durasi_jam: '20', jumlah_modul: '15',
+  rating_instruktur: '4.5', sertifikat: '1', platform_hosting: '1',
+  frekuensi_posting: '5', waktu_aktif_reguler: '1', rasio_following_followers: '0.8',
+  panjang_komentar_rata: '30', ada_link_spam: '0', usia_akun_hari: '500', variasi_waktu_posting: '0.5',
+  ketinggian_mdpl: '500', lintang_bujur: '50',
+  rasio_lebar_tinggi_wajah: '0.75', posisi_alis: '3', bentuk_rahang: '3',
+  panjang_rambut: '2', textur_kulit: '3', sudut_dahi: '3', proporsi_mata: '3',
+  suhu: '28', tekstur: '3', berat: '100', ukuran: '50', bau: '2', air: '50',
+  ph: '7.0', turbidity_ntu: '10', turbidity: '10', tds_ppm: '200', tds: '200',
+  klorin_mg_l: '0.5', bakteri_coliform: '0', logam_berat_ppm: '0', logam: '0',
+  harga_kemarin: '1000000', nilai_tukar_usd: '15500', inflasi: '3',
+  suku_bunga: '6', harga_minyak: '80', indeks_saham: '6500', volume_perdagangan: '5000',
+  area_opacitas_persen: '25', lokasi_lesi: '2', simetri_paru: '3',
+  kontras_gambar: '3', tekstur_jaringan: '3', batas_cabang: '3', intensitas_pixel: '3',
+  opacitas: '25',
+  topik: '5',
+};
+
+function formatCurrency(raw: string): string {
+  const digits = raw.replace(/[^\d]/g, '');
+  if (!digits) return '';
+  return Number(digits).toLocaleString('id-ID');
+}
+
+// ─── Marketplace Smart Input ────────────────────────────────────────────────
+
+function MarketplaceSmartField({ name, value, onChange }: { name: string; value: string; onChange: (v: string) => void }) {
+  const kind = detectMarketFieldKind(name);
+  const label = name.replace(/_/g, ' ');
+  const sample = SAMPLE_VALUES[name] || '';
+  const inputCls = 'w-full rounded-lg border border-gray-300 bg-white text-sm text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500';
+
+  if (kind === 'date') {
+    return (
+      <div>
+        <label className="mb-1 block text-sm font-medium capitalize text-gray-700 dark:text-gray-300">{label}</label>
+        <input type="date" value={value} onChange={(e) => onChange(e.target.value)} className={`${inputCls} px-3 py-2.5`} />
+      </div>
+    );
+  }
+
+  if (kind === 'currency') {
+    return (
+      <div>
+        <label className="mb-1 block text-sm font-medium capitalize text-gray-700 dark:text-gray-300">{label}</label>
+        <div className="relative">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500 dark:text-gray-400">Rp</span>
+          <input type="text" inputMode="numeric" value={value} onChange={(e) => onChange(formatCurrency(e.target.value))}
+            placeholder={sample ? formatCurrency(sample) : '0'} className={`${inputCls} py-2.5 pl-9 pr-3`} />
+        </div>
+      </div>
+    );
+  }
+
+  if (kind === 'percent') {
+    return (
+      <div>
+        <label className="mb-1 block text-sm font-medium capitalize text-gray-700 dark:text-gray-300">{label}</label>
+        <div className="relative">
+          <input type="number" min={0} max={100} step={0.1} value={value} onChange={(e) => onChange(e.target.value)}
+            placeholder={sample || '0-100'} className={`${inputCls} py-2.5 pl-3 pr-9`} />
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 dark:text-gray-400">%</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-medium capitalize text-gray-700 dark:text-gray-300">{label}</label>
+      <input type="text" value={value} onChange={(e) => onChange(e.target.value)}
+        placeholder={sample ? `contoh: ${sample}` : `Masukkan ${label}...`}
+        className={`${inputCls} px-3 py-2.5`} />
     </div>
   );
 }
@@ -617,13 +803,8 @@ function PredictView({ model, onBack }: { model: MarketplaceModel; onBack: () =>
             <>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {model.feature_names.map((f) => (
-                  <div key={f}>
-                    <label className="mb-1 block text-sm font-medium capitalize text-gray-700 dark:text-gray-300">{f.replace(/_/g,' ')}</label>
-                    <input type="text" value={formValues[f]}
-                      onChange={(e) => setFormValues((p) => ({ ...p, [f]: e.target.value }))}
-                      placeholder={`Masukkan ${f.replace(/_/g,' ')}...`}
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
-                  </div>
+                  <MarketplaceSmartField key={f} name={f} value={formValues[f]}
+                    onChange={(v) => setFormValues((p) => ({ ...p, [f]: v }))} />
                 ))}
               </div>
               <button onClick={runManualPredict}

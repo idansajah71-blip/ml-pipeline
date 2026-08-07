@@ -1,0 +1,1 @@
+{"features": ["tinggi", "berat", "usia", "jenis_kelamin", "olahraga", "kalori", "tidur", "riwayat"], "is_regression": false, "metrics": {"accuracy": 0.83, "f1": 0.7838, "precision": 0.7873, "recall": 0.83, "labels": ["0", "1", "2", "3"]}}

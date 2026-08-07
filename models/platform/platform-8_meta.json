@@ -1,0 +1,1 @@
+{"features": ["pendapatan", "utang", "tanggungan", "kerja_bulan", "tepat_waktu", "pinjaman", "skor"], "is_regression": false, "metrics": {"accuracy": 0.87, "f1": 0.8702, "precision": 0.8711, "recall": 0.87}}

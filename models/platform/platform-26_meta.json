@@ -1,0 +1,1 @@
+{"features": ["jenis", "karyawan", "luas_toko", "sewa", "traffic", "hari_op", "tren"], "is_regression": true, "metrics": {"r2": 0.9763, "mae": 3.78, "rmse": 4.74}}

@@ -1,0 +1,1 @@
+{"features": ["panjang", "emoji", "kata_positif", "kata_negatif", "bintang", "kalimat", "kapital"], "is_regression": false, "metrics": {"accuracy": 0.845, "f1": 0.8343, "precision": 0.8489, "recall": 0.845, "labels": ["0", "1"]}}

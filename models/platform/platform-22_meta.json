@@ -1,0 +1,1 @@
+{"features": ["pendapatan", "tabungan", "nasabah_bulan", "transaksi", "saldo", "tepat_waktu", "tanggungan"], "is_regression": true, "metrics": {"r2": 0.9772, "mae": 10.64, "rmse": 13.14}}

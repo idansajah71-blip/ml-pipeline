@@ -1,0 +1,1 @@
+{"features": ["warna", "tekstur", "berat", "ukuran", "bau", "kelembaban", "air"], "is_regression": false, "metrics": {"accuracy": 0.845, "f1": 0.8111, "precision": 0.8575, "recall": 0.845, "labels": ["0", "1", "2", "3"]}}

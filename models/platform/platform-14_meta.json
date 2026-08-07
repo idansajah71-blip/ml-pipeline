@@ -1,0 +1,1 @@
+{"features": ["jarak", "layanan", "berat", "asal", "tujuan", "cuaca", "hari"], "is_regression": true, "metrics": {"r2": 0.9742, "mae": 3.77, "rmse": 4.78}}

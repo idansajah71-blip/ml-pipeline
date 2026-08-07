@@ -1,0 +1,1 @@
+{"features": ["pengalaman", "pendidikan", "jumlah_skill", "skor", "lokasi", "industri", "ukuran"], "is_regression": true, "metrics": {"r2": 0.979, "mae": 1.26, "rmse": 1.59}}

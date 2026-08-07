@@ -1,0 +1,1 @@
+{"features": ["hujan_lalu", "suhu_laut", "kelembaban", "tekanan", "monsum", "el_nino", "bulan"], "is_regression": true, "metrics": {"r2": 0.9691, "mae": 10.34, "rmse": 13.15}}

@@ -1,0 +1,1 @@
+{"features": ["subscriber", "views", "engagement", "upload", "durasi", "topik", "kolaborasi"], "is_regression": true, "metrics": {"r2": 0.9632, "mae": 46.12, "rmse": 55.74}}

@@ -1,0 +1,1 @@
+{"features": ["bulan", "hari", "booking", "event", "cuaca", "harga", "tren"], "is_regression": true, "metrics": {"r2": 0.9693, "mae": 3.86, "rmse": 4.85}}

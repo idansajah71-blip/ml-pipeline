@@ -1,0 +1,1 @@
+{"features": ["tinggi", "berat", "umur", "lila", "lk", "imunisasi", "asi"], "is_regression": false, "metrics": {"accuracy": 0.81, "f1": 0.7935, "precision": 0.7822, "recall": 0.81, "labels": ["0", "1", "2", "3"]}}

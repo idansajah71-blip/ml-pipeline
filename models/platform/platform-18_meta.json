@@ -1,0 +1,1 @@
+{"features": ["hari", "bulan", "kampanye", "postingan", "traffic_lalu", "tren", "libur"], "is_regression": true, "metrics": {"r2": 0.9713, "mae": 251.83, "rmse": 306.51}}

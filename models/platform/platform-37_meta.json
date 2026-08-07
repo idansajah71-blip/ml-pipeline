@@ -1,0 +1,1 @@
+{"features": ["tunggu", "akurasi", "suhu_makanan", "layanan", "komplain", "repeat", "belanja"], "is_regression": false, "metrics": {"accuracy": 0.815, "f1": 0.8049, "precision": 0.8132, "recall": 0.815, "labels": ["0", "1"]}}
