@@ -53,6 +53,8 @@ ml_artifacts/model_*/
 *.joblib
 *.pkl
 *.h5
+!models/platform/*.joblib
+!models/platform/*_meta.json
 
 # Environment files
 .env
