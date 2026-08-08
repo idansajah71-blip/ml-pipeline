@@ -55,6 +55,8 @@ class Settings(BaseSettings):
     MLFLOW_TRACKING_URI: str = ""
     MLFLOW_EXPERIMENT_NAME: str = "ml-pipeline"
 
+    BPS_API_KEY: str = ""
+
     SMTP_HOST: str = ""
     SMTP_PORT: int = 587
     SMTP_USER: str = ""

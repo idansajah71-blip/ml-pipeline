@@ -25,10 +25,21 @@ class DataGoIdClient(BaseExternalDataClient):
         return "data.go.id - Satu Data Indonesia"
 
     async def _request(self, path: str, params: dict = None) -> dict:
-        """Make request to data.go.id CKAN API."""
+        """Make request to data.go.id CKAN API.
+
+        Note: As of mid-2025, data.go.id has been redesigned and the old
+        CKAN API endpoints (/api/3/action/*) return 404. This client will
+        raise an error with a helpful message when the API is unavailable.
+        """
         url = f"{DATAGOID_BASE}/{path}"
         async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
             resp = await client.get(url, params=params or {})
+            if resp.status_code == 404:
+                raise ConnectionError(
+                    "Portal data.go.id sedang dalam masa kurasi ulang. "
+                    "API CKAN lama (/api/3/action/) sudah tidak tersedia. "
+                    "Silakan unduh data manual di https://data.go.id/dataset"
+                )
             resp.raise_for_status()
             return resp.json()
 
@@ -75,6 +86,9 @@ class DataGoIdClient(BaseExternalDataClient):
                     },
                 ))
 
+        except ConnectionError as e:
+            # API endpoint is dead (portal redesigned) — return empty silently
+            return []
         except Exception as e:
             # data.go.id API might be unreliable — don't crash
             return []

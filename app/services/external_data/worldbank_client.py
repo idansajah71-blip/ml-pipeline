@@ -12,6 +12,62 @@ from app.services.external_data.base_client import BaseExternalDataClient, Searc
 
 WORLD_BANK_BASE = "https://api.worldbank.org/v2"
 
+# Indonesian → English query translation dictionary
+# Maps common Indonesian search terms to English indicator keywords/codes
+INDO_ENGLISH_MAP = {
+    "harga": "price",
+    "inflasi": "inflation",
+    "penduduk": "population",
+    "jumlah penduduk": "population, total",
+    "pertumbuhan": "growth",
+    "gdp": "gdp",
+    "ekonomi": "economic",
+    "kemiskinan": "poverty",
+    "pengangguran": "unemployment",
+    "pendidikan": "education",
+    "sekolah": "school",
+    "kesehatan": "health",
+    "harapan hidup": "life expectancy",
+    "fertilitas": "fertility",
+    "perdagangan": "trade",
+    "ekspor": "export",
+    "impor": "import",
+    "investasi": "investment",
+    "listrik": "electricity",
+    "energi": "energy",
+    "internet": "internet",
+    "teknologi": "technology",
+    "air": "water",
+    "pangan": "food",
+    "beras": "rice",
+    "jagung": "corn",
+    "sapi": "cattle",
+    "pertanian": "agriculture",
+    "industri": "industry",
+    "manufaktur": "manufacturing",
+    "konstruksi": "construction",
+    "transportasi": "transport",
+    "pariwisata": "tourism",
+    "deflasi": "deflasi",
+    "nilai tukar": "exchange rate",
+    "kurs": "exchange rate",
+    "utang": "debt",
+    "anggaran": "budget",
+    "belanja": "expenditure",
+    "pendapatan": "income",
+    "upah": "wage",
+    "tenaga kerja": "labor force",
+    "lapangan kerja": "employment",
+    "iklim": "climate",
+    "cuaca": "weather",
+    "curah hujan": "rainfall",
+    "tanaman": "crop",
+    "luas lahan": "land area",
+    "provinsi": "province",
+    "kabupaten": "regency",
+    "kota": "city",
+}
+
 # Common indicators relevant to Indonesia / UMKM / Education
 POPULAR_INDICATORS = {
     "SP.POP.TOTL": "Total Populasi",
@@ -42,26 +98,51 @@ class WorldBankClient(BaseExternalDataClient):
     def display_name(self) -> str:
         return "World Bank Open Data"
 
+    def _translate_query(self, query: str) -> list[str]:
+        """Translate Indonesian query terms to English keywords for matching.
+
+        Returns a list of English keywords to search for.
+        """
+        query_lower = query.lower().strip()
+        keywords = [query_lower]  # always include original query
+
+        # Direct translation lookup
+        if query_lower in INDO_ENGLISH_MAP:
+            translated = INDO_ENGLISH_MAP[query_lower]
+            if translated not in keywords:
+                keywords.append(translated)
+
+        # Partial/compound match: try each word
+        for indo, eng in INDO_ENGLISH_MAP.items():
+            if indo in query_lower and eng not in keywords:
+                keywords.append(eng)
+
+        return keywords
+
     async def search(self, query: str, limit: int = 20) -> List[SearchResultItem]:
         """Search World Bank indicators matching the query."""
         results = []
-        query_lower = query.lower()
+        keywords = self._translate_query(query)
 
-        # First: match against known popular indicators
+        # First: match against known popular indicators using translated keywords
         for code, name in POPULAR_INDICATORS.items():
-            if query_lower in name.lower() or query_lower in code.lower():
-                results.append(SearchResultItem(
-                    id=f"wb:indicator:{code}",
-                    source_slug="worldbank",
-                    title=f"{name} — Indonesia",
-                    description=f"World Bank indicator: {name} ({code})",
-                    column_names=["year", "value"],
-                    last_updated="Terkini",
-                    source_url=f"https://data.worldbank.org/indicator/{code}?locations=ID",
-                    extra={"indicator_code": code, "country": "IDN"},
-                ))
+            name_lower = name.lower()
+            code_lower = code.lower()
+            for kw in keywords:
+                if kw in name_lower or kw in code_lower:
+                    results.append(SearchResultItem(
+                        id=f"wb:indicator:{code}",
+                        source_slug="worldbank",
+                        title=f"{name} — Indonesia",
+                        description=f"World Bank indicator: {name} ({code})",
+                        column_names=["year", "value"],
+                        last_updated="Terkini",
+                        source_url=f"https://data.worldbank.org/indicator/{code}?locations=ID",
+                        extra={"indicator_code": code, "country": "IDN"},
+                    ))
+                    break
 
-        # Second: query the World Bank indicators API for more results
+        # Second: query the World Bank indicators API with translated keywords
         try:
             async with httpx.AsyncClient(timeout=15) as client:
                 resp = await client.get(
@@ -71,22 +152,26 @@ class WorldBankClient(BaseExternalDataClient):
                 if resp.status_code == 200:
                     data = resp.json()
                     indicators = data[1] if len(data) > 1 else []
+                    existing_ids = {r.id for r in results}
                     for ind in indicators:
                         code = ind.get("id", "")
                         name = ind.get("name", "")
-                        if query_lower in name.lower():
-                            existing_ids = {r.id for r in results}
-                            if f"wb:indicator:{code}" not in existing_ids:
-                                results.append(SearchResultItem(
-                                    id=f"wb:indicator:{code}",
-                                    source_slug="worldbank",
-                                    title=f"{name} — Indonesia",
-                                    description=f"World Bank: {name}",
-                                    column_names=["year", "value"],
-                                    last_updated="Terkini",
-                                    source_url=f"https://data.worldbank.org/indicator/{code}?locations=ID",
-                                    extra={"indicator_code": code, "country": "IDN"},
-                                ))
+                        name_lower = name.lower()
+                        for kw in keywords:
+                            if kw in name_lower:
+                                if f"wb:indicator:{code}" not in existing_ids:
+                                    results.append(SearchResultItem(
+                                        id=f"wb:indicator:{code}",
+                                        source_slug="worldbank",
+                                        title=f"{name} — Indonesia",
+                                        description=f"World Bank: {name}",
+                                        column_names=["year", "value"],
+                                        last_updated="Terkini",
+                                        source_url=f"https://data.worldbank.org/indicator/{code}?locations=ID",
+                                        extra={"indicator_code": code, "country": "IDN"},
+                                    ))
+                                    existing_ids.add(f"wb:indicator:{code}")
+                                break
                                 if len(results) >= limit:
                                     break
         except Exception:

@@ -274,7 +274,7 @@ async def init_db():
             SELECT gen_random_uuid(), 'data.go.id - Satu Data Indonesia', 'datagoid',
                 'https://data.go.id/api/3/action', 'api',
                 'Data pemerintah Indonesia', 'https://data.go.id',
-                30, FALSE, NULL, TRUE,
-                'Portal Satu Data Indonesia (616,000+ dataset dari K/L dan Pemda)', NOW()
+                30, FALSE, NULL, FALSE,
+                'API CKAN offline (portal sedang kurasi ulang). Unduh manual di https://data.go.id/dataset', NOW()
             WHERE NOT EXISTS (SELECT 1 FROM external_data_sources WHERE slug = 'datagoid')
         """))

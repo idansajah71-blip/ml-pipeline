@@ -3,7 +3,6 @@
 Docs: https://webapi.bps.go.id/documentation
 Requires: BPS_API_KEY environment variable (free registration)
 """
-import os
 import hashlib
 from typing import List, Optional
 import httpx
@@ -26,7 +25,8 @@ class BPSClient(BaseExternalDataClient):
         return "BPS - Badan Pusat Statistik"
 
     def _get_api_key(self) -> str:
-        key = os.environ.get("BPS_API_KEY", "")
+        from app.core.config import get_settings
+        key = get_settings().BPS_API_KEY
         if not key:
             raise EnvironmentError(
                 "BPS_API_KEY not set. Register for free at "
@@ -37,8 +37,9 @@ class BPSClient(BaseExternalDataClient):
     async def _request(self, params: dict) -> dict:
         """Make authenticated request to BPS API."""
         params["key"] = self._get_api_key()
+        url = f"{BPS_BASE_URL}/list"
         async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(BPS_BASE_URL, params=params)
+            resp = await client.get(url, params=params)
             resp.raise_for_status()
             return resp.json()
 
@@ -50,31 +51,38 @@ class BPSClient(BaseExternalDataClient):
         """
         results = []
         try:
-            # Fetch all subjects for national domain
-            data = await self._request({
-                "model": "subject",
-                "domain": "0000",
-                "page": 1,
-            })
+            # Fetch ALL subjects across all pages for national domain
+            all_subjects = []
+            for page in range(1, 20):  # max 20 pages
+                resp = await self._request({
+                    "model": "subject",
+                    "domain": "0000",
+                    "page": page,
+                })
+                raw_data = resp.get("data", [])
+                subjects = raw_data[1] if len(raw_data) > 1 and isinstance(raw_data[1], list) else []
+                if not subjects:
+                    break
+                all_subjects.extend(subjects)
 
-            subjects = data.get("data", []) or []
-            for subj in subjects:
-                title = subj.get("name", "") or subj.get("subject", "")
-                subj_id = subj.get("id", "")
+            for subj in all_subjects:
+                title = subj.get("title", "") or subj.get("name", "") or subj.get("subject", "")
+                subj_id = subj.get("sub_id", subj.get("id", ""))
 
                 # Fuzzy keyword match
                 if query.lower() in title.lower() or title.lower() in query.lower():
                     # Fetch variables for this subject to get more detail
                     try:
-                        var_data = await self._request({
+                        var_resp = await self._request({
                             "model": "var",
                             "domain": "0000",
                             "subject": subj_id,
                         })
-                        variables = var_data.get("data", []) or []
+                        raw_var = var_resp.get("data", [])
+                        variables = raw_var[1] if len(raw_var) > 1 and isinstance(raw_var[1], list) else []
                         for var in variables[:5]:  # limit per subject
                             var_title = var.get("title", "")
-                            var_id = var.get("id", "")
+                            var_id = var.get("var_id", var.get("id", ""))
                             results.append(SearchResultItem(
                                 id=f"bps:var:{var_id}",
                                 source_slug="bps",
@@ -103,15 +111,16 @@ class BPSClient(BaseExternalDataClient):
             # If subject search didn't find enough, also try direct variable search
             if len(results) < limit:
                 try:
-                    var_data = await self._request({
+                    var_resp = await self._request({
                         "model": "var",
                         "domain": "0000",
                         "page": 1,
                     })
-                    variables = var_data.get("data", []) or []
+                    raw_var = var_resp.get("data", [])
+                    variables = raw_var[1] if len(raw_var) > 1 and isinstance(raw_var[1], list) else []
                     for var in variables:
                         var_title = var.get("title", "")
-                        var_id = var.get("id", "")
+                        var_id = var.get("var_id", var.get("id", ""))
                         if query.lower() in var_title.lower():
                             # Check not already in results
                             existing_ids = {r.id for r in results}
@@ -151,23 +160,24 @@ class BPSClient(BaseExternalDataClient):
 
         if id_type == "var":
             # Fetch data for this variable
-            data = await self._request({
+            resp = await self._request({
                 "model": "data",
                 "domain": "0000",
                 "var": raw_id,
             })
         elif id_type == "subj":
             # For subjects, we need to find the first variable
-            var_data = await self._request({
+            var_resp = await self._request({
                 "model": "var",
                 "domain": "0000",
                 "subject": raw_id,
             })
-            variables = var_data.get("data", []) or []
+            raw_var = var_resp.get("data", [])
+            variables = raw_var[1] if len(raw_var) > 1 and isinstance(raw_var[1], list) else []
             if not variables:
                 return pd.DataFrame()
-            var_id = variables[0].get("id")
-            data = await self._request({
+            var_id = variables[0].get("var_id", variables[0].get("id"))
+            resp = await self._request({
                 "model": "data",
                 "domain": "0000",
                 "var": str(var_id),
@@ -176,8 +186,10 @@ class BPSClient(BaseExternalDataClient):
             raise ValueError(f"Unknown BPS id_type: {id_type}")
 
         # Parse BPS response into DataFrame
+        # BPS API returns data = [pagination_info, [data_items]]
         records = []
-        data_items = data.get("data", []) or []
+        raw_data = resp.get("data", [])
+        data_items = raw_data[1] if len(raw_data) > 1 and isinstance(raw_data[1], list) else []
         for item in data_items:
             if isinstance(item, dict):
                 time_label = item.get("label", item.get("time", ""))
