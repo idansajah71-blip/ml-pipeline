@@ -211,3 +211,45 @@ def enforce_data_retention():
         }
     finally:
         session.close()
+
+
+@celery_app.task(name="ml.cleanup_external_cache")
+def cleanup_external_cache():
+    """Clean up expired external data cache entries."""
+    session = get_sync_session()
+    try:
+        from sqlalchemy import text
+        result = session.execute(
+            text("DELETE FROM external_dataset_cache WHERE expires_at < NOW() RETURNING id")
+        )
+        deleted = result.fetchall()
+
+        # Also delete orphaned cache files from disk
+        import os
+        cache_dir = os.path.join("ml_artifacts", "external_cache")
+        if os.path.exists(cache_dir):
+            remaining = session.execute(
+                text("SELECT full_data_path FROM external_dataset_cache WHERE full_data_path IS NOT NULL")
+            ).fetchall()
+            existing_files = {r[0] for r in remaining if r[0]}
+            for fname in os.listdir(cache_dir):
+                fpath = os.path.join(cache_dir, fname)
+                if fpath not in existing_files:
+                    try:
+                        os.remove(fpath)
+                    except OSError:
+                        pass
+
+        session.commit()
+        logger.info(f"External cache cleanup: deleted {len(deleted)} expired entries")
+        return {
+            "status": "completed",
+            "deleted_entries": len(deleted),
+            "completed_at": datetime.utcnow().isoformat(),
+        }
+    except Exception as e:
+        session.rollback()
+        logger.error(f"External cache cleanup failed: {e}", exc_info=True)
+        return {"status": "failed", "error": str(e)}
+    finally:
+        session.close()

@@ -53,6 +53,10 @@ try:
                 "task": "ml.enforce_data_retention",
                 "schedule": crontab(minute=0, hour=5),
             },
+            "daily-external-cache-cleanup": {
+                "task": "ml.cleanup_external_cache",
+                "schedule": crontab(minute=15, hour=5),
+            },
         },
     )
 

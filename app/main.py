@@ -16,7 +16,7 @@ from app.api import feature_store, serving, organizations, quota
 from app.api import model_versions, experiment_compare, feature_monitoring, webhooks, lineage_metrics
 from app.api import explainability_dashboard, ensemble, data_versioning, marketplace, cost_tracking
 from app.api import mlflow_tracking, model_benchmark, data_validation_api, recommendations
-from app.api import analytics
+from app.api import analytics, external_data
 from app.core.security_middleware import (
     RateLimitMiddleware,
     SecurityHeadersMiddleware,
@@ -157,6 +157,7 @@ app.include_router(model_benchmark.router, prefix="/api/v1")
 app.include_router(data_validation_api.router, prefix="/api/v1")
 app.include_router(recommendations.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")
+app.include_router(external_data.router, prefix="/api/v1")
 
 
 @app.get("/health")

@@ -183,3 +183,98 @@ async def init_db():
             "CREATE INDEX IF NOT EXISTS ix_models_algorithm ON models (algorithm)"))
         await conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_models_created_at ON models (created_at)"))
+        # ── External Data tables ─────────────────────────────────────────
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS external_data_sources (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                name VARCHAR(255) NOT NULL UNIQUE,
+                slug VARCHAR(100) NOT NULL UNIQUE,
+                base_url VARCHAR(500) NOT NULL,
+                source_type VARCHAR(20) NOT NULL DEFAULT 'api',
+                license VARCHAR(255),
+                license_url VARCHAR(500),
+                rate_limit_per_min INTEGER DEFAULT 60,
+                requires_api_key BOOLEAN DEFAULT FALSE,
+                api_key_env_var VARCHAR(100),
+                is_active BOOLEAN DEFAULT TRUE,
+                description TEXT,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS external_dataset_cache (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                source_id UUID NOT NULL REFERENCES external_data_sources(id),
+                query_hash VARCHAR(64) NOT NULL,
+                title VARCHAR(500) NOT NULL,
+                description TEXT,
+                preview_data JSONB DEFAULT '[]'::jsonb,
+                full_data_path VARCHAR(500),
+                row_count INTEGER DEFAULT 0,
+                column_count INTEGER DEFAULT 0,
+                columns JSONB DEFAULT '[]'::jsonb,
+                source_url VARCHAR(500),
+                license_note TEXT,
+                fetched_at TIMESTAMP DEFAULT NOW(),
+                expires_at TIMESTAMP
+            )
+        """))
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS external_data_search_logs (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID NOT NULL REFERENCES users(id),
+                query_text VARCHAR(500) NOT NULL,
+                matched_source_id UUID REFERENCES external_data_sources(id),
+                selected_result_id UUID REFERENCES external_dataset_cache(id),
+                imported BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_external_data_sources_slug ON external_data_sources (slug)"))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_external_data_sources_is_active ON external_data_sources (is_active)"))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_external_dataset_cache_source_id ON external_dataset_cache (source_id)"))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_external_dataset_cache_query_hash ON external_dataset_cache (query_hash)"))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_external_dataset_cache_expires_at ON external_dataset_cache (expires_at)"))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_external_data_search_logs_user_id ON external_data_search_logs (user_id)"))
+        await conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_external_data_search_logs_created_at ON external_data_search_logs (created_at)"))
+        # Seed default external data sources
+        await conn.execute(text("""
+            INSERT INTO external_data_sources (id, name, slug, base_url, source_type,
+                license, license_url, rate_limit_per_min, requires_api_key, api_key_env_var,
+                is_active, description, created_at)
+            SELECT gen_random_uuid(), 'BPS - Badan Pusat Statistik', 'bps',
+                'https://webapi.bps.go.id/v1/api', 'api',
+                'Data publik pemerintah Indonesia', 'https://webapi.bps.go.id/documentation',
+                120, TRUE, 'BPS_API_KEY', TRUE,
+                'Data statistik resmi Indonesia (ekonomi, demografi, harga)', NOW()
+            WHERE NOT EXISTS (SELECT 1 FROM external_data_sources WHERE slug = 'bps')
+        """))
+        await conn.execute(text("""
+            INSERT INTO external_data_sources (id, name, slug, base_url, source_type,
+                license, license_url, rate_limit_per_min, requires_api_key, api_key_env_var,
+                is_active, description, created_at)
+            SELECT gen_random_uuid(), 'World Bank Open Data', 'worldbank',
+                'https://api.worldbank.org/v2', 'api',
+                'CC-BY 4.0', 'https://datahelpdesk.worldbank.org/knowledgebase/articles/889392',
+                200, FALSE, NULL, TRUE,
+                '16,000+ indikator dari 200+ negara (ekonomi, pendidikan, kemiskinan)', NOW()
+            WHERE NOT EXISTS (SELECT 1 FROM external_data_sources WHERE slug = 'worldbank')
+        """))
+        await conn.execute(text("""
+            INSERT INTO external_data_sources (id, name, slug, base_url, source_type,
+                license, license_url, rate_limit_per_min, requires_api_key, api_key_env_var,
+                is_active, description, created_at)
+            SELECT gen_random_uuid(), 'data.go.id - Satu Data Indonesia', 'datagoid',
+                'https://data.go.id/api/3/action', 'api',
+                'Data pemerintah Indonesia', 'https://data.go.id',
+                30, FALSE, NULL, TRUE,
+                'Portal Satu Data Indonesia (616,000+ dataset dari K/L dan Pemda)', NOW()
+            WHERE NOT EXISTS (SELECT 1 FROM external_data_sources WHERE slug = 'datagoid')
+        """))

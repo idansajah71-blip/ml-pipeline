@@ -728,7 +728,61 @@ frontend/src/app/(dashboard)/training-wizard/page.tsx  # Updated: readiness scor
 
 ---
 
+## FITUR BARU: External Data Search & Import (Phase 1-10)
+
+### Progress
+
+| Phase | Feature | Status |
+|-------|---------|--------|
+| 1 | Riset & dokumentasi sumber data (docs/external-data-sources.md) | ✅ |
+| 2 | Fondasi backend — models, base_client, source_registry, migration | ✅ |
+| 3 | Integrasi BPS API + World Bank API + data.go.id (clients + endpoints) | ✅ |
+| 4 | UI Search & Preview di frontend (data-explorer page) | ✅ |
+| 5 | Cache & efisiensi (cache_service + Celery cleanup task) | ✅ |
+| 6 | Tambah sumber data.go.id | ✅ |
+| 7 | Scraping HTML terbatas (opsional) | ⏭ Dilewati |
+| 8 | Keamanan — rate limiting, audit log, input validation, SSRF protection | ✅ |
+| 9 | Edukasi — FAQ entries, source badges, license info | ✅ |
+| 10 | Testing — unit tests (30+ test cases) | ✅ |
+
+### File Baru (Phase 1-10)
+
+```
+docs/external-data-sources.md                      # Dokumentasi riset 5 sumber data
+app/models/external_data.py                        # 3 DB models: Source, Cache, SearchLog
+app/services/external_data/__init__.py             # Package init + auto-register clients
+app/services/external_data/base_client.py          # Abstract base class (SearchResultItem)
+app/services/external_data/source_registry.py      # Registry semua sumber aktif
+app/services/external_data/bps_client.py           # BPS Web API client
+app/services/external_data/worldbank_client.py     # World Bank Open Data client
+app/services/external_data/datagoid_client.py      # data.go.id (CKAN API) client
+app/services/external_data/cache_service.py        # Cache search/fetch results
+app/api/external_data.py                           # API router: search, preview, import (secure)
+app/core/database.py                               # Updated: init_db() + external data tables + 3 seeds
+app/core/celery_app.py                             # Updated: daily-external-cache-cleanup beat
+app/models/__init__.py                             # Updated: import external data models
+app/main.py                                        # Updated: register external_data router
+app/ml/cleanup_tasks.py                            # Updated: cleanup_external_cache task
+app/tests/test_external_data.py                    # 30+ unit tests
+frontend/src/lib/api.ts                            # Updated: externalData API client
+frontend/src/lib/recommendations.ts                # Updated: 4 FAQ entries for external data
+frontend/src/components/Sidebar.tsx                # Updated: "Cari Data Online" nav link
+frontend/src/app/(dashboard)/data-explorer/page.tsx # New: search + preview + import UI
+alembic/versions/c2d3e4f5a6b7_add_external_data_tables.py  # Migration
+```
+
+### Endpoint API
+
+```
+GET  /api/v1/external-data/sources                 # List semua sumber aktif
+GET  /api/v1/external-data/search?q={query}        # Search semua sumber
+GET  /api/v1/external-data/{id}/preview            # Preview data (10 baris)
+POST /api/v1/external-data/import                  # Import → jadi Dataset baru
+```
+
+---
+
 *File ini dibuat pada: 2026-07-30*  
-*Terakhir diupdate: 7 Agustus 2026*  
-*Total phases: 74/74 SELESAI*  
+*Terakhir diupdate: 8 Agustus 2026*  
+*Total phases: 74/74 SELESAI + External Data Phase 1-10 SELESAI (kecuali Phase 7)*  
 *GitHub: https://github.com/idansajah71-blip/ml-pipeline*

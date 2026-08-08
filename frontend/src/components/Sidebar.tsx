@@ -34,6 +34,7 @@ import {
   FileCheck,
   AlertTriangle,
   BarChart,
+  Search,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import ThemeToggle from '@/components/ThemeToggle';
@@ -42,6 +43,7 @@ import clsx from 'clsx';
 const navigation = [
   { name: 'Dasbor', href: '/', icon: LayoutDashboard, tour: 'dashboard' },
   { name: 'Training Wizard', href: '/training-wizard', icon: Wand2, tour: 'wizard' },
+  { name: 'Cari Data Online', href: '/data-explorer', icon: Search },
   { name: 'Dataset', href: '/datasets', icon: Database, tour: 'datasets' },
   { name: 'Model', href: '/models', icon: Brain, tour: 'models' },
   { name: 'Versi Model', href: '/model-versions', icon: GitBranch },

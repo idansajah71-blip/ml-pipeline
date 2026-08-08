@@ -263,6 +263,34 @@ export const FAQ_ENTRIES: FAQEntry[] = [
     category: 'algorithm',
     tags: ['algoritma', 'daftar', 'list', 'tersedia', 'apa saja', 'pilihan'],
   },
+  {
+    id: 'external-data-search',
+    question: 'Bagaimana cara mencari data online di platform?',
+    answer: 'Gunakan fitur "Cari Data Online" di sidebar. Ketik kata kunci (misal: "harga beras", "populasi"), pilih sumber data (BPS, World Bank, data.go.id), preview hasilnya, lalu klik "Gunakan Data Ini" untuk mengimpor langsung ke dataset Anda.',
+    category: 'data',
+    tags: ['cari data', 'external data', 'online', 'bps', 'world bank', 'data.go.id', 'search', 'import'],
+  },
+  {
+    id: 'external-data-sources',
+    question: 'Sumber data apa saja yang tersedia untuk dicari?',
+    answer: 'Saat ini tersedia: 1) BPS (Badan Pusat Statistik) — statistik Indonesia, 2) World Bank Open Data — 16,000+ indikator global, 3) data.go.id — 616,000+ dataset pemerintah Indonesia. Semua data bersumber dari API resmi dan legal.',
+    category: 'data',
+    tags: ['sumber data', 'bps', 'world bank', 'data.go.id', 'sumbersumber', 'legal', 'resmi'],
+  },
+  {
+    id: 'external-data-license',
+    question: 'Apakah data dari pencarian online boleh dipakai untuk bisnis/komersial?',
+    answer: 'Ya, dengan catatan: BPS — boleh dengan atribusi sumber. World Bank — CC-BY 4.0, boleh komersial dengan atribusi. data.go.id — data pemerintah, boleh digunakan publik. Setiap data yang diimpor akan ditampilkan lisensi dan catatan atribusinya.',
+    category: 'data',
+    tags: ['lisensi', 'komersial', 'bisnis', 'hak cipta', 'atribusi', 'license', 'legal'],
+  },
+  {
+    id: 'external-data-training',
+    question: 'Bisakah data hasil pencarian online langsung dipakai untuk training model?',
+    answer: 'Bisa! Setelah data diimpor melalui "Cari Data Online", data tersebut akan muncul di halaman Dataset seperti biasa. Anda bisa langsung memilihnya di Training Wizard untuk melatih model.',
+    category: 'training',
+    tags: ['training', 'latih', 'model', 'gunakan data', 'online', 'external'],
+  },
 ];
 
 export const QUICKSTART_CARDS = [

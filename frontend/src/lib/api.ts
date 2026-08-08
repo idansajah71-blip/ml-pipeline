@@ -422,4 +422,45 @@ export const websocket = {
   },
 };
 
+export interface ExternalDataSource {
+  id: string;
+  name: string;
+  slug: string;
+  source_type: string;
+  license: string | null;
+  is_active: boolean;
+}
+
+export interface ExternalSearchResult {
+  id: string;
+  source_slug: string;
+  title: string;
+  description: string;
+  row_count: number | null;
+  column_names: string[];
+  last_updated: string | null;
+  source_url: string | null;
+}
+
+export interface ExternalDataPreview {
+  columns: string[];
+  row_count: number;
+  preview: Record<string, any>[];
+  license: string;
+}
+
+export const externalData = {
+  sources: () => api.get<ExternalDataSource[]>('/external-data/sources'),
+  search: (query: string, source?: string, limit?: number) => {
+    const params: Record<string, any> = { q: query };
+    if (source) params.source = source;
+    if (limit) params.limit = limit;
+    return api.get<ExternalSearchResult[]>('/external-data/search', { params });
+  },
+  preview: (resultId: string, sourceSlug: string) =>
+    api.get<ExternalDataPreview>(`/external-data/${resultId}/preview`, { params: { source_slug: sourceSlug } }),
+  import: (data: { result_id: string; source_slug: string; title: string; description?: string }) =>
+    api.post<{ dataset_id: string; message: string }>('/external-data/import', data),
+};
+
 export default api;

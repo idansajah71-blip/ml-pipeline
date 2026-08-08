@@ -15,6 +15,7 @@ from app.models.model_version import ModelVersion, ModelLineage, ModelArtifact
 from app.models.feature_monitoring import FeatureDriftAlert, FeatureStats
 from app.models.webhook import Webhook, WebhookLog
 from app.models.lineage_metrics import DataLineage, CustomMetric, MetricDataPoint
+from app.models.external_data import ExternalDataSource, ExternalDatasetCache, ExternalDataSearchLog
 
 __all__ = [
     "User", "UserRole",
@@ -34,4 +35,5 @@ __all__ = [
     "FeatureDriftAlert", "FeatureStats",
     "Webhook", "WebhookLog",
     "DataLineage", "CustomMetric", "MetricDataPoint",
+    "ExternalDataSource", "ExternalDatasetCache", "ExternalDataSearchLog",
 ]
