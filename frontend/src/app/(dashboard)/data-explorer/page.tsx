@@ -25,7 +25,7 @@ const SOURCE_BADGES: Record<string, { color: string; label: string }> = {
 };
 
 export default function DataExplorerPage() {
-  const { showToast } = useToast();
+  const { toast: showToast } = useToast();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ExternalSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
