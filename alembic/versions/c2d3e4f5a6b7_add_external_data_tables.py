@@ -153,30 +153,24 @@ def upgrade() -> None:
         op.execute(f"CREATE INDEX IF NOT EXISTS {name} ON {table} ({', '.join(cols)})")
 
     # ── Seed default sources ─────────────────────────────────────────────
-    sources = [
-        ("BPS - Badan Pusat Statistik", "bps", "https://webapi.bps.go.id/v1/api",
-         "Data statistik resmi Indonesia (ekonomi, demografi, harga)",
-         "Data publik pemerintah Indonesia", "https://webapi.bps.go.id/documentation",
-         True, "BPS_API_KEY", 120),
-        ("World Bank Open Data", "worldbank", "https://api.worldbank.org/v2",
-         "16,000+ indikator dari 200+ negara (ekonomi, pendidikan, kemiskinan)",
-         "CC-BY 4.0", "https://datahelpdesk.worldbank.org/knowledgebase/articles/889392",
-         False, None, 200),
-    ]
-    for name, slug, url, desc, lic, lic_url, needs_key, env_var, rate in sources:
-        op.execute(
-            sa.text(
-                "INSERT INTO external_data_sources (id, name, slug, base_url, source_type, "
-                "license, license_url, rate_limit_per_min, requires_api_key, api_key_env_var, "
-                "is_active, description, created_at) "
-                "SELECT gen_random_uuid(), :name, :slug, :url, 'api', :lic, :lic_url, "
-                ":rate, :needs_key, :env_var, true, :desc, NOW() "
-                "WHERE NOT EXISTS (SELECT 1 FROM external_data_sources WHERE slug = :slug)"
-            ),
-            {"name": name, "slug": slug, "url": url, "desc": desc,
-             "lic": lic, "lic_url": lic_url, "rate": rate,
-             "needs_key": needs_key, "env_var": env_var},
-        )
+    for slug, name, url, desc, lic, lic_url, needs_key, env_var, rate in [
+        ("bps", "BPS - Badan Pusat Statistik", "https://webapi.bps.go.id/v1/api",
+         "Data statistik resmi Indonesia", "Data publik pemerintah Indonesia",
+         "https://webapi.bps.go.id/documentation", True, "BPS_API_KEY", 120),
+        ("worldbank", "World Bank Open Data", "https://api.worldbank.org/v2",
+         "16,000+ indikator dari 200+ negara", "CC-BY 4.0",
+         "https://datahelpdesk.worldbank.org/knowledgebase/articles/889392", False, None, 200),
+    ]:
+        op.execute(f"""
+            INSERT INTO external_data_sources (id, name, slug, base_url, source_type,
+                license, license_url, rate_limit_per_min, requires_api_key, api_key_env_var,
+                is_active, description, created_at)
+            SELECT gen_random_uuid(), '{name}', '{slug}', '{url}', 'api',
+                '{lic}', '{lic_url}', {rate}, {str(needs_key).upper()},
+                {f"'{env_var}'" if env_var else 'NULL'},
+                TRUE, '{desc}', NOW()
+            WHERE NOT EXISTS (SELECT 1 FROM external_data_sources WHERE slug = '{slug}')
+        """)
 
 
 def downgrade() -> None:

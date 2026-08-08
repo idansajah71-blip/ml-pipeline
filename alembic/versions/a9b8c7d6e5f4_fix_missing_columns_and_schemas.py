@@ -109,53 +109,53 @@ def upgrade() -> None:
             )
         )
 
-    # -------- Indexes on datasets --------
-    datasets_indexes = [
-        ("ix_datasets_owner_id", "datasets", ["owner_id"]),
-        ("ix_datasets_created_at", "datasets", ["created_at"]),
-        ("ix_datasets_name", "datasets", ["name"]),
-    ]
-    for name, table, cols in datasets_indexes:
+    # -------- Helper: safe index creation (check column exists first) --------
+    conn = op.get_bind()
+
+    def _safe_create_index(name: str, table: str, cols: list):
+        for col in cols:
+            result = conn.execute(
+                sa.text(
+                    "SELECT 1 FROM information_schema.columns "
+                    "WHERE table_name = :t AND column_name = :c"
+                ),
+                {"t": table, "c": col},
+            ).scalar()
+            if not result:
+                return  # column missing, skip this index
         op.execute(f"CREATE INDEX IF NOT EXISTS {name} ON {table} ({', '.join(cols)})")
+
+    # -------- Indexes on datasets --------
+    _safe_create_index("ix_datasets_owner_id", "datasets", ["owner_id"])
+    _safe_create_index("ix_datasets_created_at", "datasets", ["created_at"])
+    _safe_create_index("ix_datasets_name", "datasets", ["name"])
 
     # -------- Indexes on models --------
-    models_indexes = [
-        ("ix_models_owner_id", "models", ["owner_id"]),
-        ("ix_models_status", "models", ["status"]),
-        ("ix_models_algorithm", "models", ["algorithm"]),
-        ("ix_models_created_at", "models", ["created_at"]),
-        ("ix_models_stage", "models", ["stage"]),
-    ]
-    for name, table, cols in models_indexes:
-        op.execute(f"CREATE INDEX IF NOT EXISTS {name} ON {table} ({', '.join(cols)})")
+    _safe_create_index("ix_models_owner_id", "models", ["owner_id"])
+    _safe_create_index("ix_models_status", "models", ["status"])
+    _safe_create_index("ix_models_algorithm", "models", ["algorithm"])
+    _safe_create_index("ix_models_created_at", "models", ["created_at"])
+    _safe_create_index("ix_models_stage", "models", ["stage"])
 
     # -------- Indexes on experiments --------
-    experiments_indexes = [
-        ("ix_experiments_owner_id", "experiments", ["owner_id"]),
-        ("ix_experiments_status", "experiments", ["status"]),
-        ("ix_experiments_model_id", "experiments", ["model_id"]),
-        ("ix_experiments_dataset_id", "experiments", ["dataset_id"]),
-        ("ix_experiments_created_at", "experiments", ["created_at"]),
-    ]
-    for name, table, cols in experiments_indexes:
-        op.execute(f"CREATE INDEX IF NOT EXISTS {name} ON {table} ({', '.join(cols)})")
+    _safe_create_index("ix_experiments_owner_id", "experiments", ["owner_id"])
+    _safe_create_index("ix_experiments_status", "experiments", ["status"])
+    _safe_create_index("ix_experiments_model_id", "experiments", ["model_id"])
+    _safe_create_index("ix_experiments_dataset_id", "experiments", ["dataset_id"])
+    _safe_create_index("ix_experiments_created_at", "experiments", ["created_at"])
 
     # -------- Indexes on predictions, ab_tests, batch_jobs --------
-    extra_indexes = [
-        ("ix_predictions_model_id", "predictions", ["model_id"]),
-        ("ix_predictions_created_at", "predictions", ["created_at"]),
-        ("ix_ab_tests_status", "ab_tests", ["status"]),
-        ("ix_ab_tests_owner_id", "ab_tests", ["owner_id"]),
-        ("ix_ab_tests_created_at", "ab_tests", ["created_at"]),
-        ("ix_ab_tests_model_a_id", "ab_tests", ["model_a_id"]),
-        ("ix_ab_tests_model_b_id", "ab_tests", ["model_b_id"]),
-        ("ix_batch_jobs_status", "batch_jobs", ["status"]),
-        ("ix_batch_jobs_model_id", "batch_jobs", ["model_id"]),
-        ("ix_batch_jobs_owner_id", "batch_jobs", ["owner_id"]),
-        ("ix_batch_jobs_created_at", "batch_jobs", ["created_at"]),
-    ]
-    for name, table, cols in extra_indexes:
-        op.execute(f"CREATE INDEX IF NOT EXISTS {name} ON {table} ({', '.join(cols)})")
+    _safe_create_index("ix_predictions_model_id", "predictions", ["model_id"])
+    _safe_create_index("ix_predictions_created_at", "predictions", ["created_at"])
+    _safe_create_index("ix_ab_tests_status", "ab_tests", ["status"])
+    _safe_create_index("ix_ab_tests_owner_id", "ab_tests", ["owner_id"])
+    _safe_create_index("ix_ab_tests_created_at", "ab_tests", ["created_at"])
+    _safe_create_index("ix_ab_tests_model_a_id", "ab_tests", ["model_a_id"])
+    _safe_create_index("ix_ab_tests_model_b_id", "ab_tests", ["model_b_id"])
+    _safe_create_index("ix_batch_jobs_status", "batch_jobs", ["status"])
+    _safe_create_index("ix_batch_jobs_model_id", "batch_jobs", ["model_id"])
+    _safe_create_index("ix_batch_jobs_owner_id", "batch_jobs", ["owner_id"])
+    _safe_create_index("ix_batch_jobs_created_at", "batch_jobs", ["created_at"])
 
 
 def downgrade() -> None:

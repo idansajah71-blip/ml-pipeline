@@ -190,6 +190,21 @@ npm install
 npm run dev
 ```
 
+### External Data (Cari Data Online)
+
+Fitur pencarian data dari BPS, World Bank, dan data.go.id membutuhkan setup tambahan:
+
+1. **Daftar API key BPS** (gratis): https://webapi.bps.go.id/developer/register
+2. Tambahkan di `.env`:
+   ```
+   BPS_API_KEY=your_key_here
+   ```
+3. Jalankan migration:
+   ```bash
+   python -m alembic upgrade head
+   ```
+4. World Bank dan data.go.id tidak butuh API key, langsung bisa dipakai.
+
 ---
 
 # Dashboard Modules
