@@ -24,37 +24,55 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+const HTTP_STATUS_MESSAGES: Record<number, string> = {
+  400: 'Permintaan tidak valid. Periksa kembali data yang dikirim.',
+  401: 'Sesi Anda sudah berakhir atau tidak valid. Silakan masuk kembali.',
+  403: 'Anda tidak memiliki izin untuk mengakses sumber daya ini.',
+  404: 'Data yang Anda cari tidak ditemukan.',
+  405: 'Metode permintaan tidak didukung.',
+  408: 'Waktu tunggu permintaan habis. Silakan coba lagi.',
+  409: 'Terjadi konflik data. Periksa kembali permintaan Anda.',
+  413: 'File yang diunggah terlalu besar.',
+  415: 'Format file tidak didukung.',
+  422: 'Data yang dikirim tidak valid. Periksa kembali isian Anda.',
+  429: 'Terlalu banyak permintaan dalam waktu singkat. Silakan tunggu sebentar lalu coba lagi.',
+  500: 'Terjadi kesalahan internal pada sistem. Tim kami telah mendapat notifikasi.',
+  502: 'Layanan sedang sibuk atau tidak tersedia. Silakan coba lagi.',
+  503: 'Layanan sedang tidak tersedia. Silakan coba lagi sebentar lagi.',
+  504: 'Waktu tunggu layanan habis. Silakan coba lagi.',
+};
+
 export function formatApiError(err: unknown, fallback = 'Terjadi kesalahan'): string {
   if (!err) return fallback;
   const data = (err as any)?.response?.data;
   const status = (err as any)?.response?.status;
+  const statusMsg = status ? HTTP_STATUS_MESSAGES[status] : undefined;
 
-  if (typeof data?.detail === 'string') {
-    return status ? `${data.detail} (${status})` : data.detail;
+  // Pesan detail dari backend sudah diterjemahkan — jangan tambahkan kode HTTP mentah.
+  if (typeof data?.detail === 'string' && data.detail) {
+    return data.detail;
   }
   if (Array.isArray(data?.detail)) {
-    const msgs = data.detail
+    return data.detail
       .map((d: any) => {
         const loc = d?.loc ? `[${String(d.loc).replace(/,/g, ' -> ')}] ` : '';
         return `${loc}${d?.msg ?? String(d)}`;
       })
       .join('; ');
-    return status ? `${msgs} (${status})` : msgs;
   }
   if (data?.rule && data?.matched) {
-    return `Request diblokir: ${data.detail}. Aturan=${data.rule}. Context="${data.context ?? ''}"`;
+    return `Request diblokir: ${data.detail}. Aturan=${data.rule}.`;
   }
   if (data?.errors && Array.isArray(data.errors)) {
-    const msgs = data.errors.map(String).join('; ');
-    return status ? `${msgs} (${status})` : msgs;
+    return data.errors.map(String).join('; ');
   }
   const msg = (err as any)?.message;
   if (msg && msg !== 'Request failed with status code 400') {
-    return status ? `${msg} (${status})` : msg;
+    return msg;
   }
-  if (status) {
-    return `${fallback} (HTTP ${status})`;
-  }
+  // Tidak ada detail → gunakan terjemahan kode HTTP, bukan kode mentah.
+  if (statusMsg) return statusMsg;
+  if (status) return `${fallback} (HTTP ${status})`;
   return fallback;
 }
 
@@ -184,6 +202,31 @@ export const abTests = {
   route: (id: string) => api.post(`/ab-tests/${id}/route`),
   record: (id: string, group: string, correct: boolean) =>
     api.post(`/ab-tests/${id}/record`, null, { params: { group, correct } }),
+};
+
+export interface SystemHealthComponent {
+  name: string;
+  status: 'ok' | 'degraded' | 'error';
+  detail: string;
+  latency_ms?: number | null;
+  detail_error?: string;
+  worker_count?: number;
+  artifact_count?: number;
+  used_pct?: number | null;
+  [key: string]: any;
+}
+
+export interface SystemHealth {
+  status: 'ok' | 'degraded' | 'error';
+  checked_at: string;
+  environment: string;
+  app_version: string;
+  components: SystemHealthComponent[];
+  summary: { total: number; ok: number; degraded: number; error: number };
+}
+
+export const systemHealth = {
+  check: () => api.get<SystemHealth>('/admin/system-health'),
 };
 
 export const monitoring = {
@@ -429,6 +472,7 @@ export interface ExternalDataSource {
   source_type: string;
   license: string | null;
   is_active: boolean;
+  requires_api_key?: boolean;
 }
 
 export interface ExternalSearchResult {
@@ -461,6 +505,291 @@ export const externalData = {
     api.get<ExternalDataPreview>(`/external-data/${resultId}/preview`, { params: { source_slug: sourceSlug } }),
   import: (data: { result_id: string; source_slug: string; title: string; description?: string }) =>
     api.post<{ dataset_id: string; message: string }>('/external-data/import', data),
+};
+
+export interface ScrapeJob {
+  id: string;
+  url: string;
+  title: string | null;
+  status: string;
+  raw_row_count: number;
+  clean_row_count: number;
+  column_count: number;
+  duplicates_removed: number;
+  tables_data: any[];
+  columns_typed: Record<string, string>;
+  columns_renamed: Record<string, string>;
+  quality_score: number;
+  quality_issues: string[];
+  clusters: Record<string, any>;
+  ml_processing_applied: string[];
+  advanced_analysis: Record<string, any> | null;
+  sentiment_analysis: Record<string, any> | null;
+  pattern_analysis: Record<string, any> | null;
+  scrape_metadata: Record<string, any> | null;
+  scrape_type: string | null;
+  error_message: string | null;
+  created_at: string | null;
+  scraped_at: string | null;
+  processed_at: string | null;
+}
+
+export interface ScrapePreview {
+  title: string;
+  tables: { headers: string[]; rows: Record<string, string>[]; row_count: number }[];
+  lists: string[][];
+  metadata: Record<string, any>;
+  row_count: number;
+  column_count: number;
+  content_hash: string;
+  links: string[];
+  images: { src: string; alt: string }[];
+  json_ld: Record<string, any>[];
+  feeds: string[];
+  api_endpoints: { url: string; type: string }[];
+  open_graph: Record<string, string>;
+  keywords: string[];
+  language: string;
+  word_count: number;
+  reading_time_minutes: number;
+  scrape_duration_ms: number;
+}
+
+export interface AdvancedAnalysis {
+  row_count: number;
+  column_count: number;
+  memory_usage_mb: number;
+  total_null_pct: number;
+  duplicate_rows: number;
+  duplicate_pct: number;
+  columns: {
+    name: string;
+    dtype: string;
+    null_pct: number;
+    unique_count: number;
+    is_numeric: boolean;
+    is_categorical: boolean;
+    is_datetime: boolean;
+    is_text: boolean;
+    is_id_like: boolean;
+    stats: Record<string, any>;
+    distribution: Record<string, any>;
+    sample_values: string[];
+    top_values: { value: string; count: number; pct?: number }[];
+    entropy: number;
+    recommendation: string;
+  }[];
+  correlations: {
+    strong_pairs: { col_1: string; col_2: string; correlation: number; strength: string }[];
+  };
+  outlier_summary: { columns: Record<string, any>; total_outlier_rows: number };
+  time_series_analysis: Record<string, any>;
+  text_analysis: Record<string, any>;
+  categorical_analysis: Record<string, any>;
+  data_quality_score: number;
+  quality_issues: string[];
+  recommendations: string[];
+  insights: string[];
+  auto_viz_suggestions: string[];
+  summary: string;
+}
+
+export interface SentimentAnalysis {
+  overall_score: number;
+  overall_label: string;
+  total_texts: number;
+  positive_count: number;
+  negative_count: number;
+  neutral_count: number;
+  distribution: { positive_pct: number; negative_pct: number; neutral_pct: number };
+  top_positive_words: { word: string; count: number }[];
+  top_negative_words: { word: string; count: number }[];
+  column_sentiments: Record<string, any>;
+  summary: string;
+}
+
+export interface PatternAnalysis {
+  patterns_found: number;
+  regex_patterns: { column: string; pattern: string; match_count: number; match_pct: number }[];
+  value_patterns: { column: string; type: string; insight: string }[];
+  structure_patterns: { column: string; format: string; pct: number }[];
+  anomaly_patterns: { column: string; type: string; insight: string }[];
+  text_patterns: { column: string; type: string; insight: string }[];
+  encoding_patterns: { column: string; type: string; insight: string }[];
+  summary: string;
+}
+
+export const scraping = {
+  preview: (url: string) =>
+    api.post<ScrapePreview>('/scraping/preview', { url }),
+  scrapeAndProcess: (data: {
+    url: string;
+    auto_rename?: boolean;
+    deduplicate?: boolean;
+    detect_types?: boolean;
+    cluster_text?: boolean;
+    run_advanced_analysis?: boolean;
+    run_sentiment?: boolean;
+    run_patterns?: boolean;
+    use_selenium?: boolean;
+  }) => api.post<ScrapeJob>('/scraping/scrape-and-process', data),
+  batchScrape: (data: {
+    urls: string[];
+    extract_tables?: boolean;
+    extract_lists?: boolean;
+    run_advanced_analysis?: boolean;
+    run_sentiment?: boolean;
+    run_patterns?: boolean;
+    max_concurrent?: number;
+    use_selenium?: boolean;
+  }) => api.post<ScrapeJob>('/scraping/batch', data),
+  recursiveScrape: (data: {
+    url: string;
+    max_depth?: number;
+    max_pages?: number;
+    run_advanced_analysis?: boolean;
+    use_selenium?: boolean;
+  }) => api.post<ScrapeJob>('/scraping/recursive', data),
+  discoverScrape: (data: {
+    url: string;
+    max_pages?: number;
+    run_advanced_analysis?: boolean;
+    use_selenium?: boolean;
+  }) => api.post<ScrapeJob>('/scraping/discover', data),
+  jobs: (limit?: number, scrapeType?: string) =>
+    api.get<ScrapeJob[]>('/scraping/jobs', { params: { limit: limit || 20, scrape_type: scrapeType } }),
+  getJob: (jobId: string) =>
+    api.get<ScrapeJob>(`/scraping/jobs/${jobId}`),
+  importToDataset: (data: { job_id: string; dataset_name?: string; description?: string }) =>
+    api.post<{ dataset_id: string; name: string; row_count: number; column_count: number; message: string }>(
+      '/scraping/import', data
+    ),
+  deleteJob: (jobId: string) =>
+    api.delete(`/scraping/jobs/${jobId}`),
+  jsScrape: (data: { url: string; use_selenium?: boolean; wait_seconds?: number }) =>
+    api.post('/scraping/js-scrape', data),
+  smartExtract: (data: { url: string; css_selector?: string; use_selenium?: boolean }) =>
+    api.post('/scraping/smart-extract', data),
+  analyzeUrl: (url: string) =>
+    api.get('/scraping/analyze-url', { params: { url } }),
+  exportData: (data: { job_id: string; formats: string[] }) =>
+    api.post('/scraping/export', data),
+  exportStats: (jobId: string) =>
+    api.get(`/scraping/export-stats/${jobId}`),
+  getOperations: () =>
+    api.get('/scraping/operations'),
+  transformData: (data: { job_id: string; rules: { column: string; operation: string; params?: any }[] }) =>
+    api.post('/scraping/transform', data),
+  autoClean: (jobId: string) =>
+    api.post(`/scraping/auto-clean?job_id=${jobId}`),
+  dedupData: (data: { job_ids: string[]; method?: string; key_columns?: string[]; threshold?: number }) =>
+    api.post('/scraping/dedup', data),
+  templates: {
+    list: (q?: string) =>
+      api.get('/scraping/templates', { params: q ? { q } : {} }),
+    get: (id: string) =>
+      api.get(`/scraping/templates/${id}`),
+    create: (data: any) =>
+      api.post('/scraping/templates', data),
+    update: (id: string, data: any) =>
+      api.put(`/scraping/templates/${id}`, data),
+    delete: (id: string) =>
+      api.delete(`/scraping/templates/${id}`),
+    clone: (id: string, name?: string) =>
+      api.post(`/scraping/templates/${id}/clone`, null, { params: name ? { new_name: name } : {} }),
+    popular: () =>
+      api.get('/scraping/templates/popular'),
+  },
+  schedules: {
+    list: () =>
+      api.get('/scraping/schedules'),
+    create: (data: any) =>
+      api.post('/scraping/schedules', data),
+    trigger: (id: string, urls: string[], config?: any) =>
+      api.post(`/scraping/schedules/${id}/trigger`, { urls, config }),
+  },
+  getTaskStatus: (taskId: string) =>
+    api.get(`/scraping/tasks/${taskId}`),
+  cancelTask: (taskId: string) =>
+    api.delete(`/scraping/tasks/${taskId}`),
+
+  // Ultra Scraping
+  authScrape: (data: any) =>
+    api.post('/scraping/auth-scrape', data),
+  fingerprintScrape: (data: any) =>
+    api.post('/scraping/fingerprint-scrape', data),
+  generateFingerprint: () =>
+    api.get('/scraping/fingerprint/generate'),
+  generateFingerprints: (count: number = 5) =>
+    api.post(`/scraping/fingerprint/batch?count=${count}`),
+  configureRateLimit: (domain: string, delay_ms: number, respect_robots: boolean) =>
+    api.post(`/scraping/rate-limit/configure?domain=${domain}`, { delay_ms, respect_robots }),
+  getRateLimitStats: () =>
+    api.get('/scraping/rate-limit/stats'),
+  diffScrapes: (data: any) =>
+    api.post('/scraping/diff', data),
+  configureWebhook: (data: any) =>
+    api.post('/scraping/webhooks/configure', data),
+  testWebhook: (name: string) =>
+    api.post(`/scraping/webhooks/test?name=${name}`),
+  getWebhookHistory: (limit: number = 20) =>
+    api.get(`/scraping/webhooks/history?limit=${limit}`),
+  createDistributedJob: (data: any) =>
+    api.post('/scraping/distributed/create', data),
+  executeDistributed: (jobId: string) =>
+    api.post(`/scraping/distributed/execute/${jobId}`),
+  getDistributedStatus: (jobId: string) =>
+    api.get(`/scraping/distributed/status/${jobId}`),
+  getDistributedWorkers: () =>
+    api.get('/scraping/distributed/workers'),
+  getDistributedQueue: () =>
+    api.get('/scraping/distributed/queue'),
+  validateData: (data: any) =>
+    api.post('/scraping/validate', data),
+  runAutoML: (data: any) =>
+    api.post('/scraping/automl', data),
+  profileData: (jobId: string) =>
+    api.post(`/scraping/automl/profile?job_id=${jobId}`),
+  detectAnomalies: (data: any) =>
+    api.post('/scraping/anomaly', data),
+  forecastData: (data: any) =>
+    api.post('/scraping/forecast', data),
+  clusterData: (data: any) =>
+    api.post('/scraping/cluster', data),
+  reduceDimensions: (data: any) =>
+    api.post('/scraping/dim-reduce', data),
+  engineerFeatures: (data: any) =>
+    api.post('/scraping/feature-engineer', data),
+  enrichData: (data: any) =>
+    api.post('/scraping/enrich', data),
+  targetScrape: (data: any) =>
+    api.post('/scraping/target-scrape', data),
+  targetSearch: (data: any) =>
+    api.post('/scraping/target-scrape/search', data),
+};
+
+export const inAppNotifications = {
+  list: (params?: { skip?: number; limit?: number; unread_only?: boolean }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.skip) searchParams.set('skip', String(params.skip));
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+    if (params?.unread_only) searchParams.set('unread_only', 'true');
+    const query = searchParams.toString();
+    return api.get<{ notifications: import('@/types').Notification[]; total: number; unread_count: number }>(
+      `/in-app-notifications${query ? `?${query}` : ''}`
+    );
+  },
+  unreadCount: () => api.get<{ unread_count: number }>('/in-app-notifications/unread-count'),
+  markRead: (id: string) => api.put(`/in-app-notifications/${id}/read`),
+  markAllRead: () => api.put('/in-app-notifications/read-all'),
+  delete: (id: string) => api.delete(`/in-app-notifications/${id}`),
+};
+
+export const marketplaceStats = {
+  myModels: () => api.get<import('@/types').ModelUsageStats>('/marketplace/my-models/stats'),
+  contributorStats: () => api.get<import('@/types').ContributorStats>('/marketplace/contributor-stats'),
+  quickFeedback: (data: { model_id: string; is_correct: boolean; comment?: string; prediction_id?: string }) =>
+    api.post('/marketplace/quick-feedback', data),
 };
 
 export default api;

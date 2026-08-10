@@ -35,15 +35,19 @@ import {
   AlertTriangle,
   BarChart,
   Search,
+  Globe,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import ThemeToggle from '@/components/ThemeToggle';
+import NotificationBell from '@/components/NotificationBell';
 import clsx from 'clsx';
 
 const navigation = [
   { name: 'Dasbor', href: '/', icon: LayoutDashboard, tour: 'dashboard' },
   { name: 'Training Wizard', href: '/training-wizard', icon: Wand2, tour: 'wizard' },
   { name: 'Cari Data Online', href: '/data-explorer', icon: Search },
+  { name: 'Web Scraping', href: '/scraping', icon: Globe },
   { name: 'Dataset', href: '/datasets', icon: Database, tour: 'datasets' },
   { name: 'Model', href: '/models', icon: Brain, tour: 'models' },
   { name: 'Versi Model', href: '/model-versions', icon: GitBranch },
@@ -53,6 +57,7 @@ const navigation = [
   { name: 'Perbandingan', href: '/experiment-compare', icon: ArrowRightLeft },
   { name: 'Marketplace', href: '/marketplace', icon: Store },
   { name: 'Prediksi', href: '/predictions', icon: Zap },
+  { name: 'Coba Prediksi', href: '/try-predict', icon: Sparkles },
   { name: 'A/B Testing', href: '/ab-tests', icon: BarChart3 },
   { name: 'Kualitas Data', href: '/data-quality', icon: Shield },
   { name: 'Batch Job', href: '/batch-jobs', icon: Layers },
@@ -67,6 +72,7 @@ const navigation = [
   { name: 'Benchmark', href: '/benchmark', icon: BarChart },
   { name: 'Panduan Algoritma', href: '/panduan-algoritma', icon: Wand2 },
   { name: 'Validasi Data', href: '/data-validation', icon: FileCheck },
+  { name: 'Kesehatan Sistem', href: '/system-health', icon: Activity },
   { name: 'Monitoring', href: '/monitoring', icon: Settings },
   { name: 'Log Audit', href: '/audit-logs', icon: History },
   { name: 'Kebijakan Privasi', href: '/privacy', icon: Shield },
@@ -87,6 +93,7 @@ export default function Sidebar() {
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
+          <NotificationBell />
           <button
             onClick={() => setMobileOpen(false)}
             className="lg:hidden text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 p-2 rounded-lg min-h-[44px] min-w-[44px] flex items-center justify-center"

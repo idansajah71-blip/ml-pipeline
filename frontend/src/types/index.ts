@@ -95,6 +95,48 @@ export interface PredictionItem {
   prediction: string | number;
   probability?: number;
   probabilities?: Record<string, number>;
+  confidence_level?: 'high' | 'medium' | 'low';
+  confidence_interval?: { lower: number; upper: number; confidence_level: string };
+}
+
+export interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  is_read: boolean;
+  link?: string;
+  created_at: string;
+}
+
+export interface ContributorStats {
+  total_models_shared: number;
+  total_downloads: number;
+  avg_rating: number;
+  total_feedback_received: number;
+  badge: 'Baru' | 'Pemula' | 'Kontributor' | 'Kontributor Aktif' | 'Kontributor Elite';
+}
+
+export interface ModelUsageStats {
+  total_models: number;
+  total_downloads: number;
+  avg_rating: number;
+  total_feedback: number;
+  models: Array<{
+    share_id: string;
+    model_id: string;
+    model_name: string;
+    algorithm: string;
+    downloads: number;
+    rating: number;
+    rating_count: number;
+    feedback_count: number;
+    prediction_count: number;
+    accuracy_from_feedback: number | null;
+    lifecycle_stage: string;
+    status: string;
+    created_at: string | null;
+  }>;
 }
 
 export interface PredictionFeedbackResponse {

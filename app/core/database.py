@@ -244,6 +244,38 @@ async def init_db():
             "CREATE INDEX IF NOT EXISTS ix_external_data_search_logs_user_id ON external_data_search_logs (user_id)"))
         await conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_external_data_search_logs_created_at ON external_data_search_logs (created_at)"))
+        # Scrape jobs table
+        await conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS scrape_jobs (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id UUID NOT NULL,
+                url VARCHAR(1000) NOT NULL,
+                title VARCHAR(500),
+                status VARCHAR(20) NOT NULL DEFAULT 'pending',
+                raw_row_count INTEGER DEFAULT 0,
+                clean_row_count INTEGER DEFAULT 0,
+                column_count INTEGER DEFAULT 0,
+                duplicates_removed INTEGER DEFAULT 0,
+                tables_data JSONB DEFAULT '[]'::jsonb,
+                lists_data JSONB DEFAULT '[]'::jsonb,
+                metadata JSONB DEFAULT '{}'::jsonb,
+                processed_data JSONB DEFAULT '[]'::jsonb,
+                columns_typed JSONB DEFAULT '{}'::jsonb,
+                columns_renamed JSONB DEFAULT '{}'::jsonb,
+                quality_score FLOAT DEFAULT 0.0,
+                quality_issues JSONB DEFAULT '[]'::jsonb,
+                clusters JSONB DEFAULT '{}'::jsonb,
+                ml_processing_applied JSONB DEFAULT '[]'::jsonb,
+                content_hash VARCHAR(64),
+                error_message TEXT,
+                created_at TIMESTAMP DEFAULT NOW(),
+                scraped_at TIMESTAMP,
+                processed_at TIMESTAMP
+            )
+        """))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_scrape_jobs_user_id ON scrape_jobs (user_id)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_scrape_jobs_status ON scrape_jobs (status)"))
+        await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_scrape_jobs_created_at ON scrape_jobs (created_at)"))
         # Seed default external data sources
         await conn.execute(text("""
             INSERT INTO external_data_sources (id, name, slug, base_url, source_type,

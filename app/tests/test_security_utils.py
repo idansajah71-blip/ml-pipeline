@@ -73,7 +73,7 @@ class TestJWT:
         assert "exp" in payload
 
     def test_invalid_token_raises_error(self):
-        from jose import JWTError
+        from jose import JWTError, jwt
         from app.core.config import get_settings
 
         settings = get_settings()

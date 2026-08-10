@@ -79,7 +79,7 @@ class SecurityScanner:
             if re.search(pattern, input_str, re.IGNORECASE):
                 threats.append({
                     "type": "sql_injection",
-                    "severity": "high",
+                    "severity": "critical",
                     "pattern": pattern,
                     "input_type": input_type,
                     "timestamp": datetime.utcnow().isoformat(),
@@ -105,7 +105,7 @@ class SecurityScanner:
             if re.search(pattern, input_str, re.IGNORECASE):
                 threats.append({
                     "type": "path_traversal",
-                    "severity": "medium",
+                    "severity": "high",
                     "pattern": pattern,
                     "input_type": input_type,
                     "timestamp": datetime.utcnow().isoformat(),
@@ -162,7 +162,7 @@ class SecurityScanner:
 
         sanitized = re.sub(r'<[^>]+>', '', sanitized)
         sanitized = re.sub(r'[<>"\']', '', sanitized)
-        sanitized = re.sub(r';\s*$', '', sanitized)
+        sanitized = re.sub(r';', '', sanitized)
         sanitized = re.sub(r'\.\.\/', '', sanitized)
         sanitized = re.sub(r'\.\.\\', '', sanitized)
 

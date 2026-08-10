@@ -74,7 +74,7 @@ async def list_system_models(
     from pathlib import Path
 
     _data_dir = Path(__file__).resolve().parent
-    with open(_data_dir / "marketplace" / "platform_models.json") as f:
+    with open(_data_dir / "platform_models.json") as f:
         platform_models = _json.load(f)
 
     items = []
@@ -261,6 +261,8 @@ async def predict(
                 "prediction": pred.get("prediction", ""),
                 "probability": pred.get("probability"),
                 "probabilities": pred.get("probabilities"),
+                "confidence_level": pred.get("confidence_level"),
+                "confidence_interval": pred.get("confidence_interval"),
             })
         result["predictions"] = result_predictions
 
@@ -344,6 +346,8 @@ async def batch_predict(
                 "prediction": pred.get("prediction", ""),
                 "probability": pred.get("probability"),
                 "probabilities": pred.get("probabilities"),
+                "confidence_level": pred.get("confidence_level"),
+                "confidence_interval": pred.get("confidence_interval"),
             })
 
     return BatchPredictResponse(
@@ -546,7 +550,14 @@ async def run_automl(
         experiment.status = ExperimentStatus.FAILED
         experiment.results = {"error": sanitize_error_message(e)}
         await db.flush()
-        raise HTTPException(status_code=500, detail="AutoML task failed to start. Please check your dataset and try again.")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Layanan AutoML background sedang tidak tersedia. "
+                "Silakan coba lagi nanti, atau gunakan Training Wizard (mode sederhana) "
+                "yang berjalan langsung tanpa antrean."
+            ),
+        )
 
 
 @router.post("/{model_id}/explain", response_model=ExplainResponse)

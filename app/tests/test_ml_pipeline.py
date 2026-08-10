@@ -26,17 +26,16 @@ def pipeline():
 
 @pytest.fixture
 def sample_csv_bytes():
-    csv_content = """feature1,feature2,feature3,target
-1.0,2.0,3.0,class_a
-4.0,5.0,6.0,class_b
-7.0,8.0,9.0,class_a
-10.0,11.0,12.0,class_b
-13.0,14.0,15.0,class_a
-16.0,17.0,18.0,class_b
-19.0,20.0,21.0,class_a
-22.0,23.0,24.0,class_b
-"""
-    return csv_content.encode()
+    np.random.seed(42)
+    n = 20
+    feature1 = np.random.randn(n)
+    feature2 = np.random.randn(n)
+    feature3 = np.random.randn(n)
+    target = (feature1 + feature2 > 0).astype(int).astype(str)
+    rows = ["feature1,feature2,feature3,target"]
+    for i in range(n):
+        rows.append(f"{feature1[i]:.4f},{feature2[i]:.4f},{feature3[i]:.4f},{target[i]}")
+    return "\n".join(rows).encode()
 
 
 @pytest.fixture

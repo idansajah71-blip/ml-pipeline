@@ -82,6 +82,9 @@ def train_model_task(
         result["duration_seconds"] = round(duration, 2)
         result["task_id"] = task_id
 
+        # ── Create in-app notification + email on success ──────────────────
+        _notify_training_complete(owner_id, model_id, experiment_id, result, duration)
+
         return result
 
     except Exception as e:
@@ -96,6 +99,10 @@ def train_model_task(
             "duration_seconds": round(duration, 2),
             "task_id": task_id,
         }
+
+        # ── Create in-app notification + email on failure ──────────────────
+        _notify_training_failed(owner_id, model_id, experiment_id, str(e))
+
         return error_result
 
 
@@ -163,7 +170,7 @@ def automl_task(
             "best_algorithm": results[0]["algorithm"] if results else None,
             "results_count": len(results),
         })
-        return {
+        result_data = {
             "experiment_id": experiment_id,
             "model_id": model_id,
             "status": "completed",
@@ -174,9 +181,18 @@ def automl_task(
             "task_id": task_id,
         }
 
+        # Notify on AutoML completion
+        _notify_training_complete(owner_id, model_id, experiment_id, results[0] if results else {}, duration)
+
+        return result_data
+
     except Exception as e:
         duration = (datetime.utcnow() - start_time).total_seconds()
         publish_progress(experiment_id, {"step": "failed", "progress": 0, "status": "failed", "error": str(e)})
+
+        # Notify on AutoML failure
+        _notify_training_failed(owner_id, model_id, experiment_id, str(e))
+
         return {
             "experiment_id": experiment_id,
             "model_id": model_id,
@@ -366,5 +382,108 @@ def retrain_model_task(self, model_id: str, owner_id: str):
             "error": str(e),
             "traceback": traceback.format_exc(),
         }
+    finally:
+        session.close()
+
+
+# ── Notification helpers ──────────────────────────────────────────────────────
+
+def _get_model_name(session, model_id: str) -> str:
+    """Fetch model name from DB."""
+    try:
+        from app.models.model import MLModel
+        model = session.query(MLModel).filter(MLModel.id == model_id).first()
+        return model.name if model else f"Model {model_id[:8]}"
+    except Exception:
+        return f"Model {model_id[:8]}"
+
+
+def _get_owner_email(session, owner_id: str) -> str:
+    """Fetch owner email from DB."""
+    try:
+        from app.models.user import User
+        user = session.query(User).filter(User.id == owner_id).first()
+        return user.email if user else ""
+    except Exception:
+        return ""
+
+
+def _notify_training_complete(owner_id: str, model_id: str, experiment_id: str, result: dict, duration: float):
+    """Create in-app notification and send email on training completion."""
+    session = get_sync_session()
+    try:
+        model_name = _get_model_name(session, model_id)
+        metrics = result.get("metrics", {})
+
+        acc = metrics.get("accuracy", metrics.get("r2", metrics.get("f1", None)))
+        metrics_text = ""
+        if acc is not None:
+            if isinstance(acc, float) and acc <= 1:
+                metrics_text = f" (akurasi: {acc:.0%})"
+            else:
+                metrics_text = f" (skor: {acc:.2f})"
+
+        from app.api.in_app_notifications import create_notification_sync
+        create_notification_sync(
+            session,
+            user_id=owner_id,
+            notification_type="training_complete",
+            title=f"Training Selesai: {model_name}",
+            message=f"Model '{model_name}' selesai dilatih dalam {duration:.1f} detik{metrics_text}.",
+            link=f"/experiments?id={experiment_id}",
+        )
+
+        email = _get_owner_email(session, owner_id)
+        if email:
+            try:
+                from app.core.notifications import send_training_notification_email
+                send_training_notification_email(
+                    to_email=email,
+                    model_name=model_name,
+                    status="completed",
+                    metrics=metrics,
+                    experiment_id=experiment_id,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to send training completion email: {e}")
+
+    except Exception as e:
+        logger.warning(f"Failed to create training completion notification: {e}")
+    finally:
+        session.close()
+
+
+def _notify_training_failed(owner_id: str, model_id: str, experiment_id: str, error: str):
+    """Create in-app notification and send email on training failure."""
+    session = get_sync_session()
+    try:
+        model_name = _get_model_name(session, model_id)
+
+        from app.api.in_app_notifications import create_notification_sync
+        create_notification_sync(
+            session,
+            user_id=owner_id,
+            notification_type="training_failed",
+            title=f"Training Gagal: {model_name}",
+            message=f"Training model '{model_name}' gagal: {error[:200]}",
+            link=f"/experiments?id={experiment_id}",
+        )
+
+        email = _get_owner_email(session, owner_id)
+        if email:
+            try:
+                from app.core.notifications import send_training_notification_email
+                send_training_notification_email(
+                    to_email=email,
+                    model_name=model_name,
+                    status="failed",
+                    error=error,
+                    experiment_id=experiment_id,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to send training failure email: {e}")
+
+    except Exception as e:
+        logger.warning(f"Failed to create training failure notification: {e}")
     finally:
         session.close()

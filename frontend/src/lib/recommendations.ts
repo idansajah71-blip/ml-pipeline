@@ -12,7 +12,7 @@ export interface FAQEntry {
   id: string;
   question: string;
   answer: string;
-  category: 'upload' | 'training' | 'algorithm' | 'result' | 'error' | 'pricing' | 'general';
+  category: 'upload' | 'training' | 'algorithm' | 'result' | 'error' | 'pricing' | 'general' | 'data';
   tags: string[];
 }
 
@@ -300,7 +300,7 @@ export const QUICKSTART_CARDS = [
     description: 'Unggah data dan latih model pertama Anda',
     icon: 'Brain',
     href: '/training-wizard',
-    color: 'bg-blue-50 text-blue-600 border-blue-200',
+    color: 'bg-primary-50 text-primary-700 border-primary-200 dark:bg-primary-900/30 dark:text-primary-300 dark:border-primary-800',
   },
   {
     id: 'explore-models',
@@ -308,7 +308,7 @@ export const QUICKSTART_CARDS = [
     description: 'Temukan model siap pakai di marketplace',
     icon: 'Search',
     href: '/marketplace',
-    color: 'bg-green-50 text-green-600 border-green-200',
+    color: 'bg-success-50 text-success-700 border-success-200 dark:bg-success-900/30 dark:text-success-300 dark:border-success-800',
   },
   {
     id: 'compare-models',
@@ -316,7 +316,7 @@ export const QUICKSTART_CARDS = [
     description: 'Bandingkan performa berbagai algoritma',
     icon: 'BarChart3',
     href: '/benchmark',
-    color: 'bg-purple-50 text-purple-600 border-purple-200',
+    color: 'bg-classification-50 text-classification-700 border-classification-200 dark:bg-classification-900/30 dark:text-classification-300 dark:border-classification-800',
   },
   {
     id: 'understand-platform',
@@ -324,6 +324,6 @@ export const QUICKSTART_CARDS = [
     description: 'Pelajari dasar-dasar ML Pipeline',
     icon: 'HelpCircle',
     href: '/training-wizard',
-    color: 'bg-amber-50 text-amber-600 border-amber-200',
+    color: 'bg-warning-50 text-warning-700 border-warning-200 dark:bg-warning-900/30 dark:text-warning-300 dark:border-warning-800',
   },
 ];

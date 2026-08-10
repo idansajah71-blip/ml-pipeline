@@ -1,6 +1,7 @@
 import pytest
 from httpx import AsyncClient
 from io import BytesIO
+from app.models.user import UserRole
 
 
 async def register_and_login(client: AsyncClient) -> str:
@@ -11,6 +12,7 @@ async def register_and_login(client: AsyncClient) -> str:
             "username": "model_inttest",
             "password": "testpassword123",
             "full_name": "Model Test User",
+            "role": UserRole.DATA_SCIENTIST,
         },
     )
     login_response = await client.post(
@@ -185,9 +187,10 @@ async def test_model_algorithms(client: AsyncClient):
     response = await client.get("/api/v1/algorithms")
     assert response.status_code == 200
     algorithms = response.json()
-    assert "random_forest" in algorithms
-    assert "logistic_regression" in algorithms
-    assert len(algorithms) >= 9
+    assert "classification" in algorithms
+    assert "random_forest" in algorithms["classification"]["algorithms"]
+    assert "logistic_regression" in algorithms["classification"]["algorithms"]
+    assert len(algorithms["classification"]["algorithms"]) >= 9
 
 
 @pytest.mark.asyncio

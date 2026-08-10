@@ -95,7 +95,7 @@ class TestDriftDetector:
         assert result["severity"] == "low"
 
     def test_unsupported_format(self, detector):
-        with pytest.raises(ValueError, match="Unsupported format"):
+        with pytest.raises(ValueError, match="Unsupported file format"):
             detector.detect(b"data", b"data", "test.txt")
 
     def test_drifted_features_list(self, detector, reference_csv, current_csv_drifted):

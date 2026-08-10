@@ -3,7 +3,8 @@ import asyncio
 from typing import AsyncGenerator
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-from sqlalchemy import update as sa_update
+from sqlalchemy.pool import NullPool
+from sqlalchemy import update as sa_update, text
 
 from app.main import app
 from app.core.database import Base, get_db
@@ -14,11 +15,13 @@ settings = get_settings()
 
 TEST_DATABASE_URL = "postgresql+asyncpg://test_user:test_password@localhost:5432/test_db"
 
+# NullPool: each session gets a fresh connection and returns it immediately,
+# avoiding the asyncpg pool-teardown race that caused flaky IntegrityError/
+# AttributeError when dispose() ran while pooled connections were in flight.
 test_engine = create_async_engine(
     TEST_DATABASE_URL,
     echo=False,
-    pool_size=10,
-    max_overflow=10,
+    poolclass=NullPool,
     pool_pre_ping=True,
 )
 TestSessionLocal = async_sessionmaker(test_engine, class_=AsyncSession, expire_on_commit=False)
@@ -42,23 +45,44 @@ app.dependency_overrides[get_db] = override_get_db
 @pytest.fixture(autouse=True)
 async def setup_database():
     async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        # Idempotent reset: previous runs can leave orphaned Postgres ENUM
+        # types (DROP TABLE does not remove them), which makes the next
+        # CREATE TYPE fail with UniqueViolation on pg_type_typname_nsp_index.
+        await conn.run_sync(Base.metadata.drop_all, checkfirst=True)
+        rows = (
+            await conn.execute(text(
+                "SELECT t.typname FROM pg_type t "
+                "JOIN pg_namespace n ON n.oid = t.typnamespace "
+                "WHERE n.nspname = 'public' AND t.typtype = 'e'"
+            ))
+        ).all()
+        for row in rows:
+            await conn.execute(text(f'DROP TYPE IF EXISTS "{row[0]}" CASCADE'))
+        await conn.run_sync(Base.metadata.create_all, checkfirst=True)
     yield
     async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        await conn.run_sync(Base.metadata.drop_all, checkfirst=True)
     # Dispose connections after each test to avoid stale connections
     await test_engine.dispose()
 
 
 @pytest.fixture(autouse=True)
 async def flush_rate_limits():
-    """Flush Redis rate limit keys before each test to avoid 429s."""
+    """Flush Redis rate-limit & training-quota keys before each test to avoid 429s.
+
+    The middleware uses get_redis() → settings.REDIS_URL (db 0), so the old
+    hardcoded db 1 never actually cleared the counters that caused 429s.
+    """
     import redis.asyncio as aioredis
+    from app.core.config import get_settings
     try:
-        r = aioredis.from_url("redis://localhost:6379/1")
+        r = aioredis.from_url(get_settings().REDIS_URL)
         keys = await r.keys("rate_limit:*")
         if keys:
             await r.delete(*keys)
+        quota_keys = await r.keys("training:*")
+        if quota_keys:
+            await r.delete(*quota_keys)
         await r.aclose()
     except Exception:
         pass

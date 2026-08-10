@@ -90,6 +90,8 @@ class PredictionItem(BaseModel):
     prediction: str
     probability: Optional[float] = None
     probabilities: Optional[Dict[str, float]] = None
+    confidence_level: Optional[str] = None
+    confidence_interval: Optional[Dict[str, float]] = None
 
 
 class PredictRequest(BaseModel):

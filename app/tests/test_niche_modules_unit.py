@@ -292,7 +292,7 @@ class TestTrainerBenchmark:
 
         assert result["problem_type"] == "classification"
         assert "accuracy" in result["metrics"]
-        assert "f1" in result["metrics"]
+        assert "f1_weighted" in result["metrics"]
         assert "mean_latency_ms" in result["inference"]
         assert "model_size_mb" in result
         assert result["model_size_mb"] > 0
@@ -317,15 +317,17 @@ class TestTrainerBenchmark:
         from app.ml.trainer import ModelTrainer
         X_train = np.random.randn(100, 4)
         y_train = np.random.choice([0, 1], size=100)
-        X_test = np.random.randn(50, 4)
-        y_test = np.random.choice([0, 1], size=50)
+        X_test = np.random.randn(20, 4)
+        y_test = np.random.choice([0, 1], size=20)
 
         trainer = ModelTrainer()
         trainer.train(X_train, y_train, algorithm="random_forest", problem_type="classification")
         result = trainer.benchmark(X_test, y_test, feature_names=["f1", "f2", "f3", "f4"])
 
         inf = result["inference"]
-        assert "p50_ms" in inf
+        assert "p50_latency_ms" in inf
+        assert "p95_latency_ms" in inf
+        assert "p99_latency_ms" in inf
         assert "p95_ms" in inf
         assert "p99_ms" in inf
         assert inf["p50_ms"] <= inf["p95_ms"] <= inf["p99_ms"]

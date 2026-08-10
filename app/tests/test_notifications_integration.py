@@ -1,5 +1,6 @@
 import pytest
 from httpx import AsyncClient
+from app.models.user import UserRole
 
 
 async def register_and_login(client: AsyncClient) -> str:
@@ -10,6 +11,7 @@ async def register_and_login(client: AsyncClient) -> str:
             "username": "notif_inttest",
             "password": "testpassword123",
             "full_name": "Notification Test User",
+            "role": UserRole.DATA_SCIENTIST,
         },
     )
     login_response = await client.post(

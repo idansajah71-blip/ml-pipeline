@@ -113,18 +113,26 @@ class TestBPSClient:
     @pytest.mark.asyncio
     async def test_search_no_api_key(self, client):
         import os
+        from app.core.config import get_settings
+        get_settings.cache_clear()
         with patch.dict(os.environ, {"BPS_API_KEY": ""}, clear=False):
             with pytest.raises(EnvironmentError, match="BPS_API_KEY"):
                 await client.search("test")
 
     @pytest.mark.asyncio
     async def test_search_with_mock(self, client):
+        from app.core.config import get_settings
+        # Real BPS envelope: data = [pagination_info, [items]]
         mock_response = {
             "data": [
-                {"id": 1, "name": "Harga Beras", "subject": 80},
-                {"id": 2, "name": "Populasi", "subject": 81},
+                {"page": 1, "per_page": 20},
+                [
+                    {"id": 1, "name": "Harga Beras", "subject": 80},
+                    {"id": 2, "name": "Populasi", "subject": 81},
+                ],
             ]
         }
+        get_settings.cache_clear()
         with patch.object(client, '_request', new_callable=AsyncMock, return_value=mock_response):
             with patch.dict("os.environ", {"BPS_API_KEY": "test-key"}):
                 results = await client.search("harga")
@@ -199,7 +207,8 @@ class TestDataGoIdClient:
 class TestExternalDataValidation:
     def test_result_id_pattern(self):
         import re
-        pattern = re.compile(r'^[a-zA-Z0-9:_\-]+$')
+        # Dots are legal (e.g. World Bank indicator SP.POP.TOTL)
+        pattern = re.compile(r'^[a-zA-Z0-9:._\-]+$')
         assert pattern.match("bps:var:123")
         assert pattern.match("worldbank:indicator:SP.POP.TOTL")
         assert not pattern.match("bps; DROP TABLE")

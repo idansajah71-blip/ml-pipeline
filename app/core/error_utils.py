@@ -25,30 +25,47 @@ SENSITIVE_PATTERNS = [
 ]
 
 SAFE_ERROR_MESSAGES = {
-    'ValueError': 'Invalid input provided',
-    'KeyError': 'Required field missing',
-    'TypeError': 'Invalid data type',
-    'FileNotFoundError': 'Resource not found',
-    'PermissionError': 'Access denied',
-    'ConnectionError': 'Service temporarily unavailable',
-    'TimeoutError': 'Operation timed out',
-    'MemoryError': 'Insufficient memory',
-    'OSError': 'System error occurred',
-    'ImportError': 'Required dependency missing',
-    'ModuleNotFoundError': 'Required dependency missing',
+    'ValueError': 'Input yang diberikan tidak valid',
+    'KeyError': 'Kolom atau field yang dibutuhkan tidak ada',
+    'TypeError': 'Tipe data tidak sesuai',
+    'FileNotFoundError': 'File atau resource yang diminta tidak ditemukan',
+    'PermissionError': 'Akses ditolak',
+    'ConnectionError': 'Layanan sedang tidak tersedia, silakan coba lagi',
+    'TimeoutError': 'Operasi melebihi batas waktu, silakan coba lagi',
+    'MemoryError': 'Memori tidak mencukupi untuk menyelesaikan operasi',
+    'OSError': 'Terjadi kesalahan sistem',
+    'ImportError': 'Dependensi yang dibutuhkan tidak terpasang',
+    'ModuleNotFoundError': 'Dependensi yang dibutuhkan tidak terpasang',
+    'OverflowError': 'Nilai melebihi batas yang didukung',
+    'IndexError': 'Data yang diminta berada di luar jangkauan',
+    'AttributeError': 'Terjadi kesalahan internal pada data',
+    'ZeroDivisionError': 'Perhitungan gagal karena pembagian dengan nol',
+    'BrokenPipeError': 'Koneksi terputus, silakan coba lagi',
 }
 
 TECHNICAL_ERROR_TRANSLATIONS = [
+    (re.compile(r'no module named ["\']?celery["\']?', re.IGNORECASE),
+     'Layanan pelatihan background (Celery) tidak tersedia. Pelatihan akan dijalankan langsung secara sinkron.'),
+    (re.compile(r'kombu|amqp', re.IGNORECASE),
+     'Layanan antrean tugas (Celery) sedang tidak tersedia. Pelatihan akan dijalankan langsung secara sinkron.'),
     (re.compile(r'celery', re.IGNORECASE),
-     'Background training is temporarily unavailable. Training will continue synchronously if possible.'),
+     'Layanan pelatihan background (Celery) sedang tidak tersedia. Pelatihan akan dijalankan langsung secara sinkron jika memungkinkan.'),
+    (re.compile(r'redis\.exceptions|redis.*connection refused|connect to redis', re.IGNORECASE),
+     'Layanan antrean/cache (Redis) sedang tidak tersedia. Silakan coba lagi sebentar lagi.'),
     (re.compile(r'redis', re.IGNORECASE),
-     'The queue service is temporarily unavailable. Please try again shortly.'),
-    (re.compile(r'asyncpg', re.IGNORECASE),
-     'There is a temporary database issue. Please try again or contact support.'),
-    (re.compile(r'no module named ["\']celery["\']', re.IGNORECASE),
-     'Background training is temporarily unavailable. Training will continue synchronously.'),
-    (re.compile(r'failed to parse|error parsing', re.IGNORECASE),
-     'Unable to read the uploaded file. Please verify the file format and content.'),
+     'Layanan antrean/cache sedang tidak tersedia. Silakan coba lagi sebentar lagi.'),
+    (re.compile(r'asyncpg|psycopg2|sqlalchemy\.exc|postgresql', re.IGNORECASE),
+     'Terjadi kendala sementara pada database. Silakan coba lagi, atau hubungi admin jika berlanjut.'),
+    (re.compile(r'connection refused|connect call failed|timed out', re.IGNORECASE),
+     'Layanan yang dituju sedang tidak tersedia. Silakan coba lagi sebentar lagi.'),
+    (re.compile(r'no space left|disk quota|out of disk', re.IGNORECASE),
+     'Penyimpanan server penuh. Silakan hubungi admin untuk dibersihkan.'),
+    (re.compile(r'no module named', re.IGNORECASE),
+     'Ada komponen yang belum terpasang di server. Silakan hubungi admin.'),
+    (re.compile(r'failed to parse|error parsing|could not convert string to float', re.IGNORECASE),
+     'File tidak dapat dibaca. Periksa kembali format dan isi file yang diunggah.'),
+    (re.compile(r'permission denied', re.IGNORECASE),
+     'Akses ditolak oleh sistem. Silakan hubungi admin.'),
 ]
 
 
@@ -113,6 +130,62 @@ def log_error(error: Exception, context: Optional[str] = None, exc_info: bool = 
         logger.error(f"{context}: {error}", exc_info=exc_info)
     else:
         logger.error(f"Error: {error}", exc_info=exc_info)
+
+
+HTTP_STATUS_TRANSLATIONS = {
+    400: 'Permintaan tidak valid. Periksa kembali data yang dikirim.',
+    401: 'Sesi Anda sudah berakhir atau tidak valid. Silakan masuk kembali.',
+    403: 'Anda tidak memiliki izin untuk mengakses sumber daya ini.',
+    404: 'Data yang Anda cari tidak ditemukan.',
+    405: 'Metode permintaan tidak didukung untuk endpoint ini.',
+    408: 'Waktu tunggu permintaan habis. Silakan coba lagi.',
+    409: 'Terjadi konflik data. Periksa kembali permintaan Anda.',
+    413: 'File yang diunggah terlalu besar.',
+    415: 'Format file tidak didukung.',
+    422: 'Data yang dikirim tidak valid. Periksa kembali isian Anda.',
+    429: 'Terlalu banyak permintaan dalam waktu singkat. Silakan tunggu sebentar lalu coba lagi.',
+    500: 'Terjadi kesalahan internal pada sistem. Tim kami telah mendapat notifikasi.',
+    501: 'Fitur ini belum tersedia.',
+    502: 'Layanan sedang sibuk atau tidak tersedia. Silakan coba lagi.',
+    503: 'Layanan sedang tidak tersedia. Silakan coba lagi sebentar lagi.',
+    504: 'Waktu tunggu layanan habis. Silakan coba lagi.',
+}
+
+
+def translate_http_status(status_code: int) -> str:
+    """Return a human-readable Indonesian message for an HTTP status code."""
+    return HTTP_STATUS_TRANSLATIONS.get(
+        status_code,
+        f'Terjadi kesalahan pada permintaan (kode {status_code}). Silakan coba lagi.',
+    )
+
+
+def humanize_http_detail(detail, status_code: int = 500):
+    """
+    Translate a raw/technical HTTP error detail into a human-readable message.
+
+    - Non-string details (e.g. validation error arrays) are passed through.
+    - Strings that match known technical patterns get translated.
+    - Strings that look like raw Python exceptions get replaced by the
+      HTTP-status translation instead of leaking internals.
+    """
+    if not isinstance(detail, str):
+        return detail
+    if not detail.strip():
+        return translate_http_status(status_code)
+
+    translated = translate_error_message(detail)
+    if translated != detail:
+        return translated
+
+    # Heuristic: raw Python exception text reaching users is never acceptable.
+    if re.search(
+        r"(Traceback \(most recent call last\)|File \"|\n  File |raise |Exception:|Error:)",
+        detail,
+    ):
+        return translate_http_status(status_code)
+
+    return detail
 
 
 def sanitize_validation_error(error: Exception) -> str:

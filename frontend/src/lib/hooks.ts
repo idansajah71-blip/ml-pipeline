@@ -1,5 +1,5 @@
 import useSWR from 'swr';
-import { datasets, models, experiments, abTests, monitoring, algorithms } from './api';
+import { datasets, models, experiments, abTests, monitoring, algorithms, systemHealth, SystemHealth } from './api';
 import { Dataset, MLModel, Experiment, ABTest, Stats } from '@/types';
 
 const datasetsFetcher = async () => {
@@ -199,6 +199,25 @@ export function useAlerts() {
     { revalidateOnFocus: true, refreshInterval: 60000 }
   );
   return { alerts: data ?? null, isLoading, isError: error, mutate };
+}
+
+const systemHealthFetcher = async () => {
+  const res = await systemHealth.check();
+  return res.data;
+};
+
+export function useSystemHealth() {
+  const { data, error, isLoading, mutate } = useSWR<SystemHealth>(
+    'system-health',
+    systemHealthFetcher,
+    {
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      refreshInterval: 15000,
+      errorRetryCount: 2,
+    }
+  );
+  return { health: data ?? null, isLoading, isError: error, mutate };
 }
 
 export function useAlgorithms() {

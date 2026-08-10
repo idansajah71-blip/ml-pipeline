@@ -254,7 +254,7 @@ export default function ModelsPage() {
                 )}
 
                 <div className="mb-3 flex flex-wrap gap-1">
-                  {model.tags?.map((tag) => (
+                  {model.tags?.map((tag: string) => (
                     <span key={tag} className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600 dark:bg-gray-700 dark:text-gray-300">{tag}</span>
                   ))}
                 </div>

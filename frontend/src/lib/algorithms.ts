@@ -6,22 +6,22 @@ export interface AlgorithmInfo {
 
 export const PREDICTION_TYPE_COLORS = {
   classification: {
-    bg: 'bg-blue-50',
-    text: 'text-blue-700',
-    border: 'border-blue-300',
-    dot: 'bg-blue-500',
-    darkBg: 'dark:bg-blue-900/30',
-    darkText: 'dark:text-blue-300',
-    darkBorder: 'dark:border-blue-700',
+    bg: 'bg-classification-50',
+    text: 'text-classification-700',
+    border: 'border-classification-300',
+    dot: 'bg-classification-500',
+    darkBg: 'dark:bg-classification-900/30',
+    darkText: 'dark:text-classification-300',
+    darkBorder: 'dark:border-classification-700',
   },
   regression: {
-    bg: 'bg-emerald-50',
-    text: 'text-emerald-700',
-    border: 'border-emerald-300',
-    dot: 'bg-emerald-500',
-    darkBg: 'dark:bg-emerald-900/30',
-    darkText: 'dark:text-emerald-300',
-    darkBorder: 'dark:border-emerald-700',
+    bg: 'bg-regression-50',
+    text: 'text-regression-700',
+    border: 'border-regression-300',
+    dot: 'bg-regression-500',
+    darkBg: 'dark:bg-regression-900/30',
+    darkText: 'dark:text-regression-300',
+    darkBorder: 'dark:border-regression-700',
   },
 } as const;
 

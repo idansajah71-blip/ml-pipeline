@@ -93,38 +93,38 @@ class TestSecurityScanner:
         assert ";" not in sanitized
 
     def test_validate_file_upload_safe(self, scanner):
-        is_safe, reason = scanner.validate_file_upload("data.csv", 1024)
-        assert is_safe is True
+        result = scanner.validate_file_upload("data.csv", b"safe content here")
+        assert result["safe"] is True
 
     def test_validate_file_upload_exe(self, scanner):
-        is_safe, reason = scanner.validate_file_upload("malware.exe", 1024)
-        assert is_safe is False
+        result = scanner.validate_file_upload("malware.exe", b"MZ\x90\x00")
+        assert result["safe"] is False
 
     def test_validate_file_upload_bat(self, scanner):
-        is_safe, reason = scanner.validate_file_upload("script.bat", 1024)
-        assert is_safe is False
+        result = scanner.validate_file_upload("script.bat", b"@echo off")
+        assert result["safe"] is False
 
     def test_validate_file_upload_ps1(self, scanner):
-        is_safe, reason = scanner.validate_file_upload("script.ps1", 1024)
-        assert is_safe is False
+        result = scanner.validate_file_upload("script.ps1", b"Write-Host hello")
+        assert result["safe"] is False
 
     def test_validate_file_upload_too_large(self, scanner):
-        is_safe, reason = scanner.validate_file_upload("data.csv", 200 * 1024 * 1024)
-        assert is_safe is False
-        assert 'size' in reason.lower() or 'large' in reason.lower()
+        result = scanner.validate_file_upload("data.csv", b"x" * (200 * 1024 * 1024))
+        assert result["safe"] is False
+        assert any('size' in i.get('type', '').lower() or 'large' in str(i).lower() for i in result["issues"])
 
     def test_validate_file_upload_malware_signature(self, scanner):
-        is_safe, reason = scanner.validate_file_upload("file.csv", 1024, content=b"MZ\x90\x00")
-        assert is_safe is False
+        result = scanner.validate_file_upload("file.csv", b"MZ\x90\x00")
+        assert result["safe"] is False
 
     def test_check_sensitive_info_email(self, scanner):
         threats = scanner.scan_input("user@example.com")
-        pii_threats = [t for t in threats if t['type'] == 'sensitive_info']
+        pii_threats = [t for t in threats if t['type'] == 'pii_email']
         assert len(pii_threats) > 0
 
     def test_check_sensitive_info_phone(self, scanner):
         threats = scanner.scan_input("555-123-4567")
-        pii_threats = [t for t in threats if t['type'] == 'sensitive_info']
+        pii_threats = [t for t in threats if t['type'] == 'pii_phone']
         assert len(pii_threats) > 0
 
     def test_empty_input(self, scanner):

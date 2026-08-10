@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from app.core.websocket import ConnectionManager
 
 
@@ -54,9 +54,9 @@ class TestConnectionManager:
     @pytest.mark.asyncio
     async def test_broadcast_removes_dead_connections(self, manager):
         ws_ok = MagicMock()
-        ws_ok.send_json = MagicMock(return_value=None)
+        ws_ok.send_json = AsyncMock(return_value=None)
         ws_dead = MagicMock()
-        ws_dead.send_json = MagicMock(side_effect=Exception("connection closed"))
+        ws_dead.send_json = AsyncMock(side_effect=Exception("connection closed"))
         channel = "dead-test"
 
         manager.active_connections[channel] = {ws_ok, ws_dead}
@@ -67,4 +67,4 @@ class TestConnectionManager:
 
     @pytest.mark.asyncio
     async def test_broadcast_empty_channel(self, manager):
-        await manager.nonexistent_channel.send_json({"message": "test"})
+        await manager.broadcast("nonexistent-channel", {"message": "test"})

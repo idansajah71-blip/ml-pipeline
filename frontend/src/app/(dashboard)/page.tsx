@@ -10,12 +10,12 @@ import Link from 'next/link';
 const ICONS: Record<string, any> = { Brain, Search, BarChart3, HelpCircle };
 
 const stats = [
-  { key: 'models', title: 'Total Model', icon: Brain, color: 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400', href: '/models' },
-  { key: 'datasets', title: 'Total Dataset', icon: Database, color: 'bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400', href: '/datasets' },
-  { key: 'experiments', title: 'Eksperimen', icon: FlaskConical, color: 'bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400', href: '/experiments' },
-  { key: 'predictions', title: 'Prediksi', icon: Zap, color: 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-400', href: '/predictions' },
-  { key: 'active', title: 'Model Aktif', icon: Rocket, color: 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400', href: '/models' },
-  { key: 'training', title: 'Training', icon: Activity, color: 'bg-orange-50 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400', href: '/experiments' },
+  { key: 'models', title: 'Total Model', icon: Brain, iconBg: 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300', href: '/models' },
+  { key: 'datasets', title: 'Total Dataset', icon: Database, iconBg: 'bg-success-50 text-success-700 dark:bg-success-900/30 dark:text-success-300', href: '/datasets' },
+  { key: 'experiments', title: 'Eksperimen', icon: FlaskConical, iconBg: 'bg-classification-50 text-classification-700 dark:bg-classification-900/30 dark:text-classification-300', href: '/experiments' },
+  { key: 'predictions', title: 'Prediksi', icon: Zap, iconBg: 'bg-warning-50 text-warning-700 dark:bg-warning-900/30 dark:text-warning-300', href: '/predictions' },
+  { key: 'active', title: 'Model Aktif', icon: Rocket, iconBg: 'bg-info-50 text-info-700 dark:bg-info-900/30 dark:text-info-300', href: '/models' },
+  { key: 'training', title: 'Training', icon: Activity, iconBg: 'bg-regression-50 text-regression-700 dark:bg-regression-900/30 dark:text-regression-300', href: '/experiments' },
 ] as const;
 
 export default function DashboardPage() {
@@ -105,7 +105,7 @@ export default function DashboardPage() {
                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{s.title}</p>
                 <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">{values[s.key]}</p>
               </div>
-              <div className={`rounded-lg p-3 ${s.color}`}>
+              <div className={`rounded-lg p-3 ${s.iconBg}`}>
                 <s.icon className="h-5 w-5" />
               </div>
             </div>

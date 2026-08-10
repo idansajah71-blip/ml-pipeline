@@ -31,3 +31,4 @@ class User(Base):
     datasets = relationship("Dataset", back_populates="owner")
     models = relationship("MLModel", back_populates="owner")
     experiments = relationship("Experiment", back_populates="owner")
+    notifications = relationship("Notification", back_populates="user")

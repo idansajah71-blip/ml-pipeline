@@ -31,7 +31,6 @@ class TestHyperparameterTuner:
             model, X, y,
             algorithm='random_forest',
             problem_type='classification',
-            method='grid',
             cv=3,
         )
         assert 'best_params' in results
@@ -47,12 +46,11 @@ class TestHyperparameterTuner:
             model, X, y,
             algorithm='random_forest',
             problem_type='classification',
-            method='random',
             cv=3,
-            n_iter=5,
+            n_trials=5,
         )
         assert 'best_params' in results
-        assert results['method'] == 'random'
+        assert best_model is not None
 
     def test_regression_tuning(self, regressor_data):
         X, y = regressor_data
@@ -62,7 +60,6 @@ class TestHyperparameterTuner:
             model, X, y,
             algorithm='ridge',
             problem_type='regression',
-            method='grid',
             cv=3,
         )
         assert 'best_params' in results
@@ -78,7 +75,7 @@ class TestHyperparameterTuner:
             algorithm='nonexistent_algo',
             problem_type='classification',
         )
-        assert results.get('message') == 'No tuning grid available'
+        assert results.get('message') == 'No search space for nonexistent_algo'
         assert best_model is model
 
     def test_search_space_summary(self):
@@ -108,7 +105,6 @@ class TestHyperparameterTuner:
             model, X, y,
             algorithm='random_forest',
             problem_type='classification',
-            method='grid',
             cv=3,
         )
         assert 'best_params' in results

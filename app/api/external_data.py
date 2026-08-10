@@ -84,13 +84,15 @@ async def _check_rate_limit(
     window_seconds: int,
 ) -> bool:
     """Check if user has exceeded rate limit for an action. Returns True if OK."""
+    from datetime import datetime, timedelta
+    cutoff = datetime.utcnow() - timedelta(seconds=window_seconds)
     result = await db.execute(
         text("""
             SELECT COUNT(*) FROM external_data_search_logs
             WHERE user_id = :uid
-            AND created_at > NOW() - INTERVAL ':window seconds'
+            AND created_at > :cutoff
         """),
-        {"uid": user_id, "window": window_seconds},
+        {"uid": user_id, "cutoff": cutoff},
     )
     count = result.scalar() or 0
     return count < limit

@@ -31,9 +31,24 @@ PLATFORM_DISCLAIMER = (
     "Gunakan dengan pertimbangan sendiri."
 )
 
+COMMUNITY_MODEL_LIMITATIONS = (
+    "Keterbatasan model komunitas: "
+    "(1) Dilatih pada dataset terbatas, mungkin tidak representatif untuk semua kasus. "
+    "(2) Belum melalui validasi independen dari tim platform. "
+    "(3) Performa dapat berkurang pada data yang sangat berbeda dari data training. "
+    "(4) Tidak ada jaminan uptime atau ketersediaan model. "
+    "(5) Pengguna bertanggung jawab atas verifikasi hasil prediksi sebelum pengambilan keputusan."
+)
+
 DATA_PRIVACY_WARNING = (
     "Jangan unggah data pribadi, sensitif, atau rahasia ke model komunitas. "
     "Data yang dikirimkan akan diproses untuk prediksi dan tidak dijamin keamanannya."
+)
+
+PLATFORM_MODEL_LIMITATIONS = (
+    "Model platform dilatih pada data sintetis untuk tujuan demonstrasi. "
+    "Performa pada data dunia nyata mungkin berbeda. "
+    "Gunakan sebagai referensi awal, bukan satu-satunya dasar keputusan."
 )
 
 
@@ -307,6 +322,7 @@ def _share_to_dict(share: ModelShare, model: MLModel = None) -> Dict[str, Any]:
         "is_platform_model": False,
         "status": share.status,
         "disclaimer": PLATFORM_DISCLAIMER,
+        "limitations_disclaimer": COMMUNITY_MODEL_LIMITATIONS,
         "data_privacy_warning": DATA_PRIVACY_WARNING,
     }
 
@@ -319,6 +335,7 @@ def _platform_model_to_dict(m: Dict[str, Any]) -> Dict[str, Any]:
         "status": "approved",
         "disclaimer": "Model ini merupakan model platform yang sudah dikurasi. "
                       "Meskipun sudah diuji, hasil prediksi tetap bersifat indikatif.",
+        "limitations_disclaimer": PLATFORM_MODEL_LIMITATIONS,
         "data_privacy_warning": DATA_PRIVACY_WARNING,
     }
 
@@ -483,7 +500,13 @@ async def _predict_platform_model(data, model_meta, current_user):
     result_type = model_meta.get("result_type", "classification")
 
     real_model = _load_platform_model(data.share_id)
-    meta_info = real_model["meta"] if real_model else None
+    if not real_model:
+        raise HTTPException(
+            status_code=500,
+            detail=f"File model .joblib untuk '{data.share_id}' tidak ditemukan di server. "
+                   "Model tidak dapat menjalankan inferensi ML. Hubungi admin untuk memeriksa integritas file model."
+        )
+    meta_info = real_model["meta"]
 
     predictions = []
     for i, row in enumerate(data.data):
@@ -499,51 +522,64 @@ async def _predict_platform_model(data, model_meta, current_user):
             except (ValueError, TypeError):
                 feature_vals.append(0.0)
 
-        if real_model:
-            X = np.array([feature_vals])
-            clf = real_model["model"]
-            if result_type == "regression":
-                pred_value = round(max(0, float(clf.predict(X)[0])), 2)
-                predictions.append({"index": i, "prediction": pred_value,
-                    "prediction_label": f"{pred_value} {model_meta.get('result_unit', '')}".strip(),
-                    "result_type": "regression"})
-            else:
-                pred_class = int(clf.predict(X)[0])
-                proba = clf.predict_proba(X)[0] if hasattr(clf, 'predict_proba') else None
-                labels_from_meta = meta_info.get("labels") if meta_info else None
-                class_labels = model_meta.get("class_labels", {})
-                if labels_from_meta:
-                    label_map = {idx: labels_from_meta[idx] if idx < len(labels_from_meta) else str(idx) for idx in range(len(labels_from_meta))}
-                elif class_labels:
-                    label_map = {int(k): v for k, v in class_labels.items()}
-                else:
-                    label_map = {idx: str(idx) for idx in range(len(proba) if proba is not None else 2)}
-                pred_label = label_map.get(pred_class, str(pred_class))
-                if proba is not None:
-                    prob_dict = {label_map.get(idx, str(idx)): round(float(p), 3) for idx, p in enumerate(proba)}
-                    top_prob = round(float(max(proba)), 3)
-                else:
-                    prob_dict, top_prob = {pred_label: 1.0}, 1.0
-                predictions.append({"index": i, "prediction": pred_class, "prediction_label": pred_label,
-                    "probability": top_prob, "probabilities": prob_dict, "result_type": "classification"})
+        X = np.array([feature_vals])
+        clf = real_model["model"]
+        meta_metrics = meta_info.get("metrics", {}) if meta_info else {}
+        if result_type == "regression":
+            pred_value = round(max(0, float(clf.predict(X)[0])), 2)
+            # Derive confidence interval from available metrics
+            cv_std = meta_info.get("cv_std")
+            if cv_std is None:
+                rmse = meta_metrics.get("rmse", 0)
+                r2 = meta_metrics.get("r2", 0)
+                cv_std = rmse * 0.05 if rmse else (0.05 if r2 < 0.8 else 0.03)
+            z_score = 1.96
+            margin = z_score * cv_std * abs(pred_value) if pred_value != 0 else z_score * cv_std
+            confidence_level = "high" if cv_std < 0.05 else ("medium" if cv_std < 0.15 else "low")
+            predictions.append({
+                "index": i,
+                "prediction": pred_value,
+                "prediction_label": f"{pred_value} {model_meta.get('result_unit', '')}".strip(),
+                "result_type": "regression",
+                "confidence_interval": {
+                    "lower": round(pred_value - margin, 4),
+                    "upper": round(pred_value + margin, 4),
+                    "confidence_level": confidence_level,
+                },
+            })
         else:
-            # Fallback simulation
-            feature_sum = sum(feature_vals)
-            if result_type == "regression":
-                base = model_meta.get("metrics", {}).get("mae", 50)
-                pred_value = round(max(0, feature_sum * 0.8 + base * 1.5), 2)
-                predictions.append({"index": i, "prediction": pred_value,
-                    "prediction_label": f"{pred_value} {model_meta.get('result_unit', '')}".strip(),
-                    "result_type": "regression"})
+            pred_class = int(clf.predict(X)[0])
+            proba = clf.predict_proba(X)[0] if hasattr(clf, 'predict_proba') else None
+            labels_from_meta = meta_info.get("labels") if meta_info else None
+            class_labels = model_meta.get("class_labels", {})
+            if labels_from_meta:
+                label_map = {idx: labels_from_meta[idx] if idx < len(labels_from_meta) else str(idx) for idx in range(len(labels_from_meta))}
+            elif class_labels:
+                label_map = {int(k): v for k, v in class_labels.items()}
             else:
-                class_labels = model_meta.get("class_labels", {"0": "Kelas 0", "1": "Kelas 1"})
-                prob_positive = round(min(0.99, max(0.01, (feature_sum % 10) / 10)), 2)
-                predicted_class = "1" if prob_positive >= 0.5 else "0"
-                predictions.append({"index": i, "prediction": predicted_class,
-                    "prediction_label": class_labels.get(predicted_class, predicted_class),
-                    "probability": prob_positive,
-                    "probabilities": {class_labels.get("0", "0"): round(1 - prob_positive, 2), class_labels.get("1", "1"): prob_positive},
-                    "result_type": "classification"})
+                label_map = {idx: str(idx) for idx in range(len(proba) if proba is not None else 2)}
+            pred_label = label_map.get(pred_class, str(pred_class))
+            if proba is not None:
+                prob_dict = {label_map.get(idx, str(idx)): round(float(p), 3) for idx, p in enumerate(proba)}
+                top_prob = round(float(max(proba)), 3)
+            else:
+                prob_dict, top_prob = {pred_label: 1.0}, 1.0
+            # Confidence level from probability
+            if top_prob >= 0.85:
+                confidence_level = "high"
+            elif top_prob >= 0.6:
+                confidence_level = "medium"
+            else:
+                confidence_level = "low"
+            predictions.append({
+                "index": i,
+                "prediction": pred_class,
+                "prediction_label": pred_label,
+                "probability": top_prob,
+                "probabilities": prob_dict,
+                "result_type": "classification",
+                "confidence_level": confidence_level,
+            })
 
     # Track usage
     for m in PLATFORM_MODELS:
@@ -672,28 +708,53 @@ async def share_model(
     if str(model.owner_id) != str(current_user.id):
         raise HTTPException(status_code=403, detail="Bukan model kamu")
 
-    # ── Stage 4: Quality gates ────────────────────────────────────────────
+    # ── Stage 4: Quality gates (hard blocks + soft warnings) ───────────────
+    settings = get_settings()
     warnings = []
+    reject_reasons = []
     metrics = model.metrics or {}
     accuracy = metrics.get("accuracy", metrics.get("f1", 0))
     r2 = metrics.get("r2", 0)
+    f1 = metrics.get("f1", 0)
+
+    # Soft warnings for borderline quality
     if accuracy > 0 and accuracy < 0.6:
         warnings.append(f"Akurasi model rendah ({accuracy:.0%}). Pertimbangkan untuk melatih ulang.")
     if r2 > 0 and r2 < 0.5:
         warnings.append(f"Skor R² rendah ({r2:.2f}). Model mungkin belum cukup akurat.")
+    if f1 > 0 and f1 < 0.5:
+        warnings.append(f"Skor F1 rendah ({f1:.2f}). Pertimbangkan untuk melatih ulang.")
     if not data.use_case:
         warnings.append("Belum diisi 'Cocok Untuk apa'. Pengguna lain mungkin bingung kapan harus pakai model ini.")
 
+    # Hard blocks — reject if below minimum thresholds
+    if accuracy > 0 and accuracy < settings.MARKETPLACE_MIN_ACCURACY:
+        reject_reasons.append(f"Akurasi terlalu rendah ({accuracy:.0%}). Minimum: {settings.MARKETPLACE_MIN_ACCURACY:.0%}")
+    if r2 > 0 and r2 < settings.MARKETPLACE_MIN_R2:
+        reject_reasons.append(f"Skor R² terlalu rendah ({r2:.2f}). Minimum: {settings.MARKETPLACE_MIN_R2}")
+    if f1 > 0 and f1 < settings.MARKETPLACE_MIN_F1:
+        reject_reasons.append(f"Skor F1 terlalu rendah ({f1:.2f}). Minimum: {settings.MARKETPLACE_MIN_F1}")
+    if not model.training_samples or model.training_samples < 30:
+        reject_reasons.append(f"Data training terlalu sedikit ({model.training_samples or 0} sampel). Minimum: 30 sampel")
+
     # Auto-moderation status
     status = "approved"
-    if not model.description or len(model.description.strip()) < 10:
+    if not model.description or len(model.description.strip()) < settings.MARKETPLACE_MIN_DESCRIPTION_LENGTH:
         status = "pending"
-    if not data.use_case or len(data.use_case.strip()) < 10:
+    if not data.use_case or len(data.use_case.strip()) < settings.MARKETPLACE_MIN_USE_CASE_LENGTH:
         status = "pending"
-    if accuracy > 0 and accuracy < 0.5:
-        status = "pending"
-    if r2 > 0 and r2 < 0.4:
-        status = "pending"
+
+    # Hard reject: if any critical quality threshold is breached, block the publish
+    if reject_reasons:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "message": "Model tidak memenuhi ambang batas kualitas minimum untuk dipublikasikan ke marketplace.",
+                "reject_reasons": reject_reasons,
+                "warnings": warnings,
+                "suggestion": "Latih ulang model dengan data yang lebih banyak atau algoritma yang lebih cocok.",
+            }
+        )
 
     # Training data summary for transparency
     training_data_summary = {
@@ -1166,3 +1227,162 @@ async def moderate_model(
 
     await db.flush()
     return {"status": share.status, "model_id": share_id}
+
+
+# ── Quick feedback: thumbs up/down on any prediction ──────────────────────────
+
+class QuickFeedbackCreate(BaseModel):
+    model_id: str
+    is_correct: bool
+    comment: Optional[str] = None
+    prediction_id: Optional[str] = None
+
+
+@router.post("/quick-feedback")
+async def quick_feedback(
+    data: QuickFeedbackCreate,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Simplified feedback endpoint: user just says 'benar' or 'salah' on a prediction.
+    Creates a ModelFeedback record with rating=5 (correct) or rating=1 (incorrect).
+    """
+    from app.models.prediction import Prediction
+    from uuid import UUID as _UUID
+
+    model_uuid = _UUID(data.model_id)
+
+    # Verify model exists
+    model_result = await db.execute(select(MLModel).where(MLModel.id == model_uuid))
+    ml_model = model_result.scalar_one_or_none()
+    if not ml_model:
+        raise HTTPException(status_code=404, detail="Model tidak ditemukan")
+
+    # Find share_id if model is shared
+    share_result = await db.execute(
+        select(ModelShare).where(ModelShare.model_id == model_uuid, ModelShare.is_public == 1)
+    )
+    share = share_result.scalar_one_or_none()
+
+    feedback = ModelFeedback(
+        model_id=model_uuid,
+        share_id=share.id if share else None,
+        user_id=current_user.id,
+        prediction_id=_UUID(data.prediction_id) if data.prediction_id else None,
+        rating=5 if data.is_correct else 1,
+        is_accurate=data.is_correct,
+        comment=data.comment,
+    )
+    db.add(feedback)
+    await db.flush()
+
+    # Notify the model owner about feedback
+    try:
+        from app.api.in_app_notifications import create_notification
+        owner_id = ml_model.owner_id
+        if str(owner_id) != str(current_user.id):
+            model_name = ml_model.name
+            verdict = "benar" if data.is_correct else "salah"
+            await create_notification(
+                db=db,
+                user_id=owner_id,
+                notification_type="feedback_received",
+                title=f"Feedback Prediksi: {model_name}",
+                message=f"Seseorang menandai prediksi model '{model_name}' sebagai {verdict}.",
+                link=f"/marketplace",
+            )
+    except Exception:
+        pass  # Don't fail feedback if notification fails
+
+    return {"status": "recorded", "feedback_id": str(feedback.id)}
+
+
+# ── Usage statistics for shared model owners ──────────────────────────────────
+
+@router.get("/my-models/stats")
+async def get_my_models_usage_stats(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Aggregated usage statistics for all models shared by the current user.
+    Returns: total downloads, avg rating, total feedback, per-model breakdown.
+    """
+    # Get all shares by this user
+    stmt = select(ModelShare, MLModel).join(MLModel, ModelShare.model_id == MLModel.id).where(
+        ModelShare.shared_by == current_user.id
+    )
+    result = await db.execute(stmt)
+    shares = result.all()
+
+    if not shares:
+        return {
+            "total_models": 0,
+            "total_downloads": 0,
+            "avg_rating": 0.0,
+            "total_feedback": 0,
+            "models": [],
+        }
+
+    total_downloads = 0
+    total_rating = 0.0
+    total_feedback = 0
+    models_stats = []
+
+    for share, model in shares:
+        # Count feedback for this model
+        fb_stmt = select(func.count(ModelFeedback.id)).where(ModelFeedback.model_id == model.id)
+        fb_result = await db.execute(fb_stmt)
+        feedback_count = fb_result.scalar() or 0
+
+        # Average feedback rating
+        avg_fb_stmt = select(func.avg(ModelFeedback.rating)).where(ModelFeedback.model_id == model.id)
+        avg_fb_result = await db.execute(avg_fb_stmt)
+        avg_fb_rating = avg_fb_result.scalar() or 0
+
+        # Count predictions for this model
+        from app.models.prediction import Prediction
+        pred_stmt = select(func.count(Prediction.id)).where(Prediction.model_id == model.id)
+        pred_result = await db.execute(pred_stmt)
+        prediction_count = pred_result.scalar() or 0
+
+        # Accuracy from feedback
+        accurate_stmt = select(func.count(ModelFeedback.id)).where(
+            ModelFeedback.model_id == model.id,
+            ModelFeedback.is_accurate == True,
+        )
+        accurate_result = await db.execute(accurate_stmt)
+        accurate_count = accurate_result.scalar() or 0
+        accuracy_pct = round(accurate_count / feedback_count * 100, 1) if feedback_count > 0 else None
+
+        downloads = share.downloads or 0
+        rating = share.rating or 0.0
+        total_downloads += downloads
+        total_rating += rating
+        total_feedback += feedback_count
+
+        models_stats.append({
+            "share_id": str(share.id),
+            "model_id": str(model.id),
+            "model_name": model.name,
+            "algorithm": model.algorithm,
+            "downloads": downloads,
+            "rating": rating,
+            "rating_count": share.rating_count or 0,
+            "feedback_count": feedback_count,
+            "prediction_count": prediction_count,
+            "accuracy_from_feedback": accuracy_pct,
+            "lifecycle_stage": share.lifecycle_stage if hasattr(share, 'lifecycle_stage') else "active",
+            "status": share.status,
+            "created_at": share.created_at.isoformat() if share.created_at else None,
+        })
+
+    num_models = len(shares)
+    return {
+        "total_models": num_models,
+        "total_downloads": total_downloads,
+        "avg_rating": round(total_rating / num_models, 1) if num_models > 0 else 0.0,
+        "total_feedback": total_feedback,
+        "models": models_stats,
+    }

@@ -67,7 +67,8 @@ async def test_rate_model(client: AsyncClient):
 
     # rating is a query param
     response = await client.post(
-        f"/api/v1/marketplace/{share_id}/rate?rating=4",
+        f"/api/v1/marketplace/{share_id}/rate",
         headers=headers,
+        json={"rating": 4},
     )
     assert response.status_code == 200

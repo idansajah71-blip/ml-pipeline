@@ -38,10 +38,21 @@ class BPSClient(BaseExternalDataClient):
         """Make authenticated request to BPS API."""
         params["key"] = self._get_api_key()
         url = f"{BPS_BASE_URL}/list"
-        async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(url, params=params)
-            resp.raise_for_status()
-            return resp.json()
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.get(url, params=params)
+                resp.raise_for_status()
+                return resp.json()
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code not in (403, 406, 429):
+                raise
+        except Exception:
+            pass
+        # Fallback: curl_cffi
+        from curl_cffi import requests as curl_requests
+        resp = curl_requests.get(url, params=params, impersonate="chrome", timeout=30)
+        resp.raise_for_status()
+        return resp.json()
 
     async def search(self, query: str, limit: int = 20) -> List[SearchResultItem]:
         """Search BPS subjects and variables matching the query.
@@ -140,6 +151,10 @@ class BPSClient(BaseExternalDataClient):
                 except Exception:
                     pass
 
+        except EnvironmentError:
+            # Configuration errors (e.g. missing BPS_API_KEY) must surface so
+            # users get an actionable message instead of empty results.
+            raise
         except Exception as e:
             # Return empty on error — don't crash the search
             return []

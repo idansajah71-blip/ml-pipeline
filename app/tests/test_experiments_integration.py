@@ -28,7 +28,9 @@ async def test_list_experiments(client: AsyncClient):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 200
-    assert isinstance(response.json(), list)
+    data = response.json()
+    assert isinstance(data, dict)
+    assert "items" in data
 
 
 @pytest.mark.asyncio

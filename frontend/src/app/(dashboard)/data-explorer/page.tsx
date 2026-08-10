@@ -55,10 +55,10 @@ export default function DataExplorerPage() {
       const res = await externalData.search(query.trim(), activeSource || undefined, 30);
       setResults(res.data);
       if (res.data.length === 0) {
-        showToast('Tidak ada hasil ditemukan untuk pencarian ini', 'info');
+        showToast('info', 'Tidak ada hasil ditemukan untuk pencarian ini');
       }
     } catch (err) {
-      showToast(formatApiError(err, 'Gagal mencari data'), 'error');
+      showToast('error', formatApiError(err, 'Gagal mencari data'));
     } finally {
       setLoading(false);
     }
@@ -72,7 +72,7 @@ export default function DataExplorerPage() {
       const res = await externalData.preview(result.id, result.source_slug);
       setPreview(res.data);
     } catch (err) {
-      showToast(formatApiError(err, 'Gagal memuat preview'), 'error');
+      showToast('error', formatApiError(err, 'Gagal memuat preview'));
     } finally {
       setPreviewLoading(false);
     }
@@ -91,9 +91,9 @@ export default function DataExplorerPage() {
       setImported((prev) => [...prev, selectedResult.id]);
       setSelectedResult(null);
       setPreview(null);
-      showToast(`Dataset berhasil diimpor! ID: ${res.data.dataset_id.slice(0, 8)}...`, 'success');
+      showToast('success', `Dataset berhasil diimpor! ID: ${res.data.dataset_id.slice(0, 8)}...`);
     } catch (err) {
-      showToast(formatApiError(err, 'Gagal mengimpor data'), 'error');
+      showToast('error', formatApiError(err, 'Gagal mengimpor data'));
     } finally {
       setImporting(false);
     }

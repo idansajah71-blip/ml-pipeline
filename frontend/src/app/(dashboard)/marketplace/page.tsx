@@ -116,12 +116,12 @@ const CATEGORY_ICON_MAP: Record<string, React.ElementType> = {
 };
 
 const CATEGORY_ICON_COLOR: Record<string, string> = {
-  'model-siap-pakai':     'text-purple-600 dark:text-purple-400',
-  'prediksi-harga':       'text-green-600  dark:text-green-400',
-  'deteksi-churn':        'text-orange-500 dark:text-orange-400',
-  'klasifikasi-kualitas': 'text-blue-600   dark:text-blue-400',
-  'deteksi-anomali':      'text-red-500    dark:text-red-400',
-  'komunitas':            'text-gray-500   dark:text-gray-400',
+  'model-siap-pakai':     'text-primary-600 dark:text-primary-400',
+  'prediksi-harga':       'text-regression-600  dark:text-regression-400',
+  'deteksi-churn':        'text-warning-600 dark:text-warning-400',
+  'klasifikasi-kualitas': 'text-classification-600   dark:text-classification-400',
+  'deteksi-anomali':      'text-error-600    dark:text-error-400',
+  'komunitas':            'text-gray-600   dark:text-gray-400',
 };
 
 function ModelIcon({ modelId, category, size = 'md' }: { modelId: string; category?: string; size?: 'sm'|'md'|'lg' }) {
@@ -168,7 +168,7 @@ function MetricBadge({ label, value }: { label: string; value: string }) {
 
 function PlatformBadge() {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+    <span className="inline-flex items-center gap-1 rounded-full bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">
       <Zap className="h-3 w-3" /> Platform
     </span>
   );
@@ -194,10 +194,10 @@ function ModelCard({ model, onSelect }: { model: MarketplaceModel; onSelect: () 
             <div className="flex items-center gap-1.5">
               {model.is_platform_model && <PlatformBadge />}
               {!model.is_platform_model && model.status === 'pending' && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">⏳ Review</span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-warning-50 px-2 py-0.5 text-xs font-medium text-warning-700 dark:bg-warning-900/30 dark:text-warning-300">⏳ Review</span>
               )}
               {!model.is_platform_model && model.status === 'approved' && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">✓ OK</span>
+                <span className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-xs font-medium text-success-700 dark:bg-success-900/30 dark:text-success-300">✓ OK</span>
               )}
             </div>
           </div>
@@ -231,20 +231,20 @@ function ModelCard({ model, onSelect }: { model: MarketplaceModel; onSelect: () 
 // ─── Category Card ────────────────────────────────────────────────────────────
 
 const colorMap: Record<string, string> = {
-  purple: 'border-purple-200 bg-purple-50 hover:border-purple-400 dark:border-purple-700 dark:bg-purple-900/20',
-  green:  'border-green-200  bg-green-50  hover:border-green-400  dark:border-green-700  dark:bg-green-900/20',
-  orange: 'border-orange-200 bg-orange-50 hover:border-orange-400 dark:border-orange-700 dark:bg-orange-900/20',
-  blue:   'border-blue-200   bg-blue-50   hover:border-blue-400   dark:border-blue-700   dark:bg-blue-900/20',
-  red:    'border-red-200    bg-red-50    hover:border-red-400    dark:border-red-700    dark:bg-red-900/20',
+  primary: 'border-primary-200 bg-primary-50 hover:border-primary-400 dark:border-primary-700 dark:bg-primary-900/20',
+  regression: 'border-regression-200  bg-regression-50  hover:border-regression-400  dark:border-regression-700  dark:bg-regression-900/20',
+  warning: 'border-warning-200 bg-warning-50 hover:border-warning-400 dark:border-warning-700 dark:bg-warning-900/20',
+  classification:   'border-classification-200   bg-classification-50   hover:border-classification-400   dark:border-classification-700   dark:bg-classification-900/20',
+  error:    'border-error-200    bg-error-50    hover:border-error-400    dark:border-error-700    dark:bg-error-900/20',
   gray:   'border-gray-200   bg-gray-50   hover:border-gray-400   dark:border-gray-700   dark:bg-gray-800',
 };
 
 const iconBgMap: Record<string, string> = {
-  purple: 'bg-purple-100 dark:bg-purple-900/40',
-  green:  'bg-green-100  dark:bg-green-900/40',
-  orange: 'bg-orange-100 dark:bg-orange-900/40',
-  blue:   'bg-blue-100   dark:bg-blue-900/40',
-  red:    'bg-red-100    dark:bg-red-900/40',
+  primary: 'bg-primary-100 dark:bg-primary-900/40',
+  regression:  'bg-regression-100  dark:bg-regression-900/40',
+  warning: 'bg-warning-100 dark:bg-warning-900/40',
+  classification:   'bg-classification-100   dark:bg-classification-900/40',
+  error:    'bg-error-100    dark:bg-error-900/40',
   gray:   'bg-gray-100   dark:bg-gray-700',
 };
 
@@ -447,17 +447,17 @@ function ModelDetailView({ model, onBack, onPredict, onRate }: {
                 {model.is_platform_model && <PlatformBadge />}
                 {model.algorithm && <span className="text-xs text-gray-500 dark:text-gray-400">Algoritma: {model.algorithm}</span>}
                 {!model.is_platform_model && model.status === 'pending' && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-warning-50 px-2 py-0.5 text-xs font-medium text-warning-700 dark:bg-warning-900/30 dark:text-warning-300">
                     ⏳ Menunggu Review
                   </span>
                 )}
                 {!model.is_platform_model && model.status === 'approved' && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-success-50 px-2 py-0.5 text-xs font-medium text-success-700 dark:bg-success-900/30 dark:text-success-300">
                     ✓ Disetujui
                   </span>
                 )}
                 {!model.is_platform_model && model.status === 'rejected' && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-error-50 px-2 py-0.5 text-xs font-medium text-error-700 dark:bg-error-900/30 dark:text-error-300">
                     ✗ Ditolak
                   </span>
                 )}

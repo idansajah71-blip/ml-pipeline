@@ -72,6 +72,13 @@ class Settings(BaseSettings):
     MARKETPLACE_PREDICTION_TIMEOUT_SECONDS: int = 30
     MARKETPLACE_MAX_MODEL_CACHE_SIZE: int = 50
 
+    # Marketplace quality thresholds for publishing
+    MARKETPLACE_MIN_ACCURACY: float = 0.5
+    MARKETPLACE_MIN_R2: float = 0.4
+    MARKETPLACE_MIN_F1: float = 0.4
+    MARKETPLACE_MIN_DESCRIPTION_LENGTH: int = 10
+    MARKETPLACE_MIN_USE_CASE_LENGTH: int = 10
+
     @field_validator("JWT_SECRET_KEY")
     @classmethod
     def validate_jwt_secret(cls, v: str, info) -> str:

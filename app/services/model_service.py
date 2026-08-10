@@ -27,6 +27,11 @@ class ModelService:
         self.db = db
         self.artifacts_dir = settings.ML_ARTIFACTS_DIR
 
+    CELERY_UNAVAILABLE_MESSAGE = (
+        "Layanan pelatihan background (Celery) sedang tidak tersedia. "
+        "Pelatihan akan dijalankan langsung secara sinkron."
+    )
+
     def _dispatch_async_training(
         self,
         model_id: str,
@@ -42,29 +47,32 @@ class ModelService:
         except ImportError as exc:
             raise HTTPException(
                 status_code=503,
-                detail=(
-                    "Async training is temporarily unavailable. Training will continue synchronously. "
-                    "Install celery/redis if you want background training."
-                ),
+                detail=self.CELERY_UNAVAILABLE_MESSAGE,
             )
         if train_model_task is None or not hasattr(train_model_task, "delay"):
             raise HTTPException(
                 status_code=503,
-                detail=(
-                    "Async training is temporarily unavailable. Training will continue synchronously. "
-                    "Install celery/redis if you want background training."
-                ),
+                detail=self.CELERY_UNAVAILABLE_MESSAGE,
             )
 
-        result = train_model_task.delay(
-            model_id=str(model_id),
-            experiment_id=str(experiment_id),
-            dataset_path=dataset_path,
-            algorithm=algorithm,
-            parameters=parameters or {},
-            target_column=target_column,
-            owner_id=str(owner_id),
-        )
+        try:
+            result = train_model_task.delay(
+                model_id=str(model_id),
+                experiment_id=str(experiment_id),
+                dataset_path=dataset_path,
+                algorithm=algorithm,
+                parameters=parameters or {},
+                target_column=target_column,
+                owner_id=str(owner_id),
+            )
+        except Exception as exc:
+            # Broker down / worker unreachable → signal the caller to fall back
+            # to synchronous training instead of surfacing a raw 500.
+            log_error(exc, context="Celery broker unavailable during training dispatch")
+            raise HTTPException(
+                status_code=503,
+                detail=self.CELERY_UNAVAILABLE_MESSAGE,
+            )
         return getattr(result, "id", str(uuid.uuid4()))
 
     async def create_model(self, model_data: ModelCreate, owner_id: UUID) -> MLModel:

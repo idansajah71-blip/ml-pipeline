@@ -1,5 +1,6 @@
 import pytest
 from httpx import AsyncClient
+from app.models.user import UserRole
 
 
 @pytest.mark.asyncio
@@ -10,6 +11,8 @@ async def test_create_model(client: AsyncClient):
             "email": "model@example.com",
             "username": "modeluser",
             "password": "password123",
+            "full_name": "Model Test User",
+            "role": UserRole.DATA_SCIENTIST,
         },
     )
     login_response = await client.post(
@@ -41,6 +44,7 @@ async def test_list_models(client: AsyncClient):
             "email": "listmodels@example.com",
             "username": "listmodelsuser",
             "password": "password123",
+            "role": UserRole.DATA_SCIENTIST,
         },
     )
     login_response = await client.post(
@@ -73,5 +77,5 @@ async def test_get_algorithms(client: AsyncClient):
     response = await client.get("/api/v1/algorithms")
     assert response.status_code == 200
     data = response.json()
-    assert "algorithms" in data
-    assert "random_forest" in data["algorithms"]
+    assert "classification" in data
+    assert "random_forest" in data["classification"]["algorithms"]

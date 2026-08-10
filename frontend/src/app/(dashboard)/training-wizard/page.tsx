@@ -1473,15 +1473,13 @@ export default function TrainingWizard() {
 
           return (
             <div key={step.key} className="flex items-center">
-              <div
-                className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                  status === 'completed'
-                    ? 'bg-green-100 text-green-600'
-                    : status === 'active'
-                    ? 'bg-primary-100 text-primary-600'
-                    : 'bg-gray-100 text-gray-400'
-                }`}
-              >
+              <div className={`flex h-8 w-8 items-center justify-center rounded-full ${  // h-8 w-8 for mobile, h-10 w-10 for desktop
+              status === 'completed'
+                ? 'bg-success-100 text-success-600'
+                : status === 'active'
+                ? 'bg-primary-100 text-primary-600'
+                : 'bg-gray-100 text-gray-400'
+            } sm:h-10 sm:w-10`}>
                 {status === 'completed' ? (
                   <CheckCircle2 className="h-5 w-5" />
                 ) : (
@@ -1489,16 +1487,16 @@ export default function TrainingWizard() {
                 )}
               </div>
               <span
-                className={`ml-2 text-sm font-medium ${
-                  status === 'active' ? 'text-primary-600' : status === 'completed' ? 'text-green-600' : 'text-gray-400'
+                className={`ml-2 hidden text-sm font-medium sm:block ${
+                  status === 'active' ? 'text-primary-600' : status === 'completed' ? 'text-success-600' : 'text-gray-400'
                 }`}
               >
                 {step.label}
               </span>
               {index < STEPS.length - 1 && (
                 <div
-                  className={`ml-4 h-0.5 w-8 ${
-                    status === 'completed' ? 'bg-green-200' : 'bg-gray-200'
+                  className={`hidden ml-4 h-0.5 w-8 sm:block ${
+                    status === 'completed' ? 'bg-success-200' : 'bg-gray-200'
                   }`}
                 />
               )}

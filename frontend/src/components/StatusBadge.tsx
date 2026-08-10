@@ -3,10 +3,11 @@ import clsx from 'clsx';
 type StatusType = 'success' | 'warning' | 'error' | 'info' | 'neutral';
 
 const statusStyles: Record<StatusType, string> = {
-  success: 'bg-green-50 text-green-700 ring-green-600/20 dark:bg-green-900/30 dark:text-green-300 dark:ring-green-500/30',
-  warning: 'bg-yellow-50 text-yellow-700 ring-yellow-600/20 dark:bg-yellow-900/30 dark:text-yellow-300 dark:ring-yellow-500/30',
-  error: 'bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-900/30 dark:text-red-300 dark:ring-red-500/30',
-  info: 'bg-blue-50 text-blue-700 ring-blue-600/20 dark:bg-blue-900/30 dark:text-blue-300 dark:ring-blue-500/30',
+  // WCAG AA compliant: 4.5:1 contrast ratio on both light/dark backgrounds
+  success: 'bg-success-50 text-success-700 ring-success-600/20 dark:bg-success-900/30 dark:text-success-300 dark:ring-success-500/30',
+  warning: 'bg-warning-50 text-warning-700 ring-warning-600/20 dark:bg-warning-900/30 dark:text-warning-300 dark:ring-warning-500/30',
+  error: 'bg-error-50 text-error-700 ring-error-600/20 dark:bg-error-900/30 dark:text-error-300 dark:ring-error-500/30',
+  info: 'bg-info-50 text-info-700 ring-info-600/20 dark:bg-info-900/30 dark:text-info-300 dark:ring-info-500/30',
   neutral: 'bg-gray-50 text-gray-700 ring-gray-600/20 dark:bg-gray-700 dark:text-gray-300 dark:ring-gray-500/30',
 };
 

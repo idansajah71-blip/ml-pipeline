@@ -71,7 +71,7 @@ class DatasetService:
         return dataset
 
     async def get_dataset(self, dataset_id: UUID) -> Optional[Dataset]:
-        result = await self.db.execute(select(Dataset).where(Dataset.id == dataset_id))
+        result = await self.db.execute(select(Dataset).where(Dataset.id == dataset_id, Dataset.is_archived == False))
         return result.scalar_one_or_none()
 
     async def get_user_datasets(self, owner_id: UUID, skip: int = 0, limit: int = 100) -> List[Dataset]:

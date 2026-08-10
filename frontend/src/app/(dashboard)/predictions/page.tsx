@@ -3,11 +3,12 @@
 import { useState, useMemo } from 'react';
 import {
   Zap, Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp,
-  RefreshCw, Upload, FileSpreadsheet, X
+  X
 } from 'lucide-react';
 import { models, formatApiError } from '@/lib/api';
 import { useModels } from '@/lib/hooks';
 import { PredictionItem, MLModel } from '@/types';
+import { SmartInputForm } from '@/components/SmartInput';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,10 @@ function PredictionResultCard({
     prob >= 0.5 ? 'text-orange-500 dark:text-orange-400' :
     'text-red-500 dark:text-red-400';
 
+  const confidenceLabel = pred.confidence_level === 'high' ? 'Tinggi' :
+    pred.confidence_level === 'medium' ? 'Sedang' :
+    pred.confidence_level === 'low' ? 'Rendah' : null;
+
   return (
     <div className="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-700 dark:bg-gray-800">
       {/* Header */}
@@ -53,11 +58,22 @@ function PredictionResultCard({
         <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
           Prediksi #{index + 1}
         </span>
-        {prob !== undefined && (
-          <span className={`text-sm font-medium ${confidenceColor}`}>
-            Keyakinan {(prob * 100).toFixed(1)}%
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {confidenceLabel && (
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+              pred.confidence_level === 'high' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+              pred.confidence_level === 'medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+              'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+            }`}>
+              Keyakinan: {confidenceLabel}
+            </span>
+          )}
+          {prob !== undefined && (
+            <span className={`text-sm font-medium ${confidenceColor}`}>
+              {(prob * 100).toFixed(1)}%
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Main result */}
@@ -75,6 +91,18 @@ function PredictionResultCard({
             : String(predVal)}
         </p>
       </div>
+
+      {/* Confidence interval for regression */}
+      {pred.confidence_interval && (
+        <div className="mb-4 rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
+          <p className="text-xs font-medium text-blue-700 dark:text-blue-300">Rentang Kepercayaan (95%)</p>
+          <p className="mt-1 text-sm text-blue-800 dark:text-blue-200">
+            {pred.confidence_interval.lower.toLocaleString('id-ID', { maximumFractionDigits: 4 })}
+            {' '}&mdash;{' '}
+            {pred.confidence_interval.upper.toLocaleString('id-ID', { maximumFractionDigits: 4 })}
+          </p>
+        </div>
+      )}
 
       {/* Probability bars for classification */}
       {pred.probabilities && Object.keys(pred.probabilities).length > 0 && (
@@ -99,11 +127,14 @@ function PredictionResultCard({
         </div>
       )}
 
-      {/* Feedback toggle */}
+      {/* Feedback section */}
       {feedbackState === 'submitted' ? (
-        <p className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400">
-          <CheckCircle className="h-3.5 w-3.5" /> Terima kasih, feedback tersimpan
-        </p>
+        <div className="flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 dark:bg-green-900/20">
+          <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+          <p className="text-xs font-medium text-green-700 dark:text-green-300">
+            Terima kasih! Feedbackmu membantu perbaiki model.
+          </p>
+        </div>
       ) : (
         <div>
           <button
@@ -111,7 +142,7 @@ function PredictionResultCard({
             className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           >
             {showFeedback ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-            Beri feedback
+            Prediksi ini benar atau salah?
           </button>
           {showFeedback && (
             <div className="mt-2 space-y-2">
@@ -119,21 +150,21 @@ function PredictionResultCard({
                 value={feedbackComment}
                 onChange={(e) => onFeedbackChange(e.target.value)}
                 rows={2}
-                placeholder="Komentar singkat (opsional)..."
+                placeholder="Ceritakan: apa nilai sebenarnya di dunia nyata? (opsional)"
                 className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               />
               <div className="flex gap-2">
                 <button
                   onClick={() => onFeedback(true)}
                   disabled={!pred.id || feedbackState === 'saving'}
-                  className="flex items-center gap-1 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
                 >
                   👍 Benar
                 </button>
                 <button
                   onClick={() => onFeedback(false)}
                   disabled={!pred.id || feedbackState === 'saving'}
-                  className="flex items-center gap-1 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600 disabled:opacity-50"
+                  className="flex items-center gap-1.5 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-600 disabled:opacity-50"
                 >
                   👎 Salah
                 </button>
@@ -142,264 +173,6 @@ function PredictionResultCard({
                 <p className="text-xs text-red-600 dark:text-red-400">Gagal mengirim feedback. Coba lagi.</p>
               )}
             </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-// ─── Smart field detection helpers ───────────────────────────────────────────
-
-type FieldKind = 'currency' | 'date' | 'percent' | 'number' | 'text';
-
-const CURRENCY_KEYWORDS = ['harga', 'gaji', 'pendapatan', 'biaya', 'tagihan', 'omset', 'laba', 'revenue', 'cost', 'price', 'salary', 'income'];
-const DATE_KEYWORDS     = ['tanggal', 'tgl', 'date', 'waktu', 'time', 'bulan', 'tahun'];
-const PERCENT_KEYWORDS  = ['persen', 'persentase', 'percent', 'rate', 'rasio', 'ratio'];
-
-function detectFieldKind(name: string): FieldKind {
-  const n = name.toLowerCase();
-  if (DATE_KEYWORDS.some((k) => n.includes(k)))    return 'date';
-  if (CURRENCY_KEYWORDS.some((k) => n.includes(k))) return 'currency';
-  if (PERCENT_KEYWORDS.some((k) => n.includes(k)))  return 'percent';
-  return 'text';
-}
-
-/** Format a raw string as Indonesian thousand-separated number while typing */
-function formatCurrency(raw: string): string {
-  const digits = raw.replace(/[^\d]/g, '');
-  if (!digits) return '';
-  return Number(digits).toLocaleString('id-ID');
-}
-
-/** Strip thousand separators before submitting */
-function parseCurrency(formatted: string): number {
-  return Number(formatted.replace(/\./g, '').replace(',', '.')) || 0;
-}
-
-// ─── Smart field input ────────────────────────────────────────────────────────
-
-function SmartField({
-  name,
-  value,
-  onChange,
-}: {
-  name: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const kind = detectFieldKind(name);
-  const label = name.replace(/_/g, ' ');
-  const inputCls = 'w-full rounded-lg border border-gray-300 bg-white text-sm text-gray-900 placeholder-gray-400 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-500';
-
-  if (kind === 'date') {
-    return (
-      <div>
-        <label className="mb-1 block text-sm font-medium capitalize text-gray-700 dark:text-gray-300">{label}</label>
-        <input
-          type="date"
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          className={`${inputCls} px-3 py-2.5`}
-        />
-      </div>
-    );
-  }
-
-  if (kind === 'currency') {
-    return (
-      <div>
-        <label className="mb-1 block text-sm font-medium capitalize text-gray-700 dark:text-gray-300">{label}</label>
-        <div className="relative">
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-gray-500 dark:text-gray-400">Rp</span>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={value}
-            onChange={(e) => onChange(formatCurrency(e.target.value))}
-            placeholder="0"
-            className={`${inputCls} py-2.5 pl-9 pr-3`}
-          />
-        </div>
-        <p className="mt-0.5 text-xs text-gray-400">Format otomatis ribuan (contoh: 1.500.000)</p>
-      </div>
-    );
-  }
-
-  if (kind === 'percent') {
-    return (
-      <div>
-        <label className="mb-1 block text-sm font-medium capitalize text-gray-700 dark:text-gray-300">{label}</label>
-        <div className="relative">
-          <input
-            type="number"
-            min={0}
-            max={100}
-            step={0.1}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="0 – 100"
-            className={`${inputCls} py-2.5 pl-3 pr-9`}
-          />
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 dark:text-gray-400">%</span>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <label className="mb-1 block text-sm font-medium capitalize text-gray-700 dark:text-gray-300">{label}</label>
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={`Masukkan ${label}...`}
-        className={`${inputCls} px-3 py-2.5`}
-      />
-    </div>
-  );
-}
-
-// ─── Smart Input Form ─────────────────────────────────────────────────────────
-
-function SmartInputForm({
-  model,
-  onSubmit,
-  loading,
-}: {
-  model: MLModel;
-  onSubmit: (rows: Record<string, any>[]) => void;
-  loading: boolean;
-}) {
-  const features = model.feature_names ?? [];
-  const [inputMode, setInputMode] = useState<'fields' | 'csv'>('fields');
-  const [fieldValues, setFieldValues] = useState<Record<string, string>>(
-    () => Object.fromEntries(features.map((f) => [f, '']))
-  );
-  const [csvError, setCsvError] = useState('');
-
-  // Reset fields when model changes
-  useMemo(() => {
-    setFieldValues(Object.fromEntries(features.map((f) => [f, ''])));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [model.id]);
-
-  const handleFields = () => {
-    const row: Record<string, any> = {};
-    features.forEach((f) => {
-      const raw = fieldValues[f];
-      const kind = detectFieldKind(f);
-      if (kind === 'currency') {
-        row[f] = parseCurrency(raw);
-      } else if (kind === 'date') {
-        row[f] = raw; // ISO date string
-      } else if (raw !== '' && !isNaN(Number(raw.replace(/\./g, '').replace(',', '.')))) {
-        row[f] = Number(raw.replace(/\./g, '').replace(',', '.'));
-      } else {
-        row[f] = raw;
-      }
-    });
-    onSubmit([row]);
-  };
-
-  const handleCsv = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setCsvError('');
-    try {
-      const text = await file.text();
-      const lines = text.trim().split('\n');
-      const headers = lines[0].split(',').map((h) => h.trim().replace(/^"|"$/g, ''));
-      const rows = lines.slice(1).map((line) => {
-        const vals = line.split(',').map((v) => v.trim().replace(/^"|"$/g, ''));
-        const row: Record<string, any> = {};
-        headers.forEach((h, i) => {
-          const val = vals[i] ?? '';
-          row[h] = !isNaN(Number(val)) && val !== '' ? Number(val) : val;
-        });
-        return row;
-      });
-      onSubmit(rows);
-    } catch {
-      setCsvError('Format CSV tidak valid. Pastikan baris pertama berisi nama kolom.');
-    }
-  };
-
-  const allFilled = features.every((f) => fieldValues[f] !== '');
-
-  return (
-    <div>
-      {/* Mode toggle */}
-      {features.length > 0 && (
-        <div className="mb-4 flex gap-2">
-          <button
-            onClick={() => setInputMode('fields')}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-              inputMode === 'fields'
-                ? 'bg-primary-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
-            }`}
-          >
-            Isi Form
-          </button>
-          <button
-            onClick={() => setInputMode('csv')}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-              inputMode === 'csv'
-                ? 'bg-primary-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
-            }`}
-          >
-            <FileSpreadsheet className="h-3.5 w-3.5" /> Upload CSV
-          </button>
-        </div>
-      )}
-
-      {inputMode === 'fields' ? (
-        features.length === 0 ? (
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Pilih model untuk melihat kolom input yang dibutuhkan.
-          </p>
-        ) : (
-          <>
-            <div className="space-y-3">
-              {features.map((f) => (
-                <SmartField
-                  key={f}
-                  name={f}
-                  value={fieldValues[f]}
-                  onChange={(v) => setFieldValues((p) => ({ ...p, [f]: v }))}
-                />
-              ))}
-            </div>
-
-            <button
-              onClick={handleFields}
-              disabled={!allFilled || loading}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-            >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-              {loading ? 'Memproses...' : 'Prediksi'}
-            </button>
-          </>
-        )
-      ) : (
-        <div>
-          <label
-            htmlFor="csv-upload"
-            className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 p-8 hover:border-primary-400 dark:border-gray-600"
-          >
-            <Upload className="mb-2 h-8 w-8 text-gray-400" />
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Upload file CSV</p>
-            <p className="mt-1 text-xs text-gray-500">Kolom harus sesuai: {features.join(', ')}</p>
-            <input id="csv-upload" type="file" accept=".csv" className="hidden" onChange={handleCsv} />
-          </label>
-          {csvError && (
-            <p className="mt-2 flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
-              <AlertCircle className="h-3.5 w-3.5" /> {csvError}
-            </p>
           )}
         </div>
       )}

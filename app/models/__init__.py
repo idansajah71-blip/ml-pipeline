@@ -1,6 +1,6 @@
 from app.models.user import User, UserRole
 from app.models.dataset import Dataset
-from app.models.model import MLModel, ModelStatus
+from app.models.model import MLModel, ModelStatus, ModelShare, ModelFeedback, ModelReport
 from app.models.experiment import Experiment, ExperimentStatus
 from app.models.prediction import Prediction
 from app.models.ab_test import ABTest, ABTestStatus
@@ -16,11 +16,13 @@ from app.models.feature_monitoring import FeatureDriftAlert, FeatureStats
 from app.models.webhook import Webhook, WebhookLog
 from app.models.lineage_metrics import DataLineage, CustomMetric, MetricDataPoint
 from app.models.external_data import ExternalDataSource, ExternalDatasetCache, ExternalDataSearchLog
+from app.models.scrape_job import ScrapeJob
+from app.models.notification import Notification
 
 __all__ = [
     "User", "UserRole",
     "Dataset",
-    "MLModel", "ModelStatus",
+    "MLModel", "ModelStatus", "ModelShare", "ModelFeedback", "ModelReport",
     "Experiment", "ExperimentStatus",
     "Prediction",
     "ABTest", "ABTestStatus",
@@ -36,4 +38,6 @@ __all__ = [
     "Webhook", "WebhookLog",
     "DataLineage", "CustomMetric", "MetricDataPoint",
     "ExternalDataSource", "ExternalDatasetCache", "ExternalDataSearchLog",
+    "ScrapeJob",
+    "Notification",
 ]

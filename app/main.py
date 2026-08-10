@@ -16,7 +16,8 @@ from app.api import feature_store, serving, organizations, quota
 from app.api import model_versions, experiment_compare, feature_monitoring, webhooks, lineage_metrics
 from app.api import explainability_dashboard, ensemble, data_versioning, marketplace, cost_tracking
 from app.api import mlflow_tracking, model_benchmark, data_validation_api, recommendations
-from app.api import analytics, external_data
+from app.api import analytics, external_data, scraping, scraping_advanced, scraping_ultra
+from app.api import system_health, in_app_notifications
 from app.core.security_middleware import (
     RateLimitMiddleware,
     SecurityHeadersMiddleware,
@@ -107,9 +108,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
+    from app.core.error_utils import humanize_http_detail
+
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail},
+        content={"detail": humanize_http_detail(exc.detail, exc.status_code)},
     )
 
 
@@ -124,7 +127,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
     return JSONResponse(
         status_code=500,
-        content={"detail": detail},
+        content={"detail": detail, "error_code": "INTERNAL_ERROR"},
     )
 
 
@@ -158,6 +161,11 @@ app.include_router(data_validation_api.router, prefix="/api/v1")
 app.include_router(recommendations.router, prefix="/api/v1")
 app.include_router(analytics.router, prefix="/api/v1")
 app.include_router(external_data.router, prefix="/api/v1")
+app.include_router(scraping.router, prefix="/api/v1")
+app.include_router(scraping_advanced.router, prefix="/api/v1")
+app.include_router(scraping_ultra.router, prefix="/api/v1")
+app.include_router(system_health.router, prefix="/api/v1")
+app.include_router(in_app_notifications.router, prefix="/api/v1")
 
 
 @app.get("/health")
