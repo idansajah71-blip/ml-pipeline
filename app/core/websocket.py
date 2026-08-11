@@ -35,6 +35,10 @@ class ConnectionManager:
             for ws in dead:
                 self.active_connections[channel].discard(ws)
 
+    async def send_personal(self, channel: str, message: dict):
+        """Send to all connections on a channel."""
+        await self.broadcast(channel, message)
+
     async def start_redis_listener(self):
         try:
             self._pubsub_task = asyncio.create_task(self._listen_redis())
@@ -52,7 +56,7 @@ class ConnectionManager:
             )
 
             pubsub = client.pubsub()
-            await pubsub.psubscribe("training:*")
+            await pubsub.psubscribe("training:*", "scrape:*")
 
             async for message in pubsub.listen():
                 if message["type"] == "pmessage":
@@ -70,3 +74,15 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+
+
+async def emit_scrape_progress(job_id: str, event: str, data: dict):
+    """Emit scrape progress event via Redis pub/sub."""
+    try:
+        import redis.asyncio as redis
+        client = redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
+        payload = {"event": event, "job_id": job_id, **data, "timestamp": __import__("datetime").datetime.utcnow().isoformat()}
+        await client.publish(f"scrape:{job_id}", json.dumps(payload, default=str))
+        await client.aclose()
+    except Exception:
+        pass

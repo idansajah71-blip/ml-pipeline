@@ -17,6 +17,7 @@ from app.models.webhook import Webhook, WebhookLog
 from app.models.lineage_metrics import DataLineage, CustomMetric, MetricDataPoint
 from app.models.external_data import ExternalDataSource, ExternalDatasetCache, ExternalDataSearchLog
 from app.models.scrape_job import ScrapeJob
+from app.models.scrape_config import ScrapeTemplate, ScrapeSchedule, ScrapeWebhookConfig, ScrapeProxyConfig, ScrapeCache
 from app.models.notification import Notification
 
 __all__ = [
@@ -39,5 +40,6 @@ __all__ = [
     "DataLineage", "CustomMetric", "MetricDataPoint",
     "ExternalDataSource", "ExternalDatasetCache", "ExternalDataSearchLog",
     "ScrapeJob",
+    "ScrapeTemplate", "ScrapeSchedule", "ScrapeWebhookConfig", "ScrapeProxyConfig", "ScrapeCache",
     "Notification",
 ]

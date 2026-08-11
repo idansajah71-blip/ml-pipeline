@@ -64,6 +64,9 @@ class Settings(BaseSettings):
     SMTP_FROM: str = "noreply@mlpipeline.com"
     ALERT_EMAIL_TO: str = ""
 
+    CAPTCHA_API_KEY: str = ""
+    CAPTCHA_SERVICE: str = "2captcha"
+
     ENABLE_METRICS: bool = True
     LOG_LEVEL: str = "INFO"
 

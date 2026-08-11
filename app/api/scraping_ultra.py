@@ -17,7 +17,7 @@ from app.services.scraper.auth_scraper import AuthenticatedScraper, AuthConfig
 from app.services.scraper.captcha_solver import CaptchaSolver
 from app.services.scraper.rate_limiter import RateLimiter, CrawlDelayConfig
 from app.services.scraper.fingerprint import FingerprintGenerator
-from app.services.scraper.webhook_notifier import WebhookNotifier, NotificationConfig
+from app.services.scraper.webhook_notifier import WebhookNotifier
 from app.services.scraper.scrape_diff import ScrapeDiff
 from app.services.scraper.distributed_scraper import DistributedScraper
 from app.services.scraper.data_validator import DataValidator, ValidationRule
@@ -32,6 +32,7 @@ from app.services.scraper.target_scrapers import (
     EcommerceScraper, NewsScraper, FinancialScraper,
     AcademicScraper, JobScraper, RealEstateScraper,
 )
+from app.services.scraper.shared import get_user_id
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/scraping", tags=["Ultra Scraping"])
@@ -57,10 +58,6 @@ financial = FinancialScraper()
 academic = AcademicScraper()
 job_scraper = JobScraper()
 real_estate = RealEstateScraper()
-
-
-def _get_user_id(user) -> str:
-    return str(user.id)
 
 
 async def _get_job_data(db, job_id, user_id):
@@ -254,7 +251,7 @@ async def rate_limit_stats(user=Depends(get_current_user)):
 @router.post("/diff")
 async def diff_scrapes(req: DiffRequest, db: AsyncSession = Depends(get_db),
                        user=Depends(get_current_user)):
-    user_id = _get_user_id(user)
+    user_id = get_user_id(user)
     try:
         old_df = await _get_job_data(db, req.job_id_old, user_id)
         new_df = await _get_job_data(db, req.job_id_new, user_id)
@@ -264,32 +261,54 @@ async def diff_scrapes(req: DiffRequest, db: AsyncSession = Depends(get_db),
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ─── Webhooks ───────────────────────────────────────────────────────────
+# ─── Webhooks (DB-backed) ────────────────────────────────────────────────
 
 @router.post("/webhooks/configure")
-async def configure_webhook(req: WebhookConfigRequest, user=Depends(get_current_user)):
-    config = NotificationConfig(
-        webhook_urls=req.webhook_urls, slack_webhook=req.slack_webhook,
-        discord_webhook=req.discord_webhook, events=req.events,
-        include_data=req.include_data,
+async def configure_webhook(
+    req: WebhookConfigRequest,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    user_id = get_user_id(user)
+    notifier = WebhookNotifier(db)
+    config = await notifier.configure(
+        user_id=user_id, name=req.name, url=req.webhook_urls[0] if req.webhook_urls else "",
+        webhook_type="generic", events=req.events, is_active=True,
     )
-    webhook_notifier.configure(req.name, config)
-    return {"status": "configured", "config": config.to_dict()}
+    return {"status": "configured", "config": config}
+
+
+@router.get("/webhooks")
+async def list_webhooks(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    user_id = get_user_id(user)
+    notifier = WebhookNotifier(db)
+    return await notifier.list_user_webhooks(user_id)
 
 
 @router.post("/webhooks/test")
-async def test_webhook(name: str, user=Depends(get_current_user)):
-    result = await webhook_notifier.notify("completed", {
-        "status": "completed", "summary": "Test notification",
-        "url": "https://example.com", "clean_row_count": 100,
-    }, config_name=name)
-    return result.to_dict()
+async def test_webhook(
+    webhook_id: str,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    notifier = WebhookNotifier(db)
+    result = await notifier.test_webhook(webhook_id)
+    return result
 
 
-@router.get("/webhooks/history")
-async def webhook_history(limit: int = Query(default=20, ge=1, le=100),
-                          user=Depends(get_current_user)):
-    return webhook_notifier.get_history(limit)
+@router.delete("/webhooks/{webhook_id}")
+async def delete_webhook(
+    webhook_id: str,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    notifier = WebhookNotifier(db)
+    if not await notifier.delete_webhook(webhook_id):
+        raise HTTPException(status_code=404, detail="Webhook not found")
+    return {"message": "Webhook deleted"}
 
 
 # ─── Distributed Scraping ───────────────────────────────────────────────
@@ -334,7 +353,7 @@ async def distributed_queue(user=Depends(get_current_user)):
 @router.post("/validate")
 async def validate_data(req: ValidateRequest, db: AsyncSession = Depends(get_db),
                         user=Depends(get_current_user)):
-    user_id = _get_user_id(user)
+    user_id = get_user_id(user)
     df = await _get_job_data(db, req.job_id, user_id)
     rules = [ValidationRule(**r) for r in req.rules] if req.rules else None
     clean_df, result = validator.validate(df, rules=rules, remove_invalid=req.remove_invalid)
@@ -349,7 +368,7 @@ async def validate_data(req: ValidateRequest, db: AsyncSession = Depends(get_db)
 @router.post("/automl")
 async def run_automl(req: AutoMLRequest, db: AsyncSession = Depends(get_db),
                      user=Depends(get_current_user)):
-    user_id = _get_user_id(user)
+    user_id = get_user_id(user)
     df = await _get_job_data(db, req.job_id, user_id)
     if req.target_column not in df.columns:
         raise HTTPException(status_code=400, detail=f"Column '{req.target_column}' not found")
@@ -362,7 +381,7 @@ async def run_automl(req: AutoMLRequest, db: AsyncSession = Depends(get_db),
 @router.post("/automl/profile")
 async def profile_data(job_id: str, db: AsyncSession = Depends(get_db),
                        user=Depends(get_current_user)):
-    user_id = _get_user_id(user)
+    user_id = get_user_id(user)
     df = await _get_job_data(db, job_id, user_id)
     return automl.profile_data(df)
 
@@ -372,7 +391,7 @@ async def profile_data(job_id: str, db: AsyncSession = Depends(get_db),
 @router.post("/anomaly")
 async def detect_anomalies(req: AnomalyRequest, db: AsyncSession = Depends(get_db),
                            user=Depends(get_current_user)):
-    user_id = _get_user_id(user)
+    user_id = get_user_id(user)
     df = await _get_job_data(db, req.job_id, user_id)
     if req.method == "all":
         return anomaly_detector.detect_all(df, req.columns)
@@ -392,7 +411,7 @@ async def detect_anomalies(req: AnomalyRequest, db: AsyncSession = Depends(get_d
 @router.post("/forecast")
 async def forecast_data(req: ForecastRequest, db: AsyncSession = Depends(get_db),
                         user=Depends(get_current_user)):
-    user_id = _get_user_id(user)
+    user_id = get_user_id(user)
     df = await _get_job_data(db, req.job_id, user_id)
     if req.value_column not in df.columns:
         raise HTTPException(status_code=400, detail=f"Column '{req.value_column}' not found")
@@ -404,7 +423,7 @@ async def forecast_data(req: ForecastRequest, db: AsyncSession = Depends(get_db)
 @router.post("/cluster")
 async def cluster_data(req: ClusterRequest, db: AsyncSession = Depends(get_db),
                        user=Depends(get_current_user)):
-    user_id = _get_user_id(user)
+    user_id = get_user_id(user)
     df = await _get_job_data(db, req.job_id, user_id)
     numeric = df.select_dtypes(include=["number"])
     if len(numeric.columns) < 2:
@@ -427,7 +446,7 @@ async def cluster_data(req: ClusterRequest, db: AsyncSession = Depends(get_db),
 @router.post("/dim-reduce")
 async def reduce_dimensions(req: DimReduceRequest, db: AsyncSession = Depends(get_db),
                             user=Depends(get_current_user)):
-    user_id = _get_user_id(user)
+    user_id = get_user_id(user)
     df = await _get_job_data(db, req.job_id, user_id)
     numeric = df.select_dtypes(include=["number"])
     if len(numeric.columns) <= req.n_components:
@@ -446,7 +465,7 @@ async def reduce_dimensions(req: DimReduceRequest, db: AsyncSession = Depends(ge
 @router.post("/feature-engineer")
 async def engineer_features(req: FeatureEngRequest, db: AsyncSession = Depends(get_db),
                             user=Depends(get_current_user)):
-    user_id = _get_user_id(user)
+    user_id = get_user_id(user)
     df = await _get_job_data(db, req.job_id, user_id)
     enriched_df, result = feature_engineer.create_all_features(df)
     return {
@@ -460,7 +479,7 @@ async def engineer_features(req: FeatureEngRequest, db: AsyncSession = Depends(g
 @router.post("/enrich")
 async def enrich_data(req: EnrichRequest, db: AsyncSession = Depends(get_db),
                       user=Depends(get_current_user)):
-    user_id = _get_user_id(user)
+    user_id = get_user_id(user)
     df = await _get_job_data(db, req.job_id, user_id)
     enriched_df, result = enricher.enrich_all(df)
     return {
@@ -512,3 +531,116 @@ async def target_search(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─── Proxy Management (DB-backed) ────────────────────────────────────────
+
+class ProxyConfigRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    proxy_url: str = Field(..., min_length=5, max_length=2000)
+    proxy_type: str = Field(default="http")
+    username: Optional[str] = None
+    password: Optional[str] = None
+
+
+@router.post("/proxies")
+async def create_proxy(
+    req: ProxyConfigRequest,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    user_id = get_user_id(user)
+    from app.models.scrape_config import ScrapeProxyConfig
+    import uuid
+
+    proxy = ScrapeProxyConfig(
+        id=uuid.uuid4(),
+        user_id=uuid.UUID(user_id) if len(user_id) == 36 else user_id,
+        name=req.name,
+        proxy_url=req.proxy_url,
+        proxy_type=req.proxy_type,
+        username=req.username,
+        is_active=True,
+        is_healthy=True,
+    )
+    db.add(proxy)
+    await db.commit()
+    await db.refresh(proxy)
+    return proxy.to_dict()
+
+
+@router.get("/proxies")
+async def list_proxies(
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    user_id = get_user_id(user)
+    from app.models.scrape_config import ScrapeProxyConfig
+    from sqlalchemy import select
+
+    result = await db.execute(
+        select(ScrapeProxyConfig)
+        .where(ScrapeProxyConfig.user_id == user_id)
+        .order_by(ScrapeProxyConfig.created_at.desc())
+    )
+    return [p.to_dict() for p in result.scalars().all()]
+
+
+@router.delete("/proxies/{proxy_id}")
+async def delete_proxy(
+    proxy_id: str,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    from app.models.scrape_config import ScrapeProxyConfig
+    from sqlalchemy import select
+
+    result = await db.execute(
+        select(ScrapeProxyConfig).where(ScrapeProxyConfig.id == proxy_id)
+    )
+    proxy = result.scalar_one_or_none()
+    if not proxy:
+        raise HTTPException(status_code=404, detail="Proxy not found")
+    await db.delete(proxy)
+    await db.commit()
+    return {"message": "Proxy deleted"}
+
+
+@router.post("/proxies/{proxy_id}/test")
+async def test_proxy(
+    proxy_id: str,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    from app.models.scrape_config import ScrapeProxyConfig
+    from sqlalchemy import select
+    import httpx
+    import time
+
+    result = await db.execute(
+        select(ScrapeProxyConfig).where(ScrapeProxyConfig.id == proxy_id)
+    )
+    proxy = result.scalar_one_or_none()
+    if not proxy:
+        raise HTTPException(status_code=404, detail="Proxy not found")
+
+    start = time.time()
+    try:
+        async with httpx.AsyncClient(
+            proxy=proxy.proxy_url,
+            timeout=httpx.Timeout(15.0),
+        ) as client:
+            resp = await client.get("https://httpbin.org/ip")
+            latency_ms = int((time.time() - start) * 1000)
+            proxy.is_healthy = resp.status_code == 200
+            proxy.avg_response_ms = latency_ms
+            proxy.last_checked_at = datetime.utcnow()
+            proxy.total_requests = (proxy.total_requests or 0) + 1
+            await db.commit()
+            return {"healthy": True, "latency_ms": latency_ms, "ip": resp.json().get("origin", "")}
+    except Exception as e:
+        proxy.is_healthy = False
+        proxy.failed_requests = (proxy.failed_requests or 0) + 1
+        proxy.last_checked_at = datetime.utcnow()
+        await db.commit()
+        return {"healthy": False, "error": str(e)}

@@ -17,6 +17,7 @@ from app.api import model_versions, experiment_compare, feature_monitoring, webh
 from app.api import explainability_dashboard, ensemble, data_versioning, marketplace, cost_tracking
 from app.api import mlflow_tracking, model_benchmark, data_validation_api, recommendations
 from app.api import analytics, external_data, scraping, scraping_advanced, scraping_ultra
+from app.api import scraping_unified
 from app.api import system_health, in_app_notifications
 from app.core.security_middleware import (
     RateLimitMiddleware,
@@ -82,7 +83,16 @@ app.add_middleware(
 
 app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
-app.add_middleware(RateLimitMiddleware, default_limit=100, default_window=60)
+app.add_middleware(
+    RateLimitMiddleware,
+    default_limit=1000,
+    default_window=60,
+    custom_limits={
+        r"/api/v1/scraping.*": (2000, 60),
+        r"/api/v1/external-data.*": (500, 60),
+        r"/health.*": (10000, 60),
+    },
+)
 app.add_middleware(UploadSizeLimitMiddleware, default_max_mb=100)
 app.add_middleware(TrainingQuotaMiddleware)
 app.add_middleware(InputSanitizationMiddleware)
@@ -164,6 +174,7 @@ app.include_router(external_data.router, prefix="/api/v1")
 app.include_router(scraping.router, prefix="/api/v1")
 app.include_router(scraping_advanced.router, prefix="/api/v1")
 app.include_router(scraping_ultra.router, prefix="/api/v1")
+app.include_router(scraping_unified.router, prefix="/api/v1")
 app.include_router(system_health.router, prefix="/api/v1")
 app.include_router(in_app_notifications.router, prefix="/api/v1")
 
@@ -233,6 +244,21 @@ async def websocket_training(websocket: WebSocket, experiment_id: str):
     from app.core.websocket import manager
 
     channel = f"training:{experiment_id}"
+    await manager.connect(websocket, channel)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_json({"type": "pong"})
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, channel)
+
+
+@app.websocket("/ws/scrape/{job_id}")
+async def websocket_scrape(websocket: WebSocket, job_id: str):
+    from app.core.websocket import manager
+
+    channel = f"scrape:{job_id}"
     await manager.connect(websocket, channel)
     try:
         while True:

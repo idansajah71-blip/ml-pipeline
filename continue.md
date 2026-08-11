@@ -783,6 +783,55 @@ POST /api/v1/external-data/import                  # Import → jadi Dataset bar
 ---
 
 *File ini dibuat pada: 2026-07-30*  
-*Terakhir diupdate: 8 Agustus 2026*  
-*Total phases: 74/74 SELESAI + External Data Phase 1-10 SELESAI (kecuali Phase 7)*  
+*Terakhir diupdate: 11 Agustus 2026*  
+*Total phases: 74/74 SELESAI + External Data Phase 1-10 SELESAI + Web Scraping Overhaul Fase 1-10*  
 *GitHub: https://github.com/idansajah71-blip/ml-pipeline*
+
+---
+
+## WEB SCRAPING OVERHAUL (Phase 75-84)
+
+### Progress
+
+| Fase | Feature | Status |
+|------|---------|--------|
+| 75 | Fix Bug Kritis (ImportScrapeRequest, infinite recursion, file handle leak) | ✅ |
+| 76 | Hapus Duplikasi Kode → shared module | ✅ |
+| 77 | Integrasi Playwright untuk JS rendering | ✅ |
+| 78 | Persistent Storage (templates, schedules, webhooks) ke DB | ✅ |
+| 79 | Real-time WebSocket Progress untuk long-running jobs | ✅ |
+| 80 | Proxy Rotation API endpoint | ✅ |
+| 81 | Target Scraper Lengkap (financial, academic, job, real estate) | ✅ |
+| 82 | CAPTCHA Solver Enhanced (reCAPTCHA/hCloudflare) | ✅ |
+| 83 | Content Caching berdasarkan content_hash | ✅ |
+| 84 | Unified API Gateway + Universal Website Support | ✅ |
+
+### File yang Diubah/Ditambah
+
+```
+# Fase 75-76: Bug Fixes & Shared Module
+app/schemas/scraping.py                    # Fix ImportScrapeRequest (tambah target_column, tags)
+app/services/scraper/target_scrapers.py    # Fix infinite recursion di BaseTargetScraper._fetch()
+app/api/scraping.py                        # Fix file handle leak di train_from_scrape
+app/services/scraper/shared.py             # NEW: shared utilities (_get_user_id, USER_AGENTS, _make_json_safe)
+
+# Fase 77: Playwright Integration
+app/services/scraper/playwright_scraper.py # NEW: Playwright-based scraper
+
+# Fase 78: Persistent Storage
+app/models/scrape_config.py                # NEW: ScrapeTemplate, ScrapeSchedule, ScrapeWebhookConfig
+alembic/versions/xxx_add_scrape_config.py  # NEW: migration
+
+# Fase 79: WebSocket Progress
+app/core/websocket.py                      # Updated: scrape job progress events
+
+# Fase 80: Proxy Rotation
+app/models/scrape_proxy.py                 # NEW: ScrapeProxyConfig
+app/api/scraping_unified.py                # Updated: proxy management endpoints
+
+# Fase 81-84: Target Scrapers, CAPTCHA, Caching, Universal
+app/services/scraper/target_scrapers.py    # Updated: search methods untuk semua type
+app/services/scraper/captcha_solver.py     # Updated: 2Captcha/Anti-Captcha integration
+app/services/scraper/html_scraper.py       # Updated: content caching
+app/api/scraping_unified.py                # NEW: unified API gateway
+```

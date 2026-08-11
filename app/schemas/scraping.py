@@ -8,6 +8,44 @@ class ScrapeRequest(BaseModel):
     extract_tables: bool = Field(default=True)
     extract_lists: bool = Field(default=True)
 
+    model_config = {"extra": "ignore"}
+
+
+class UniversalScrapeRequest(BaseModel):
+    url: str = Field(..., min_length=5, max_length=2000, description="URL to scrape universal")
+    extract_tables: bool = Field(default=True)
+    extract_lists: bool = Field(default=True)
+    use_js: bool = Field(default=False, description="Force JS rendering")
+    use_selenium: bool = Field(default=False, description="Use Selenium for JS rendering")
+    wait_seconds: int = Field(default=3, ge=1, le=30, description="Wait time for JS rendering")
+
+    model_config = {"extra": "ignore"}
+
+
+class UniversalScrapeResponse(BaseModel):
+    url: str
+    title: str
+    html: Optional[str] = None
+    tables: list = []
+    text_blocks: list = []
+    metadata: dict = {}
+    row_count: int = 0
+    column_count: int = 0
+    content_hash: str = ""
+    links: list = []
+    images: list = []
+    json_ld: list = []
+    feeds: list = []
+    api_endpoints: list = []
+    open_graph: dict = {}
+    keywords: list = []
+    language: str = ""
+    word_count: int = 0
+    reading_time_minutes: float = 0.0
+    scrape_strategy: str = ""
+    scrape_duration_ms: int = 0
+    status_code: int = 0
+
 
 class ScrapeAndProcessRequest(BaseModel):
     url: str = Field(..., min_length=5, max_length=1000)
@@ -20,6 +58,9 @@ class ScrapeAndProcessRequest(BaseModel):
     run_advanced_analysis: bool = Field(default=True)
     run_sentiment: bool = Field(default=True)
     run_patterns: bool = Field(default=True)
+    use_selenium: bool = Field(default=False)
+
+    model_config = {"extra": "ignore"}
 
 
 class BatchScrapeRequest(BaseModel):
@@ -31,6 +72,9 @@ class BatchScrapeRequest(BaseModel):
     run_patterns: bool = Field(default=True)
     max_concurrent: int = Field(default=5, ge=1, le=10)
     max_retries: int = Field(default=3, ge=0, le=5)
+    use_selenium: bool = Field(default=False)
+
+    model_config = {"extra": "ignore"}
 
 
 class RecursiveScrapeRequest(BaseModel):
@@ -38,6 +82,9 @@ class RecursiveScrapeRequest(BaseModel):
     max_depth: int = Field(default=2, ge=1, le=5)
     max_pages: int = Field(default=10, ge=1, le=50)
     run_advanced_analysis: bool = Field(default=True)
+    use_selenium: bool = Field(default=False)
+
+    model_config = {"extra": "ignore"}
 
 
 class SitemapScrapeRequest(BaseModel):
@@ -45,11 +92,15 @@ class SitemapScrapeRequest(BaseModel):
     limit: int = Field(default=50, ge=1, le=200)
     run_advanced_analysis: bool = Field(default=True)
 
+    model_config = {"extra": "ignore"}
+
 
 class DiscoverScrapeRequest(BaseModel):
     url: str = Field(..., min_length=5, max_length=1000)
     max_pages: int = Field(default=20, ge=1, le=50)
     run_advanced_analysis: bool = Field(default=True)
+
+    model_config = {"extra": "ignore"}
 
 
 class ScrapeJobResponse(BaseModel):
@@ -105,6 +156,10 @@ class ImportScrapeRequest(BaseModel):
     job_id: str
     dataset_name: Optional[str] = None
     description: Optional[str] = None
+    target_column: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+    model_config = {"extra": "ignore"}
 
 
 class ImportScrapeResponse(BaseModel):

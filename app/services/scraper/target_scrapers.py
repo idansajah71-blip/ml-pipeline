@@ -58,8 +58,9 @@ class BaseTargetScraper:
 
     async def _fetch(self, url: str) -> httpx.Response:
         """Fetch URL with httpx, fallback to curl_cffi on 403/406/429."""
+        client = await self._get_client()
         try:
-            resp = await self._fetch(url)
+            resp = await client.get(url)
             resp.raise_for_status()
             return resp
         except httpx.HTTPStatusError as e:
@@ -73,7 +74,6 @@ class BaseTargetScraper:
             from curl_cffi import requests as curl_requests
             resp = curl_requests.get(url, impersonate="chrome", timeout=30, allow_redirects=True)
             resp.raise_for_status()
-            # Return a duck-typed response compatible with callers expecting .text
             return resp
         except Exception as e2:
             logger.warning(f"curl_cffi also failed for {url}: {e2}")
@@ -317,6 +317,37 @@ class FinancialScraper(BaseTargetScraper):
         result.summary = f"Stock: {result.items[0].get('company', 'N/A')}" if result.items else "Stock: N/A"
         return result
 
+    async def search(self, query: str, max_items: int = 20) -> ScrapeTargetResult:
+        """Search financial data via Google Finance."""
+        start = datetime.now()
+        result = ScrapeTargetResult(source=f"search:{query}", target_type="financial_search")
+        try:
+            search_url = f"https://www.google.com/finance/quote/{query}"
+            resp = await self._fetch(search_url)
+            resp.raise_for_status()
+            soup = BeautifulSoup(resp.text, "lxml")
+
+            items = []
+            for card in soup.select("[data-entity-type='Stock'], .Yfwt5")[:max_items]:
+                item = {}
+                name_el = card.select_one(".ZDeKve, . rl3i9, . name")
+                item["company"] = name_el.get_text(strip=True) if name_el else ""
+                price_el = card.select_one(".YMlKec, .price")
+                item["price"] = price_el.get_text(strip=True) if price_el else ""
+                change_el = card.select_one(".JwB6zf, .change")
+                item["change"] = change_el.get_text(strip=True) if change_el else ""
+                if item.get("company"):
+                    items.append(item)
+
+            result.items = items[:max_items]
+            result.items_found = len(items)
+        except Exception as e:
+            result.errors.append(str(e))
+
+        result.duration_ms = (datetime.now() - start).total_seconds() * 1000
+        result.summary = f"Found {result.items_found} financial results"
+        return result
+
 
 class AcademicScraper(BaseTargetScraper):
 
@@ -363,6 +394,39 @@ class AcademicScraper(BaseTargetScraper):
         result.summary = f"Paper: {result.items[0].get('title', 'N/A')[:50]}" if result.items else "Paper: N/A"
         return result
 
+    async def search(self, query: str, max_items: int = 20) -> ScrapeTargetResult:
+        """Search academic papers via Google Scholar."""
+        start = datetime.now()
+        result = ScrapeTargetResult(source=f"search:{query}", target_type="academic_search")
+        try:
+            search_url = f"https://scholar.google.com/scholar?q={query.replace(' ', '+')}"
+            resp = await self._fetch(search_url)
+            resp.raise_for_status()
+            soup = BeautifulSoup(resp.text, "lxml")
+
+            items = []
+            for entry in soup.select(".gs_r.gs_or.gs_scl")[:max_items]:
+                item = {}
+                title_el = entry.select_one(".gs_rt a, .gs_rt")
+                item["title"] = title_el.get_text(strip=True)[:200] if title_el else ""
+                author_el = entry.select_one(".gs_a")
+                item["authors"] = author_el.get_text(strip=True)[:200] if author_el else ""
+                snippet_el = entry.select_one(".gs_rs")
+                item["abstract"] = snippet_el.get_text(strip=True)[:500] if snippet_el else ""
+                link_el = entry.select_one(".gs_rt a")
+                item["url"] = link_el.get("href", "") if link_el else ""
+                if item.get("title"):
+                    items.append(item)
+
+            result.items = items[:max_items]
+            result.items_found = len(items)
+        except Exception as e:
+            result.errors.append(str(e))
+
+        result.duration_ms = (datetime.now() - start).total_seconds() * 1000
+        result.summary = f"Found {result.items_found} papers"
+        return result
+
 
 class JobScraper(BaseTargetScraper):
 
@@ -407,6 +471,41 @@ class JobScraper(BaseTargetScraper):
 
         result.duration_ms = (datetime.now() - start).total_seconds() * 1000
         result.summary = f"Job: {result.items[0].get('title', 'N/A')[:50]}" if result.items else "Job: N/A"
+        return result
+
+    async def search(self, query: str, max_items: int = 20) -> ScrapeTargetResult:
+        """Search job listings via Google Jobs."""
+        start = datetime.now()
+        result = ScrapeTargetResult(source=f"search:{query}", target_type="job_search")
+        try:
+            search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}+jobs"
+            resp = await self._fetch(search_url)
+            resp.raise_for_status()
+            soup = BeautifulSoup(resp.text, "lxml")
+
+            items = []
+            for card in soup.select(".BjJfJf, .iFjolb, .tF2Cxc")[:max_items]:
+                item = {}
+                title_el = card.select_one(".BjJfJf, h3, .title")
+                item["title"] = title_el.get_text(strip=True)[:200] if title_el else ""
+                company_el = card.select_one(".vNEEBe, .company, .employer")
+                item["company"] = company_el.get_text(strip=True) if company_el else ""
+                location_el = card.select_one(".Qk80Jf, .location")
+                item["location"] = location_el.get_text(strip=True) if location_el else ""
+                snippet_el = card.select_one(".YDIN4e, .snippet")
+                item["description"] = snippet_el.get_text(strip=True)[:500] if snippet_el else ""
+                link_el = card.select_one("a[href]")
+                item["url"] = link_el.get("href", "") if link_el else ""
+                if item.get("title"):
+                    items.append(item)
+
+            result.items = items[:max_items]
+            result.items_found = len(items)
+        except Exception as e:
+            result.errors.append(str(e))
+
+        result.duration_ms = (datetime.now() - start).total_seconds() * 1000
+        result.summary = f"Found {result.items_found} jobs"
         return result
 
 
@@ -456,4 +555,39 @@ class RealEstateScraper(BaseTargetScraper):
 
         result.duration_ms = (datetime.now() - start).total_seconds() * 1000
         result.summary = f"Property: {result.items[0].get('title', 'N/A')[:50]}" if result.items else "Property: N/A"
+        return result
+
+    async def search(self, query: str, max_items: int = 20) -> ScrapeTargetResult:
+        """Search real estate listings via Google."""
+        start = datetime.now()
+        result = ScrapeTargetResult(source=f"search:{query}", target_type="real_estate_search")
+        try:
+            search_url = f"https://www.google.com/search?q={query.replace(' ', '+')}+property+for+sale"
+            resp = await self._fetch(search_url)
+            resp.raise_for_status()
+            soup = BeautifulSoup(resp.text, "lxml")
+
+            items = []
+            for card in soup.select(".iFjolb, .tF2Cxc, .cAYeZ")[:max_items]:
+                item = {}
+                title_el = card.select_one("h3, .title, .listing-title")
+                item["title"] = title_el.get_text(strip=True)[:200] if title_el else ""
+                price_el = card.select_one(".price, .listing-price")
+                item["price"] = price_el.get_text(strip=True) if price_el else ""
+                location_el = card.select_one(".location, .address")
+                item["location"] = location_el.get_text(strip=True) if location_el else ""
+                snippet_el = card.select_one(".snippet, .description")
+                item["description"] = snippet_el.get_text(strip=True)[:500] if snippet_el else ""
+                link_el = card.select_one("a[href]")
+                item["url"] = link_el.get("href", "") if link_el else ""
+                if item.get("title"):
+                    items.append(item)
+
+            result.items = items[:max_items]
+            result.items_found = len(items)
+        except Exception as e:
+            result.errors.append(str(e))
+
+        result.duration_ms = (datetime.now() - start).total_seconds() * 1000
+        result.summary = f"Found {result.items_found} properties"
         return result

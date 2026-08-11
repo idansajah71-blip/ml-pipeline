@@ -1,9 +1,13 @@
-"""Scrape Scheduler — Celery-based periodic scraping with monitoring."""
+"""Scrape Scheduler — Celery-based periodic scraping with DB persistence."""
 import asyncio
 import logging
+import uuid
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timedelta
-from dataclasses import dataclass, field
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models.scrape_config import ScrapeSchedule as ScrapeScheduleModel
 
 logger = logging.getLogger(__name__)
 
@@ -18,38 +22,6 @@ try:
         HAS_CELERY = True
 except (ImportError, Exception):
     pass
-
-
-@dataclass
-class ScrapeSchedule:
-    id: str
-    user_id: str
-    name: str
-    urls: list[str]
-    cron_expression: str = "0 * * * *"
-    interval_minutes: int = 60
-    is_active: bool = True
-    last_run: Optional[str] = None
-    next_run: Optional[str] = None
-    run_count: int = 0
-    config: dict = field(default_factory=dict)
-    created_at: str = ""
-
-    def to_dict(self) -> dict:
-        return {
-            "id": self.id,
-            "user_id": self.user_id,
-            "name": self.name,
-            "urls": self.urls,
-            "cron_expression": self.cron_expression,
-            "interval_minutes": self.interval_minutes,
-            "is_active": self.is_active,
-            "last_run": self.last_run,
-            "next_run": self.next_run,
-            "run_count": self.run_count,
-            "config": self.config,
-            "created_at": self.created_at,
-        }
 
 
 def _run_async(coro):
@@ -73,12 +45,11 @@ def _make_task(func=None, task_name=None):
         if HAS_CELERY and celery_app is not None:
             return celery_app.task(bind=True, name=task_name)(f)
         else:
-            # Create a simple wrapper for non-Celery environments
             class SimpleTask:
                 def __init__(self, fn):
                     self.fn = fn
                     self.name = task_name
-                
+
                 def delay(self, *args, **kwargs):
                     logger.warning(f"Celery not available, running {task_name} synchronously")
                     import inspect
@@ -87,7 +58,7 @@ def _make_task(func=None, task_name=None):
                     if params and params[0] == "self":
                         return self.fn(None, *args, **kwargs)
                     return self.fn(*args, **kwargs)
-                
+
                 def AsyncResult(self, task_id):
                     class FakeResult:
                         state = "UNAVAILABLE"
@@ -98,12 +69,12 @@ def _make_task(func=None, task_name=None):
                         def revoke(self, *args, **kwargs):
                             pass
                     return FakeResult()
-                
+
                 def revoke(self, *args, **kwargs):
                     pass
-            
+
             return SimpleTask(f)
-    
+
     if func is not None:
         return decorator(func)
     return decorator
@@ -135,7 +106,7 @@ def run_scheduled_scrape(self, schedule_id: str, urls: list[str], config: dict):
             all_rows.extend(table.get("rows", []))
 
         processor = ScrapeDataProcessor()
-        
+
         processed = processor.process(
             rows=all_rows,
             run_advanced_analysis=config.get("run_advanced_analysis", True),
@@ -188,23 +159,88 @@ def cleanup_old_results(self, days: int = 30):
 
 class ScrapeScheduler:
 
-    def create_schedule(self, user_id: str, name: str, urls: list[str],
-                       interval_minutes: int = 60, config: dict = None) -> dict:
-        import uuid
-        schedule_id = str(uuid.uuid4())[:8]
-        now = datetime.now()
+    def __init__(self, db: AsyncSession = None):
+        self._db = db
+
+    def _set_db(self, db: AsyncSession):
+        self._db = db
+
+    async def create_schedule(
+        self,
+        user_id: str,
+        name: str,
+        url: str,
+        config: dict = None,
+        cron_expression: str = "0 2 * * *",
+        interval_minutes: int = 1440,
+        template_id: str = None,
+    ) -> Dict:
+        now = datetime.utcnow()
         next_run = now + timedelta(minutes=interval_minutes)
-        schedule = ScrapeSchedule(
-            id=schedule_id, user_id=user_id, name=name, urls=urls,
-            interval_minutes=interval_minutes,
-            next_run=next_run.isoformat(),
+        schedule = ScrapeScheduleModel(
+            id=uuid.uuid4(),
+            user_id=uuid.UUID(user_id) if len(user_id) == 36 else user_id,
+            name=name,
+            url=url,
             config=config or {},
-            created_at=now.isoformat(),
+            cron_expression=cron_expression,
+            interval_minutes=interval_minutes,
+            is_active=True,
+            next_run_at=next_run,
+            template_id=uuid.UUID(template_id) if template_id else None,
         )
+        self._db.add(schedule)
+        await self._db.commit()
+        await self._db.refresh(schedule)
         return schedule.to_dict()
 
-    def trigger_now(self, schedule_id: str, urls: list[str], config: dict = None) -> dict:
-        task = run_scheduled_scrape.delay(schedule_id, urls, config or {})
+    async def list_user_schedules(self, user_id: str, skip: int = 0, limit: int = 50) -> List[Dict]:
+        result = await self._db.execute(
+            select(ScrapeScheduleModel)
+            .where(ScrapeScheduleModel.user_id == user_id)
+            .order_by(ScrapeScheduleModel.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        return [s.to_dict() for s in result.scalars().all()]
+
+    async def get_schedule(self, schedule_id: str) -> Optional[Dict]:
+        result = await self._db.execute(
+            select(ScrapeScheduleModel).where(ScrapeScheduleModel.id == schedule_id)
+        )
+        schedule = result.scalar_one_or_none()
+        return schedule.to_dict() if schedule else None
+
+    async def update_schedule(self, schedule_id: str, **kwargs) -> Optional[Dict]:
+        result = await self._db.execute(
+            select(ScrapeScheduleModel).where(ScrapeScheduleModel.id == schedule_id)
+        )
+        schedule = result.scalar_one_or_none()
+        if not schedule:
+            return None
+        for key, value in kwargs.items():
+            if hasattr(schedule, key) and key not in ("id", "user_id", "created_at"):
+                setattr(schedule, key, value)
+        await self._db.commit()
+        await self._db.refresh(schedule)
+        return schedule.to_dict()
+
+    async def delete_schedule(self, schedule_id: str) -> bool:
+        result = await self._db.execute(
+            select(ScrapeScheduleModel).where(ScrapeScheduleModel.id == schedule_id)
+        )
+        schedule = result.scalar_one_or_none()
+        if not schedule:
+            return False
+        await self._db.delete(schedule)
+        await self._db.commit()
+        return True
+
+    async def toggle_active(self, schedule_id: str, is_active: bool) -> Optional[Dict]:
+        return await self.update_schedule(schedule_id, is_active=is_active)
+
+    def trigger_now(self, schedule_id: str, url: str, config: dict = None) -> dict:
+        task = run_scheduled_scrape.delay(schedule_id, [url], config or {})
         return {
             "task_id": task.id,
             "schedule_id": schedule_id,

@@ -1,214 +1,160 @@
-"""Webhook Notifier — Send notifications via webhook/Slack/Discord/Email."""
+"""Webhook Notifier — Send notifications via webhook/Slack/Discord/Email (DB-backed)."""
 import json
 import logging
+import uuid
 from typing import Optional, Dict, Any, List
-from dataclasses import dataclass, field
 from datetime import datetime
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 import httpx
+
+from app.models.scrape_config import ScrapeWebhookConfig
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class NotificationConfig:
-    webhook_urls: list[str] = field(default_factory=list)
-    slack_webhook: str = ""
-    discord_webhook: str = ""
-    email_config: dict = field(default_factory=dict)
-    enabled: bool = True
-    events: list[str] = field(default_factory=lambda: ["completed", "failed"])
-    include_data: bool = False
-    max_retries: int = 3
-
-    def to_dict(self) -> dict:
-        return {
-            "webhook_count": len(self.webhook_urls),
-            "has_slack": bool(self.slack_webhook),
-            "has_discord": bool(self.discord_webhook),
-            "has_email": bool(self.email_config),
-            "enabled": self.enabled,
-            "events": self.events,
-        }
-
-
-@dataclass
-class NotificationResult:
-    success: bool = True
-    sent_count: int = 0
-    failed_count: int = 0
-    errors: list[str] = field(default_factory=list)
-    results: list[dict] = field(default_factory=list)
-
-    def to_dict(self) -> dict:
-        return {
-            "success": self.success,
-            "sent_count": self.sent_count,
-            "failed_count": self.failed_count,
-            "errors": self.errors,
-        }
-
-
 class WebhookNotifier:
 
-    def __init__(self):
-        self._configs: Dict[str, NotificationConfig] = {}
-        self._history: list[dict] = []
+    def __init__(self, db: AsyncSession = None):
+        self._db = db
 
-    def configure(self, name: str, config: NotificationConfig):
-        self._configs[name] = config
+    def _set_db(self, db: AsyncSession):
+        self._db = db
 
-    async def notify(self, event: str, data: dict, config_name: str = None) -> NotificationResult:
-        result = NotificationResult()
-        if config_name:
-            config = self._configs.get(config_name)
-            if not config:
-                result.success = False
-                result.errors.append(f"Config '{config_name}' not found")
-                return result
-            configs = [config]
-        else:
-            configs = list(self._configs.values())
+    async def configure(
+        self,
+        user_id: str,
+        name: str,
+        url: str,
+        webhook_type: str = "generic",
+        events: List[str] = None,
+        headers: Dict = None,
+        is_active: bool = True,
+        secret: str = None,
+    ) -> Dict:
+        config = ScrapeWebhookConfig(
+            id=uuid.uuid4(),
+            user_id=uuid.UUID(user_id) if len(user_id) == 36 else user_id,
+            name=name,
+            url=url,
+            webhook_type=webhook_type,
+            events=events or ["scrape.complete", "scrape.error"],
+            headers=headers or {},
+            is_active=is_active,
+            secret=secret,
+        )
+        self._db.add(config)
+        await self._db.commit()
+        await self._db.refresh(config)
+        return config.to_dict()
 
-        for config in configs:
-            if not config.enabled:
-                continue
-            if event not in config.events:
-                continue
+    async def list_user_webhooks(self, user_id: str, skip: int = 0, limit: int = 50) -> List[Dict]:
+        result = await self._db.execute(
+            select(ScrapeWebhookConfig)
+            .where(ScrapeWebhookConfig.user_id == user_id)
+            .order_by(ScrapeWebhookConfig.created_at.desc())
+            .offset(skip)
+            .limit(limit)
+        )
+        return [w.to_dict() for w in result.scalars().all()]
 
-            for url in config.webhook_urls:
-                try:
-                    async with httpx.AsyncClient(timeout=15) as client:
-                        payload = {
-                            "event": event,
-                            "timestamp": datetime.now().isoformat(),
-                            "data": data if config.include_data else {
-                                "status": data.get("status", ""),
-                                "summary": data.get("summary", ""),
-                                "url": data.get("url", ""),
-                            },
-                        }
-                        resp = await client.post(url, json=payload)
-                        if resp.status_code < 300:
-                            result.sent_count += 1
-                            result.results.append({"url": url, "status": "sent"})
-                        else:
-                            result.failed_count += 1
-                            result.errors.append(f"{url}: HTTP {resp.status_code}")
-                except Exception as e:
-                    result.failed_count += 1
-                    result.errors.append(f"{url}: {str(e)}")
+    async def get_webhook(self, webhook_id: str) -> Optional[Dict]:
+        result = await self._db.execute(
+            select(ScrapeWebhookConfig).where(ScrapeWebhookConfig.id == webhook_id)
+        )
+        webhook = result.scalar_one_or_none()
+        return webhook.to_dict() if webhook else None
 
-            if config.slack_webhook:
-                try:
-                    await self._send_slack(config.slack_webhook, event, data)
-                    result.sent_count += 1
-                except Exception as e:
-                    result.failed_count += 1
-                    result.errors.append(f"Slack: {str(e)}")
+    async def update_webhook(self, webhook_id: str, **kwargs) -> Optional[Dict]:
+        result = await self._db.execute(
+            select(ScrapeWebhookConfig).where(ScrapeWebhookConfig.id == webhook_id)
+        )
+        webhook = result.scalar_one_or_none()
+        if not webhook:
+            return None
+        for key, value in kwargs.items():
+            if hasattr(webhook, key) and key not in ("id", "user_id", "created_at"):
+                setattr(webhook, key, value)
+        await self._db.commit()
+        await self._db.refresh(webhook)
+        return webhook.to_dict()
 
-            if config.discord_webhook:
-                try:
-                    await self._send_discord(config.discord_webhook, event, data)
-                    result.sent_count += 1
-                except Exception as e:
-                    result.failed_count += 1
-                    result.errors.append(f"Discord: {str(e)}")
+    async def delete_webhook(self, webhook_id: str) -> bool:
+        result = await self._db.execute(
+            select(ScrapeWebhookConfig).where(ScrapeWebhookConfig.id == webhook_id)
+        )
+        webhook = result.scalar_one_or_none()
+        if not webhook:
+            return False
+        await self._db.delete(webhook)
+        await self._db.commit()
+        return True
 
-        result.success = result.failed_count == 0
-        self._history.append({
-            "event": event, "timestamp": datetime.now().isoformat(),
-            "result": result.to_dict(),
-        })
-        return result
+    async def test_webhook(self, webhook_id: str) -> Dict:
+        webhook = await self.get_webhook(webhook_id)
+        if not webhook:
+            return {"success": False, "error": "Webhook not found"}
 
-    async def _send_slack(self, webhook_url: str, event: str, data: dict):
-        color_map = {"completed": "good", "failed": "danger", "started": "#439FE0"}
-        emoji_map = {"completed": "✅", "failed": "❌", "started": "🚀"}
-        emoji = emoji_map.get(event, "📢")
-        color = color_map.get(event, "#808080")
-
-        blocks = [
-            {
-                "type": "header",
-                "text": {"type": "plain_text", "text": f"{emoji} Scrape {event.title()}"}
-            },
-            {
-                "type": "section",
-                "fields": [
-                    {"type": "mrkdwn", "text": f"*URL:*\n{data.get('url', 'N/A')[:100]}"},
-                    {"type": "mrkdwn", "text": f"*Status:*\n{data.get('status', event)}"},
-                    {"type": "mrkdwn", "text": f"*Rows:*\n{data.get('clean_row_count', 0)}"},
-                    {"type": "mrkdwn", "text": f"*Quality:*\n{data.get('quality_score', 0)}%"},
-                ]
-            }
-        ]
-
-        payload = {"blocks": blocks}
-        async with httpx.AsyncClient(timeout=15) as client:
-            await client.post(webhook_url, json=payload)
-
-    async def _send_discord(self, webhook_url: str, event: str, data: dict):
-        color_map = {"completed": 0x00FF00, "failed": 0xFF0000, "started": 0x0099FF}
-        emoji_map = {"completed": "✅", "failed": "❌", "started": "🚀"}
-        emoji = emoji_map.get(event, "📢")
-        color = color_map.get(event, 0x808080)
-
-        embed = {
-            "title": f"{emoji} Scrape {event.title()}",
-            "color": color,
-            "fields": [
-                {"name": "URL", "value": data.get("url", "N/A")[:100], "inline": True},
-                {"name": "Status", "value": data.get("status", event), "inline": True},
-                {"name": "Rows", "value": str(data.get("clean_row_count", 0)), "inline": True},
-                {"name": "Quality", "value": f"{data.get('quality_score', 0)}%", "inline": True},
-            ],
-            "timestamp": datetime.now().isoformat(),
+        test_payload = {
+            "event": "test",
+            "timestamp": datetime.utcnow().isoformat(),
+            "data": {"message": "Test webhook from ML Pipeline"},
         }
 
-        payload = {"embeds": [embed]}
-        async with httpx.AsyncClient(timeout=15) as client:
-            await client.post(webhook_url, json=payload)
-
-    async def send_email(self, config: dict, subject: str, body: str):
         try:
-            import smtplib
-            from email.mime.text import MIMEText
-            from email.mime.multipart import MIMEMultipart
-
-            msg = MIMEMultipart()
-            msg["From"] = config.get("from", "")
-            msg["To"] = config.get("to", "")
-            msg["Subject"] = subject
-            msg.attach(MIMEText(body, "html"))
-
-            host = config.get("host", "")
-            port = config.get("port", 587)
-            user = config.get("user", "")
-            password = config.get("password", "")
-            
-            if not host:
-                logger.error("Email send failed: SMTP host not configured")
-                return False
-            
-            with smtplib.SMTP(host, port, timeout=30) as server:
-                server.ehlo()
-                if port != 25:
-                    server.starttls()
-                    server.ehlo()
-                if user and password:
-                    server.login(user, password)
-                server.send_message(msg)
-            return True
-        except smtplib.SMTPConnectError as e:
-            logger.error(f"Email send failed - connection error: {e}")
-            return False
-        except smtplib.SMTPAuthenticationError as e:
-            logger.error(f"Email send failed - authentication error: {e}")
-            return False
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.post(webhook["url"], json=test_payload)
+                return {
+                    "success": resp.status_code < 300,
+                    "status_code": resp.status_code,
+                }
         except Exception as e:
-            logger.error(f"Email send failed: {e}")
-            return False
+            return {"success": False, "error": str(e)}
 
-    def get_history(self, limit: int = 20) -> list[dict]:
-        return self._history[-limit:]
+    async def notify(self, event: str, data: dict, user_id: str = None) -> Dict:
+        """Send notification to all matching webhooks for a user."""
+        result = {"sent": 0, "failed": 0, "errors": []}
+
+        query = select(ScrapeWebhookConfig).where(ScrapeWebhookConfig.is_active == True)
+        if user_id:
+            query = query.where(ScrapeWebhookConfig.user_id == user_id)
+
+        db_result = await self._db.execute(query)
+        webhooks = db_result.scalars().all()
+
+        for wh in webhooks:
+            if event not in (wh.events or []):
+                continue
+
+            payload = {
+                "event": event,
+                "timestamp": datetime.utcnow().isoformat(),
+                "data": data,
+            }
+
+            try:
+                async with httpx.AsyncClient(timeout=15) as client:
+                    headers = wh.headers or {}
+                    if wh.secret:
+                        import hashlib
+                        import hmac
+                        sig = hmac.new(wh.secret.encode(), json.dumps(payload).encode(), hashlib.sha256).hexdigest()
+                        headers["X-Webhook-Signature"] = f"sha256={sig}"
+
+                    resp = await client.post(wh.url, json=payload, headers=headers)
+                    wh.last_triggered_at = datetime.utcnow()
+                    wh.last_status = resp.status_code
+
+                    if resp.status_code < 300:
+                        result["sent"] += 1
+                        wh.trigger_count = (wh.trigger_count or 0) + 1
+                    else:
+                        result["failed"] += 1
+                        result["errors"].append(f"{wh.name}: HTTP {resp.status_code}")
+            except Exception as e:
+                result["failed"] += 1
+                result["errors"].append(f"{wh.name}: {str(e)}")
+
+        await self._db.commit()
+        return result

@@ -76,10 +76,12 @@ class HtmlScraper:
     USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
     MAX_RECURSIVE_DEPTH = 3
     MAX_PAGES_PER_DOMAIN = 50
+    CACHE_TTL_SECONDS = 3600
 
-    def __init__(self, proxy: str = None, user_agent: str = None):
+    def __init__(self, proxy: str = None, user_agent: str = None, use_cache: bool = True):
         self.proxy = proxy
         self.user_agent = user_agent or self.USER_AGENT
+        self.use_cache = use_cache
         self.headers = {
             "User-Agent": self.user_agent,
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,application/json,*/*;q=0.8",
@@ -89,6 +91,40 @@ class HtmlScraper:
             "Cache-Control": "max-age=0",
         }
         self._visited: Set[str] = set()
+
+    async def _check_cache(self, url: str) -> Optional[dict]:
+        """Check Redis cache for previously scraped content."""
+        if not self.use_cache:
+            return None
+        try:
+            from app.core.config import get_settings
+            settings = get_settings()
+            import redis.asyncio as redis
+            client = redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
+            cached = await client.get(f"scrape_cache:{hashlib.md5(url.encode()).hexdigest()}")
+            await client.aclose()
+            if cached:
+                import json
+                return json.loads(cached)
+        except Exception:
+            pass
+        return None
+
+    async def _store_cache(self, url: str, data: dict, ttl: int = None) -> None:
+        """Store scraped content in Redis cache."""
+        if not self.use_cache:
+            return
+        try:
+            from app.core.config import get_settings
+            settings = get_settings()
+            import redis.asyncio as redis
+            import json
+            client = redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
+            key = f"scrape_cache:{hashlib.md5(url.encode()).hexdigest()}"
+            await client.setex(key, ttl or self.CACHE_TTL_SECONDS, json.dumps(data, default=str))
+            await client.aclose()
+        except Exception:
+            pass
 
     def _validate_url(self, url: str) -> str:
         url = url.strip()
@@ -382,6 +418,31 @@ class HtmlScraper:
         start_time = datetime.now()
         url = self._validate_url(url)
 
+        cached = await self._check_cache(url)
+        if cached:
+            logger.info(f"Cache hit for {url}")
+            result = ScrapeResult(
+                url=cached.get("url", url),
+                title=cached.get("title", ""),
+                tables=cached.get("tables", []),
+                text_blocks=cached.get("text_blocks", []),
+                metadata=cached.get("metadata", {}),
+                row_count=cached.get("row_count", 0),
+                column_count=cached.get("column_count", 0),
+                content_hash=cached.get("content_hash", ""),
+                links=cached.get("links", []),
+                images=cached.get("images", []),
+                json_ld=cached.get("json_ld", []),
+                open_graph=cached.get("open_graph", {}),
+                meta_tags=cached.get("meta_tags", {}),
+                keywords=cached.get("keywords", []),
+                word_count=cached.get("word_count", 0),
+                reading_time_minutes=cached.get("reading_time_minutes", 0),
+                scrape_strategy="cache",
+                scrape_duration_ms=int((datetime.now() - start_time).total_seconds() * 1000),
+            )
+            return result
+
         html, status_code, response_headers = await self._fetch_html(url)
         content_type = response_headers.get("content-type", "")
 
@@ -455,7 +516,181 @@ class HtmlScraper:
         result.content_hash = hashlib.md5(html.encode()).hexdigest()
         result.scrape_duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
 
+        await self._store_cache(url, result.to_dict())
+
         return result
+
+    async def scrape_universal(
+        self, url: str, extract_tables: bool = True, extract_lists: bool = True,
+        use_js: bool = False, use_selenium: bool = False, wait_seconds: int = 3,
+    ) -> dict:
+        """Universal scraping mode — automatically adapts to the website.
+
+        1. Fetches with static HTTP + fingerprint bypass (curl_cffi).
+        2. If the page looks like a SPA or tables are empty, falls back to JS rendering.
+        3. If JS rendering is requested or the site is anti-bot protected, uses Selenium.
+        4. Returns a dict with raw HTML, title, tables, and metadata so callers can
+           pick the representation they need (preview, import, etc.).
+        """
+        start_time = datetime.now()
+        url = self._validate_url(url)
+
+        # Try static fetch first
+        html, status_code, response_headers = await self._fetch_html(url)
+        content_type = response_headers.get("content-type", "")
+
+        # Handle non-HTML responses (JSON, XML, API endpoints)
+        if "application/json" in content_type:
+            static_result = await self._scrape_json(url, html, status_code, start_time)
+            return self._universal_result_dict(static_result, html, status_code)
+        if "application/xml" in content_type or "text/xml" in content_type:
+            static_result = await self._scrape_xml(url, html, status_code, start_time)
+            return self._universal_result_dict(static_result, html, status_code)
+
+        soup = BeautifulSoup(html, "lxml")
+        title = self._extract_title(soup, url)
+
+        # Detect SPA / JS-rendered content
+        spa_indicators = self._detect_spa(soup)
+        is_spa = bool(spa_indicators)
+        tables = []
+        if extract_tables:
+            for table in soup.find_all("table"):
+                extracted = self._extract_table(table)
+                if extracted["row_count"] > 0:
+                    tables.append(extracted)
+
+        # If static scraping returned no tables and no meaningful text, or if
+        # the page is clearly a SPA, fall back to JS rendering
+        needs_js = use_js or use_selenium or (is_spa and not tables)
+
+        js_result_data = None
+        if needs_js:
+            try:
+                from app.services.scraper.js_scraper import JsRenderedScraper
+                if use_selenium:
+                    js_scraper = JsRenderedScraper()
+                    page = await js_scraper.scrape_with_selenium(url, wait_seconds=wait_seconds)
+                else:
+                    js_scraper = JsRenderedScraper()
+                    page = await js_scraper.smart_scrape(url)
+                js_html = page.html
+                js_soup = BeautifulSoup(js_html, "lxml")
+                if extract_tables:
+                    js_tables = []
+                    for table in js_soup.find_all("table"):
+                        extracted = self._extract_table(table)
+                        if extracted["row_count"] > 0:
+                            js_tables.append(extracted)
+                    if js_tables:
+                        tables = js_tables
+                        html = js_html
+                        soup = js_soup
+                        title = self._extract_title(soup, url)
+                        is_spa = False  # We got real data from JS
+                js_result_data = page.to_dict() if page else None
+            except Exception as e:
+                logger.warning(f"JS rendering fallback failed for {url}: {e}")
+
+        # Build a full ScrapeResult
+        result = ScrapeResult(url=url, title=title, scrape_strategy="universal")
+        result.open_graph = self._extract_open_graph(soup)
+        result.links = self._extract_links(soup, url)[:200]
+        result.images = self._extract_images(soup, url)
+        result.json_ld = self._extract_json_ld(soup)
+        result.meta_tags = self._extract_meta_tags(soup)
+        result.feeds = self._extract_feeds(soup)
+        result.api_endpoints = self._extract_api_endpoints(soup, str(soup))
+        if extract_tables:
+            result.tables = tables
+        if extract_lists:
+            result.text_blocks = self._extract_lists(soup)
+
+        total_rows = sum(t["row_count"] for t in result.tables)
+        result.row_count = total_rows
+        if result.tables:
+            result.column_count = max(len(t["headers"]) for t in result.tables)
+        result.word_count = self._calculate_word_count(soup)
+        result.reading_time_minutes = round(result.word_count / 200, 1)
+        result.content_hash = hashlib.md5(html.encode()).hexdigest()
+        result.scrape_duration_ms = int((datetime.now() - start_time).total_seconds() * 1000)
+
+        meta = {
+            "status_code": status_code,
+            "content_type": content_type,
+            "is_spa": is_spa,
+            "spa_indicators": spa_indicators,
+            "used_js_rendering": needs_js,
+        }
+        if js_result_data:
+            meta["js_render_info"] = js_result_data
+
+        result.metadata = meta
+
+        return self._universal_result_dict(result, html, status_code)
+
+    def _detect_spa(self, soup: BeautifulSoup) -> list[str]:
+        """Detect if a page is a SPA / JavaScript-rendered site from static HTML."""
+        indicators = []
+        text = str(soup).lower()
+
+        # Script with src pointing to common bundlers
+        for script in soup.find_all("script", src=True):
+            src = script.get("src", "").lower()
+            for bundler in ["/", "/static/", "bundle", "chunk-", "main.", "app.", "vendor"]:
+                if bundler in src:
+                    indicators.append("js_bundle")
+                    break
+
+        # Common SPA root divs
+        if soup.find(id="root") or soup.find(id="app"):
+            indicators.append("spa_root_div")
+        if soup.find(class_=re.compile(r"^app$|^root$|^main-content$", re.I)):
+            indicators.append("spa_class_name")
+
+        # Next.js / Nuxt / SvelteKit markers
+        if "__NEXT_DATA__" in text:
+            indicators.append("nextjs")
+        if "nuxt" in text or "__NUXT__" in text:
+            indicators.append("nuxt")
+        if "window.__NUXT__" in text:
+            indicators.append("nuxt")
+        if "window.__SPA__" in text:
+            indicators.append("spa_framework")
+
+        # Very short body text with large JS = likely SPA
+        body_text = soup.get_text(strip=True)
+        if len(body_text) < 500 and len(text) > 5000:
+            indicators.append("low_text_content")
+
+        return list(set(indicators))
+
+    def _universal_result_dict(self, result: ScrapeResult, html: str, status_code: int) -> dict:
+        """Convert a ScrapeResult (or raw fetch) into a universal-scrape dict response."""
+        return {
+            "url": result.url,
+            "title": result.title,
+            "html": html[:50000],
+            "tables": result.tables,
+            "text_blocks": result.text_blocks,
+            "metadata": result.metadata,
+            "row_count": result.row_count,
+            "column_count": result.column_count,
+            "content_hash": result.content_hash,
+            "links": result.links,
+            "images": result.images,
+            "json_ld": result.json_ld,
+            "feeds": result.feeds,
+            "api_endpoints": result.api_endpoints,
+            "open_graph": result.open_graph,
+            "keywords": result.keywords,
+            "language": result.language,
+            "word_count": result.word_count,
+            "reading_time_minutes": result.reading_time_minutes,
+            "scrape_strategy": result.scrape_strategy,
+            "scrape_duration_ms": result.scrape_duration_ms,
+            "status_code": status_code,
+        }
 
     async def _scrape_json(self, url: str, raw_text: str, status_code: int, start_time: datetime) -> ScrapeResult:
         try:
@@ -611,3 +846,67 @@ class HtmlScraper:
             logger.warning(f"Failed to parse sitemap {sitemap_url}: {e}")
 
         return urls[:limit]
+
+    async def scrape_with_playwright(
+        self,
+        url: str,
+        wait_seconds: int = 3,
+        scroll: bool = False,
+        max_scrolls: int = 5,
+    ) -> ScrapeResult:
+        """Scrape using Playwright for JS-rendered pages. Fallback from static scrape."""
+        try:
+            from app.services.scraper.playwright_scraper import PlaywrightScraper
+        except ImportError:
+            logger.warning("Playwright not available, falling back to static scrape")
+            return await self.scrape(url)
+
+        pw = PlaywrightScraper(proxy=self.proxy)
+        try:
+            pw_result = await pw.scrape(
+                url=url,
+                wait_seconds=wait_seconds,
+                scroll=scroll,
+                max_scrolls=max_scrolls,
+            )
+
+            if not pw_result.success:
+                logger.warning(f"Playwright scrape failed: {pw_result.error}, falling back to static")
+                return await self.scrape(url)
+
+            result = ScrapeResult(
+                url=url,
+                title=pw_result.title,
+                links=pw_result.links,
+                images=pw_result.images,
+                word_count=pw_result.metadata.get("word_count", 0),
+                scrape_strategy="playwright",
+                scrape_duration_ms=pw_result.duration_ms,
+            )
+
+            soup = BeautifulSoup(pw_result.html, "lxml")
+            result.tables = self._extract_tables(soup)
+            result.json_ld = pw_result.metadata.get("json_ld", [])
+            result.open_graph = {
+                "title": pw_result.metadata.get("og_title", ""),
+                "description": pw_result.metadata.get("og_description", ""),
+                "image": pw_result.metadata.get("og_image", ""),
+            }
+            result.meta_tags = {
+                "description": pw_result.metadata.get("description", ""),
+                "keywords": pw_result.metadata.get("keywords", ""),
+            }
+
+            text = pw_result.text
+            result.text_blocks = [[p.strip() for p in text.split("\n") if p.strip()][:50]]
+            result.row_count = sum(len(t.get("rows", [])) for t in result.tables)
+            result.column_count = max((len(t.get("headers", [])) for t in result.tables), default=0)
+
+            result.content_hash = hashlib.sha256(text.encode()).hexdigest()
+
+            if result.word_count > 0:
+                result.reading_time_minutes = round(result.word_count / 200, 1)
+
+            return result
+        finally:
+            await pw.close()

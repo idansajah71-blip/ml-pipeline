@@ -1,16 +1,28 @@
 import logging
+import os
+import json
 from datetime import datetime
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse, StreamingResponse
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
+
+import pandas as pd
 
 from app.core.database import get_db
 from app.core.security import get_current_user
 from app.services.scraper.html_scraper import HtmlScraper
 from app.services.scraper.multi_scraper import MultiScraper
+from app.services.scraper.export_service import ExportService
+from app.services.scraper.shared import get_user_id, make_json_safe
 from app.ml.scrape_processor import ScrapeDataProcessor
+from app.models.dataset import Dataset
 from app.schemas.scraping import (
     ScrapeRequest,
+    UniversalScrapeRequest,
+    UniversalScrapeResponse,
     ScrapeAndProcessRequest,
     BatchScrapeRequest,
     RecursiveScrapeRequest,
@@ -30,10 +42,6 @@ processor = ScrapeDataProcessor()
 
 MAX_URLS_PER_JOB = 20
 MAX_ROWS_IMPORT = 500_000
-
-
-def _get_user_id(user) -> str:
-    return str(user.id)
 
 
 def _build_preview_response(result) -> ScrapePreviewResponse:
@@ -78,13 +86,46 @@ async def scrape_preview(
         raise HTTPException(status_code=500, detail=f"Gagal scrape URL: {str(e)}")
 
 
+@router.post("/universal", response_model=UniversalScrapeResponse)
+async def universal_scrape(
+    req: UniversalScrapeRequest,
+    user=Depends(get_current_user),
+):
+    """Universal scraping — automatically adapts to any website:
+    - Static HTML
+    - SPA / JavaScript-rendered sites
+    - JSON / XML API endpoints
+    - Anti-bot protected sites (fingerprint bypass)
+    """
+    try:
+        result = await scraper.scrape_universal(
+            url=req.url,
+            extract_tables=req.extract_tables,
+            extract_lists=req.extract_lists,
+            use_js=req.use_js,
+            use_selenium=req.use_selenium,
+            wait_seconds=req.wait_seconds,
+        )
+        return UniversalScrapeResponse(**result)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Universal scrape failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Gagal universal scrape: {str(e)}")
+
+
 @router.post("/scrape-and-process", response_model=ScrapeJobResponse)
 async def scrape_and_process(
     req: ScrapeAndProcessRequest,
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    user_id = _get_user_id(user)
+    user_id = get_user_id(user)
+    from app.core.websocket import emit_scrape_progress
+    import uuid
+    job_id = str(uuid.uuid4())
+
+    await emit_scrape_progress(job_id, "scrape:start", {"url": req.url, "status": "starting"})
 
     try:
         scrape_result = await scraper.scrape(
@@ -92,10 +133,14 @@ async def scrape_and_process(
             extract_tables=True,
             extract_lists=True,
         )
+        await emit_scrape_progress(job_id, "scrape:progress", {"url": req.url, "status": "scraped", "rows": len(scrape_result.tables)})
     except ValueError as e:
+        await emit_scrape_progress(job_id, "scrape:error", {"url": req.url, "error": str(e)})
+        logger.error(f"Scrape validation error: {e}", exc_info=True)
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Scrape failed: {e}")
+        await emit_scrape_progress(job_id, "scrape:error", {"url": req.url, "error": str(e)})
+        logger.error(f"Scrape failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Gagal scrape: {str(e)}")
 
     all_rows = []
@@ -181,20 +226,20 @@ async def scrape_and_process(
                 "clean_row_count": processed.clean_row_count,
                 "column_count": processed.column_count,
                 "duplicates_removed": processed.duplicates_removed,
-                "tables_data": scrape_result.tables,
-                "lists_data": scrape_result.text_blocks,
-                "metadata": scrape_result.metadata,
-                "processed_data": processed_data,
-                "columns_typed": processed.columns_typed,
-                "columns_renamed": processed.columns_renamed,
-                "quality_score": processed.quality_score,
-                "quality_issues": processed.quality_issues,
-                "clusters": processed.clusters,
+                "tables_data": make_json_safe(scrape_result.tables),
+                "lists_data": make_json_safe(scrape_result.text_blocks),
+                "metadata": make_json_safe(scrape_result.metadata),
+                "processed_data": make_json_safe(processed_data),
+                "columns_typed": make_json_safe(processed.columns_typed),
+                "columns_renamed": make_json_safe(processed.columns_renamed),
+                "quality_score": float(processed.quality_score),
+                "quality_issues": make_json_safe(processed.quality_issues),
+                "clusters": make_json_safe(processed.clusters),
                 "ml_processing_applied": ml_applied,
-                "advanced_analysis": processed.advanced_analysis,
-                "sentiment_analysis": processed.sentiment_analysis,
-                "pattern_analysis": processed.pattern_analysis,
-                "scrape_metadata": scrape_meta,
+                "advanced_analysis": make_json_safe(processed.advanced_analysis),
+                "sentiment_analysis": make_json_safe(processed.sentiment_analysis),
+                "pattern_analysis": make_json_safe(processed.pattern_analysis),
+                "scrape_metadata": make_json_safe(scrape_meta),
                 "content_hash": scrape_result.content_hash,
             },
         )
@@ -239,7 +284,7 @@ async def batch_scrape(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    user_id = _get_user_id(user)
+    user_id = get_user_id(user)
     multi = MultiScraper(max_concurrent=req.max_concurrent)
 
     try:
@@ -318,21 +363,21 @@ async def batch_scrape(
                 "clean_row_count": processed.clean_row_count,
                 "column_count": processed.column_count,
                 "duplicates_removed": processed.duplicates_removed,
-                "tables_data": batch_result.combined_tables[:50],
-                "lists_data": batch_result.combined_text_blocks[:50],
+                "tables_data": make_json_safe(batch_result.combined_tables[:50]),
+                "lists_data": make_json_safe(batch_result.combined_text_blocks[:50]),
                 "metadata": {},
-                "processed_data": processed_data,
-                "columns_typed": processed.columns_typed,
-                "columns_renamed": processed.columns_renamed,
-                "quality_score": processed.quality_score,
-                "quality_issues": processed.quality_issues,
-                "clusters": processed.clusters,
+                "processed_data": make_json_safe(processed_data),
+                "columns_typed": make_json_safe(processed.columns_typed),
+                "columns_renamed": make_json_safe(processed.columns_renamed),
+                "quality_score": float(processed.quality_score),
+                "quality_issues": make_json_safe(processed.quality_issues),
+                "clusters": make_json_safe(processed.clusters),
                 "ml_processing_applied": ml_applied,
-                "advanced_analysis": processed.advanced_analysis,
-                "sentiment_analysis": processed.sentiment_analysis,
-                "pattern_analysis": processed.pattern_analysis,
-                "scrape_metadata": batch_meta,
-                "batch_results": [r.to_dict() for r in batch_result.results],
+                "advanced_analysis": make_json_safe(processed.advanced_analysis),
+                "sentiment_analysis": make_json_safe(processed.sentiment_analysis),
+                "pattern_analysis": make_json_safe(processed.pattern_analysis),
+                "scrape_metadata": make_json_safe(batch_meta),
+                "batch_results": make_json_safe([r.to_dict() for r in batch_result.results]),
             },
         )
         await db.commit()
@@ -376,7 +421,7 @@ async def recursive_scrape(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    user_id = _get_user_id(user)
+    user_id = get_user_id(user)
     multi = MultiScraper(max_concurrent=3)
 
     try:
@@ -445,21 +490,21 @@ async def recursive_scrape(
                 "clean_row_count": processed.clean_row_count,
                 "column_count": processed.column_count,
                 "duplicates_removed": processed.duplicates_removed,
-                "tables_data": batch_result.combined_tables[:50],
-                "lists_data": batch_result.combined_text_blocks[:50],
+                "tables_data": make_json_safe(batch_result.combined_tables[:50]),
+                "lists_data": make_json_safe(batch_result.combined_text_blocks[:50]),
                 "metadata": {},
-                "processed_data": processed_data,
-                "columns_typed": processed.columns_typed,
-                "columns_renamed": processed.columns_renamed,
-                "quality_score": processed.quality_score,
-                "quality_issues": processed.quality_issues,
-                "clusters": processed.clusters,
+                "processed_data": make_json_safe(processed_data),
+                "columns_typed": make_json_safe(processed.columns_typed),
+                "columns_renamed": make_json_safe(processed.columns_renamed),
+                "quality_score": float(processed.quality_score),
+                "quality_issues": make_json_safe(processed.quality_issues),
+                "clusters": make_json_safe(processed.clusters),
                 "ml_processing_applied": ml_applied,
-                "advanced_analysis": processed.advanced_analysis,
-                "sentiment_analysis": processed.sentiment_analysis,
-                "pattern_analysis": processed.pattern_analysis,
-                "scrape_metadata": meta,
-                "batch_results": [r.to_dict() for r in batch_result.results[:20]],
+                "advanced_analysis": make_json_safe(processed.advanced_analysis),
+                "sentiment_analysis": make_json_safe(processed.sentiment_analysis),
+                "pattern_analysis": make_json_safe(processed.pattern_analysis),
+                "scrape_metadata": make_json_safe(meta),
+                "batch_results": make_json_safe([r.to_dict() for r in batch_result.results[:20]]),
             },
         )
         await db.commit()
@@ -503,7 +548,7 @@ async def discover_and_scrape(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    user_id = _get_user_id(user)
+    user_id = get_user_id(user)
     multi = MultiScraper(max_concurrent=3)
 
     try:
@@ -555,14 +600,14 @@ async def discover_and_scrape(
                 "raw_row_count": processed.raw_row_count,
                 "clean_row_count": processed.clean_row_count,
                 "column_count": processed.column_count,
-                "processed_data": processed_data,
-                "columns_typed": processed.columns_typed,
-                "quality_score": processed.quality_score,
-                "quality_issues": processed.quality_issues,
+                "processed_data": make_json_safe(processed_data),
+                "columns_typed": make_json_safe(processed.columns_typed),
+                "quality_score": float(processed.quality_score),
+                "quality_issues": make_json_safe(processed.quality_issues),
                 "ml_processing_applied": ml_applied,
-                "advanced_analysis": processed.advanced_analysis,
-                "scrape_metadata": meta,
-                "batch_results": [r.to_dict() for r in batch_result.results[:20]],
+                "advanced_analysis": make_json_safe(processed.advanced_analysis),
+                "scrape_metadata": make_json_safe(meta),
+                "batch_results": make_json_safe([r.to_dict() for r in batch_result.results[:20]]),
             },
         )
         await db.commit()
@@ -612,7 +657,7 @@ async def list_jobs(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    user_id = _get_user_id(user)
+    user_id = get_user_id(user)
     query = """
         SELECT id, url, title, status, raw_row_count, clean_row_count,
                column_count, duplicates_removed, columns_typed, columns_renamed,
@@ -667,7 +712,7 @@ async def get_job(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    user_id = _get_user_id(user)
+    user_id = get_user_id(user)
     result = await db.execute(
         text("""
             SELECT id, url, title, status, raw_row_count, clean_row_count,
@@ -721,7 +766,7 @@ async def import_scrape_to_dataset(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    user_id = _get_user_id(user)
+    user_id = get_user_id(user)
 
     result = await db.execute(
         text("""
@@ -743,26 +788,40 @@ async def import_scrape_to_dataset(
     if not processed_data:
         raise HTTPException(status_code=400, detail="Tidak ada data untuk di-import")
 
-    try:
-        insert_result = await db.execute(
-            text("""
-                INSERT INTO datasets (id, user_id, name, description, file_path, row_count, column_count, created_at)
-                VALUES (gen_random_uuid(), :user_id, :name, :description, :file_path, :row_count, :column_count, NOW())
-                RETURNING id, name
-            """),
-            {
-                "user_id": user_id,
-                "name": dataset_name,
-                "description": req.description or f"Data dari web scraping",
-                "file_path": f"scraped/{str(row[0])}.json",
-                "row_count": row_count,
-                "column_count": column_count,
-            },
+    if row_count > MAX_ROWS_IMPORT:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Data terlalu banyak ({row_count} rows). Batas maksimum adalah {MAX_ROWS_IMPORT:,} rows. Export/trim data terlebih dahulu.",
         )
+
+    # Write the processed data to a JSON file on disk
+    dataset_dir = os.path.join("ml_artifacts", "datasets", "scraped")
+    os.makedirs(dataset_dir, exist_ok=True)
+    job_id = row[0]
+    json_filename = f"job_{job_id}.json"
+    json_filepath = os.path.join(dataset_dir, json_filename)
+    with open(json_filepath, "w", encoding="utf-8") as f:
+        json.dump(make_json_safe(processed_data), f, indent=2, default=str, ensure_ascii=False)
+
+    try:
+        dataset = Dataset(
+            name=dataset_name,
+            description=req.description or "Data dari web scraping",
+            file_path=json_filepath,
+            file_size=os.path.getsize(json_filepath),
+            rows_count=row_count,
+            columns_count=column_count,
+            column_names=list(df.columns) if (df := pd.DataFrame(processed_data)).shape[0] > 0 else [],
+            column_types={col: str(df[col].dtype) for col in df.columns} if df.shape[0] > 0 else {},
+            target_column=req.target_column,
+            tags=["scraped"] + (req.tags or []),
+            owner_id=user.id,
+        )
+        db.add(dataset)
         await db.commit()
-        ds_row = insert_result.fetchone()
-        dataset_id = str(ds_row[0]) if ds_row else None
-        ds_name = ds_row[1] if ds_row else dataset_name
+        await db.refresh(dataset)
+        dataset_id = str(dataset.id)
+        ds_name = dataset.name
     except Exception as e:
         await db.rollback()
         logger.error(f"Failed to import scrape as dataset: {e}")
@@ -782,7 +841,7 @@ async def delete_job(
     db: AsyncSession = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    user_id = _get_user_id(user)
+    user_id = get_user_id(user)
     result = await db.execute(
         text("DELETE FROM scrape_jobs WHERE id = :job_id AND user_id = :user_id RETURNING id"),
         {"job_id": job_id, "user_id": user_id},
@@ -791,3 +850,236 @@ async def delete_job(
     if not result.fetchone():
         raise HTTPException(status_code=404, detail="Job tidak ditemukan")
     return {"message": "Job berhasil dihapus"}
+
+
+@router.get("/export/{job_id}/{fmt}")
+async def download_export(
+    job_id: str,
+    fmt: str,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """Download an exported file for a given scrape job in the specified format.
+
+    Supported formats: csv, json, excel, word, html, parquet, xml, sql
+    """
+    from fastapi.responses import FileResponse
+
+    user_id = get_user_id(user)
+    result = await db.execute(
+        text("SELECT processed_data FROM scrape_jobs WHERE id = :job_id AND user_id = :user_id"),
+        {"job_id": job_id, "user_id": user_id},
+    )
+    row = result.fetchone()
+    if not row or not row[0]:
+        raise HTTPException(status_code=404, detail="Job tidak ditemukan atau tidak ada data")
+
+    try:
+        df = pd.DataFrame(row[0])
+        export_service = ExportService()
+
+        export_map = {
+            "csv": export_service.export_csv,
+            "json": export_service.export_json,
+            "excel": export_service.export_excel,
+            "word": export_service.export_word,
+            "html": export_service.export_html,
+        }
+
+        if fmt not in export_map:
+            raise HTTPException(status_code=400, detail=f"Format tidak didukung: {fmt}")
+
+        filename = f"job_{job_id}_{fmt}"
+        if fmt == "csv":
+            filename += ".csv"
+        elif fmt == "json":
+            filename += ".json"
+        elif fmt == "excel":
+            filename += ".xlsx"
+        elif fmt == "word":
+            filename += ".docx"
+        elif fmt == "html":
+            filename += ".html"
+
+        result = export_map[fmt](df, filename=filename)
+        filepath = result["filepath"]
+
+        if not os.path.exists(filepath):
+            raise HTTPException(status_code=500, detail="File gagal dibuat")
+
+        return FileResponse(
+            path=filepath,
+            filename=filename,
+            media_type="application/octet-stream",
+        )
+    except Exception as e:
+        logger.error(f"Export download failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class TrainFromScrapeRequest(BaseModel):
+    job_id: str
+    target_column: str
+    task_type: str = Field("classification", description="classification, regression")
+    test_size: float = Field(0.2, ge=0.05, le=0.5)
+    algorithm: str = Field("random_forest", description="Algorithm to use for training")
+    name: Optional[str] = None
+
+
+class TrainFromScrapeResponse(BaseModel):
+    dataset_id: str
+    dataset_name: str
+    task_type: str
+    target_column: str
+    model_name: str
+    model_id: str
+    status: str
+    metrics: dict
+    message: str
+
+
+@router.post("/train", response_model=TrainFromScrapeResponse)
+async def train_from_scrape(
+    req: TrainFromScrapeRequest,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    """Import a completed scrape job as a dataset and immediately train an ML model.
+
+    This is a one-shot endpoint: it creates the dataset, creates a model, kicks off
+    training, and returns the model id and metrics.
+    """
+    from app.models.model import MLModel, ModelStatus
+    import uuid
+
+    user_id = get_user_id(user)
+
+    # Fetch job data
+    result = await db.execute(
+        text("""
+            SELECT id, title, processed_data, clean_row_count, column_count
+            FROM scrape_jobs
+            WHERE id = :job_id AND user_id = :user_id AND status = 'completed'
+        """),
+        {"job_id": req.job_id, "user_id": user_id},
+    )
+    row = result.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Job tidak ditemukan atau belum selesai")
+
+    jid, jtitle, processed_data, row_count, col_count = row[0], row[1], row[2], row[3], row[4]
+    if not processed_data:
+        raise HTTPException(status_code=400, detail="Tidak ada data untuk dilatih")
+
+    if row_count > MAX_ROWS_IMPORT:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Data terlalu banyak ({row_count} rows). Batas maksimum adalah {MAX_ROWS_IMPORT:,} rows.",
+        )
+
+    # Write JSON file for the dataset
+    dataset_dir = os.path.join("ml_artifacts", "datasets", "scraped")
+    os.makedirs(dataset_dir, exist_ok=True)
+    json_filename = f"job_{jid}.json"
+    json_filepath = os.path.join(dataset_dir, json_filename)
+    with open(json_filepath, "w", encoding="utf-8") as f:
+        json.dump(make_json_safe(processed_data), f, indent=2, default=str, ensure_ascii=False)
+
+    df = pd.DataFrame(processed_data)
+    if req.target_column not in df.columns:
+        raise HTTPException(status_code=400, detail=f"Kolom target '{req.target_column}' tidak ditemukan")
+
+    # Create dataset
+    try:
+        dataset = Dataset(
+            name=req.name or (jtitle or f"Scrape {jid}"),
+            description=f"Dataset from scrape job {jid}",
+            file_path=json_filepath,
+            file_size=os.path.getsize(json_filepath),
+            rows_count=len(df),
+            columns_count=len(df.columns),
+            column_names=list(df.columns),
+            column_types={col: str(df[col].dtype) for col in df.columns},
+            target_column=req.target_column,
+            tags=["scraped", req.task_type],
+            owner_id=user.id,
+        )
+        db.add(dataset)
+        await db.commit()
+        await db.refresh(dataset)
+        dataset_id = str(dataset.id)
+        ds_name = dataset.name
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to create dataset from scrape: {e}")
+        raise HTTPException(status_code=500, detail=f"Gagal membuat dataset: {str(e)}")
+
+    # Create model
+    try:
+        model_name = req.name or f"Scrape Model {uuid.uuid4().hex[:8]}"
+        model_obj = MLModel(
+            name=model_name,
+            description=f"Model trained from scrape job {jid}",
+            algorithm=req.algorithm,
+            target_column=req.target_column,
+            tags=["scraped", req.task_type],
+            owner_id=user.id,
+        )
+        db.add(model_obj)
+        await db.commit()
+        await db.refresh(model_obj)
+        model_id = str(model_obj.id)
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to create model: {e}")
+        raise HTTPException(status_code=500, detail=f"Gagal membuat model: {str(e)}")
+
+    # Run training
+    try:
+        pipeline = MLPipeline()
+        with open(json_filepath, "rb") as f:
+            file_content = f.read()
+        training_result = pipeline.run_training(
+            file_content=file_content,
+            filename=json_filename,
+            target_column=req.target_column,
+            algorithm=req.algorithm,
+            test_size=req.test_size,
+            problem_type=req.task_type,
+        )
+
+        if training_result.get("status") == "completed":
+            model_dir = os.path.join(
+                "ml_artifacts", f"model_{model_obj.id}_v{model_obj.version}"
+            )
+            artifacts = pipeline.save_artifacts(model_dir)
+
+            model_obj.status = ModelStatus.TRAINED
+            model_obj.file_path = artifacts["model_path"]
+            model_obj.metrics = training_result.get("metrics", {})
+            model_obj.parameters = training_result.get("parameters", {})
+            model_obj.feature_names = training_result.get("data_info", {}).get("features", [])
+        else:
+            model_obj.status = ModelStatus.FAILED
+
+        await db.commit()
+
+        metrics = training_result.get("metrics", {})
+        status = training_result.get("status", "failed")
+
+        return TrainFromScrapeResponse(
+            dataset_id=dataset_id,
+            dataset_name=ds_name,
+            task_type=req.task_type,
+            target_column=req.target_column,
+            model_name=model_name,
+            model_id=model_id,
+            status=status,
+            metrics=metrics,
+            message="Model berhasil dilatih dari data scraping" if status == "completed" else "Training gagal",
+        )
+    except Exception as e:
+        logger.error(f"Training from scrape failed: {e}")
+        model_obj.status = ModelStatus.FAILED
+        await db.commit()
+        raise HTTPException(status_code=500, detail=f"Gagal melatih model: {str(e)}")

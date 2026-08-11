@@ -6,6 +6,11 @@ from app.services.scraper.export_service import ExportService
 from app.services.scraper.data_transformer import DataTransformer
 from app.services.scraper.deduplicator import CrossPageDeduplicator
 from app.services.scraper.templates import TemplateManager
+from app.services.scraper.shared import USER_AGENTS, get_user_id, make_json_safe
+try:
+    from app.services.scraper.playwright_scraper import PlaywrightScraper
+except ImportError:
+    PlaywrightScraper = None
 try:
     from app.services.scraper.scheduler import ScrapeScheduler
 except (ImportError, TypeError):
@@ -39,6 +44,7 @@ __all__ = [
     "DataTransformer",
     "CrossPageDeduplicator",
     "TemplateManager",
+    "PlaywrightScraper",
     "ScrapeScheduler",
     "AuthenticatedScraper",
     "AuthConfig",
@@ -62,4 +68,7 @@ __all__ = [
     "AcademicScraper",
     "JobScraper",
     "RealEstateScraper",
+    "USER_AGENTS",
+    "get_user_id",
+    "make_json_safe",
 ]
