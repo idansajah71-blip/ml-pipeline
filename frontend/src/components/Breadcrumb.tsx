@@ -4,9 +4,9 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronRight, Home } from 'lucide-react';
 
-// ── Human-readable route labels (New IA) ─────────────────────────────────────
+// ── Route → human-readable label ─────────────────────────────────────────────
 const ROUTE_LABELS: Record<string, string> = {
-  // Workspace
+  // Top-level routes
   'datasets':           'Data',
   'models':             'Models',
   'experiments':        'Experiments',
@@ -17,7 +17,7 @@ const ROUTE_LABELS: Record<string, string> = {
   // Data sub-features
   'data-quality':       'Quality',
   'data-validation':    'Validation',
-  'data-explorer':      'External Data',
+  'data-explorer':      'Online Data',
   'data-versions':      'Versions',
 
   // Model sub-features
@@ -25,16 +25,15 @@ const ROUTE_LABELS: Record<string, string> = {
   'ensemble':           'Ensemble',
   'explain':            'Explainability',
   'benchmark':          'Benchmark',
-  'automl':             'AutoML',
 
   // Experiment sub-features
   'experiment-compare': 'Comparison',
 
-  // Predictions sub-features
+  // Prediction sub-features
   'try-predict':        'Playground',
-  'batch-jobs':         'Batch',
+  'batch-jobs':         'Batch Jobs',
 
-  // Deployments sub-features
+  // Deployment sub-features
   'ab-tests':           'A/B Testing',
   'ab-testing':         'A/B Testing',
 
@@ -43,8 +42,10 @@ const ROUTE_LABELS: Record<string, string> = {
   'system-health':      'System Health',
 
   // ML Tools
-  'training-wizard':    'Training Wizard',
-  'marketplace':        'Marketplace',
+  'training-wizard':    'Train Model',
+  'panduan-algoritma':  'Algorithm Guide',
+
+  // Data Sources
   'scraping':           'Web Scraping',
 
   // Integrations
@@ -52,9 +53,12 @@ const ROUTE_LABELS: Record<string, string> = {
   'feature-store':      'Feature Store',
   'webhooks':           'Webhooks',
 
+  // Explore
+  'marketplace':        'Marketplace',
+
   // Organization
   'organizations':      'Team',
-  'quota':              'Usage & API',
+  'quota':              'API & Quota',
   'costs':              'Costs',
 
   // System
@@ -63,7 +67,37 @@ const ROUTE_LABELS: Record<string, string> = {
   'privacy':            'Privacy',
   'profile':            'Profile',
   'trash':              'Trash',
-  'panduan-algoritma':  'Algorithm Guide',
+};
+
+// ── Route → parent group label (for breadcrumb context) ──────────────────────
+// Maps sub-pages to their parent group in the new IA
+
+const PARENT_MAP: Record<string, string> = {
+  'data-quality':       'Data',
+  'data-validation':    'Data',
+  'data-versions':      'Data',
+  'model-versions':     'Models',
+  'ensemble':           'Models',
+  'explain':            'Models',
+  'benchmark':          'Models',
+  'experiment-compare': 'Experiments',
+  'try-predict':        'Predictions',
+  'batch-jobs':         'Predictions',
+  'ab-tests':           'Deployments',
+  'ab-testing':         'Deployments',
+  'feature-monitoring': 'Monitoring',
+};
+
+// ── Top-level routes that belong to a group (for hiding redundant crumbs) ────
+// If a route IS the parent (e.g. /datasets = "Data"), we skip adding the group label
+
+const GROUP_ROUTES: Record<string, string> = {
+  'datasets': 'Data',
+  'models': 'Models',
+  'experiments': 'Experiments',
+  'predictions': 'Predictions',
+  'serving': 'Deployments',
+  'monitoring': 'Monitoring',
 };
 
 function labelForSegment(segment: string): string {
@@ -90,12 +124,23 @@ export default function Breadcrumb() {
   let cumPath = '';
   segments.forEach((seg) => {
     cumPath += `/${seg}`;
+
     // Skip UUIDs — show as "Detail" with parent's context
     if (isUuid(seg)) {
       crumbs.push({ label: 'Detail', href: cumPath });
-    } else {
-      crumbs.push({ label: labelForSegment(seg), href: cumPath });
+      return;
     }
+
+    const parentGroup = PARENT_MAP[seg];
+    if (parentGroup) {
+      // This is a sub-page — find the parent route and add group label
+      const parentRoute = Object.entries(GROUP_ROUTES).find(([, name]) => name === parentGroup);
+      if (parentRoute) {
+        crumbs.push({ label: parentGroup, href: `/${parentRoute[0]}` });
+      }
+    }
+
+    crumbs.push({ label: labelForSegment(seg), href: cumPath });
   });
 
   // Only show if there's something beyond the dashboard root
@@ -106,7 +151,7 @@ export default function Breadcrumb() {
       {crumbs.map((crumb, i) => {
         const isLast = i === crumbs.length - 1;
         return (
-          <span key={crumb.href} className="flex items-center gap-1">
+          <span key={`${crumb.href}-${i}`} className="flex items-center gap-1">
             {i === 0 ? (
               <Link
                 href={crumb.href}

@@ -13,6 +13,7 @@ from app.core.error_utils import sanitize_error_message, log_error
 from app.models.user import User
 from app.models.prediction import Prediction
 from app.models.experiment import Experiment
+from app.models.model import MLModel, ModelStatus
 from app.schemas.model import (
     ModelCreate, ModelResponse, ModelUpdate, ModelListResponse,
     TrainRequest, TrainResponse, PredictRequest, PredictResponse,
@@ -511,17 +512,30 @@ async def run_automl(
         "svm", "knn", "decision_tree", "adaboost", "bagging", "mlp",
     ]
 
-    from app.ml.trainer import ModelTrainer
-    invalid = [a for a in algorithms if a not in ModelTrainer.ALGORITHMS]
+    algos = (
+        ModelTrainer.ALGORITHMS
+        if automl_request.problem_type == "classification"
+        else ModelTrainer.REGRESSION_ALGORITHMS
+    )
+    invalid = [a for a in algorithms if a not in algos]
     if invalid:
         raise HTTPException(status_code=400, detail=f"Invalid algorithms: {invalid}")
+
+    placeholder_model = MLModel(
+        name=f"AutoML - {dataset.name}",
+        algorithm="automl",
+        status=ModelStatus.TRAINING,
+        owner_id=current_user.id,
+    )
+    db.add(placeholder_model)
+    await db.flush()
 
     experiment = ExperimentModel(
         name=f"AutoML - {dataset.name}",
         status=ExperimentStatus.RUNNING,
         parameters={"algorithms": algorithms},
         dataset_id=automl_request.dataset_id,
-        model_id=UUID(int=0),
+        model_id=placeholder_model.id,
         owner_id=current_user.id,
     )
     db.add(experiment)

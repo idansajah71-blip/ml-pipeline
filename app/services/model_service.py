@@ -234,7 +234,13 @@ class ModelService:
                 data_info = result.get("data_info", {})
                 training_samples = data_info.get("rows", 0) or data_info.get("n_samples", 0)
                 result_type = result.get("problem_type", "classification")
-                cv_scores = result.get("cv_scores") or result.get("cross_validation", {}).get("scores")
+                cv_data = result.get("cross_validation", {})
+                cv_scores = result.get("cv_scores")
+                if cv_scores is None:
+                    for metric_values in cv_data.values():
+                        if isinstance(metric_values, dict) and "scores" in metric_values:
+                            cv_scores = metric_values["scores"]
+                            break
                 readiness = compute_readiness_score(
                     metrics=model.metrics,
                     feature_count=len(model.feature_names or []),

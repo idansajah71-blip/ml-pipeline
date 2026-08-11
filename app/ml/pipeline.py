@@ -88,8 +88,11 @@ class MLPipeline:
             }
 
             # Record library versions for compatibility checking
-            from app.ml.version_compat import record_library_versions
-            self.training_metadata['library_versions'] = record_library_versions()
+            try:
+                from app.ml.version_compat import record_library_versions
+                self.training_metadata['library_versions'] = record_library_versions()
+            except Exception:
+                pass
 
             return self.training_metadata
 
