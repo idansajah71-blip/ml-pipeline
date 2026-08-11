@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import func, select
 from typing import List, Optional
 from uuid import UUID
 from pydantic import BaseModel
@@ -35,12 +35,17 @@ async def list_experiments(
     if algorithm:
         query = query.where(Experiment.parameters["algorithm"].as_string() == algorithm)
 
+    count_result = await db.execute(
+        select(func.count()).select_from(query.subquery())
+    )
+    total = count_result.scalar_one()
+
     result = await db.execute(
         query.order_by(Experiment.created_at.desc()).offset(skip).limit(limit)
     )
     experiments = list(result.scalars().all())
     return ExperimentListResponse(
-        total=len(experiments),
+        total=total,
         items=[ExperimentResponse.model_validate(e) for e in experiments],
     )
 

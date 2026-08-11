@@ -18,7 +18,7 @@ import {
   type PatternAnalysis,
 } from '@/lib/api';
 
-type ScrapeMode = 'single' | 'batch' | 'recursive' | 'discover';
+  type ScrapeMode = 'single' | 'universal' | 'batch' | 'recursive' | 'discover';
 type UltraTab =
   | 'auth' | 'fingerprint' | 'distributed' | 'target'
   | 'automl' | 'anomaly' | 'forecast' | 'cluster'
@@ -131,6 +131,8 @@ export default function ScrapingPage() {
   const [maxDepth, setMaxDepth] = useState(2);
   const [maxPages, setMaxPages] = useState(10);
   const [previewData, setPreviewData] = useState<ScrapePreview | null>(null);
+  const [universalPreview, setUniversalPreview] = useState<any>(null);
+  const [universalLoading, setUniversalLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [processingLoading, setProcessingLoading] = useState(false);
   const [processingText, setProcessingText] = useState('');
@@ -138,13 +140,16 @@ export default function ScrapingPage() {
   const [jobs, setJobs] = useState<ScrapeJob[]>([]);
   const [showJobs, setShowJobs] = useState(false);
   const [importing, setImporting] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'advanced' | 'sentiment' | 'patterns' | 'export' | 'transform' | 'ultra'>('overview');
+  const [exporting, setExporting] = useState<string | null>(null);
+  const [trainLoading, setTrainLoading] = useState(false);
+  const [trainTargetCol, setTrainTargetCol] = useState('');
+  const [trainTaskType, setTrainTaskType] = useState<'classification' | 'regression'>('classification');
+  const [activeTab, setActiveTab] = useState<'overview' | 'advanced' | 'sentiment' | 'patterns' | 'export' | 'transform' | 'train' | 'ultra'>('overview');
   const [ultraGroup, setUltraGroup] = useState<UltraGroup>('scraping');
   const [ultraTab, setUltraTab] = useState<UltraTab>('auth');
   const [ultraLoading, setUltraLoading] = useState(false);
   const [ultraLoadingText, setUltraLoadingText] = useState('');
   const [ultraResult, setUltraResult] = useState<any>(null);
-  const [exporting, setExporting] = useState(false);
   const [autoCleaning, setAutoCleaning] = useState(false);
   const [useSelenium, setUseSelenium] = useState(false);
   const [autoRename, setAutoRename] = useState(true);
@@ -192,6 +197,48 @@ export default function ScrapingPage() {
     catch (err: any) { toast('error', err?.response?.data?.detail || 'Gagal scrape URL'); }
     finally { setLoading(false); }
   }, [url, toast]);
+
+  const handleUniversalPreview = useCallback(async () => {
+    if (!url.trim()) return;
+    setUniversalLoading(true); setUniversalPreview(null); setResult(null);
+    try {
+      const res = await scraping.universalScrape({ url: url.trim(), use_selenium: useSelenium, wait_seconds: 3 });
+      setUniversalPreview(res.data);
+      toast('success', `Universal scrape: ${res.data.row_count} baris, strategi: ${res.data.scrape_strategy}`);
+    } catch (err: any) { toast('error', err?.response?.data?.detail || 'Gagal universal scrape'); }
+    finally { setUniversalLoading(false); }
+  }, [url, useSelenium, toast]);
+
+  const handleExportDownload = useCallback(async (jobId: string, fmt: string) => {
+    setExporting(`${jobId}-${fmt}`);
+    try {
+      const res = await scraping.downloadExport(jobId, fmt);
+      const blob = new Blob([res.data], { type: 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `scrape_${jobId}.${fmt}`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      toast('success', `File ${fmt.toUpperCase()} siap diunduh`);
+    } catch (err: any) { toast('error', err?.response?.data?.detail || 'Gagal unduh'); }
+    finally { setExporting(null); }
+  }, [toast]);
+
+  const handleTrainFromScrape = useCallback(async () => {
+    if (!result) { toast('error', 'Jalankan scraping dulu'); return; }
+    if (!trainTargetCol.trim()) { toast('error', 'Pilih kolom target'); return; }
+    setTrainLoading(true);
+    try {
+      const res = await scraping.trainFromScrape({
+        job_id: result.id,
+        target_column: trainTargetCol.trim(),
+        task_type: trainTaskType,
+      });
+      toast('success', `Model dilatih! Akurasi: ${res.data.metrics?.accuracy ? (res.data.metrics.accuracy * 100).toFixed(1) + '%' : 'N/A'}`);
+    } catch (err: any) { toast('error', err?.response?.data?.detail || 'Gagal melatih model'); }
+    finally { setTrainLoading(false); }
+  }, [result, trainTargetCol, trainTaskType, toast]);
 
   const handleScrapeAndProcess = useCallback(async () => {
     if (!url.trim()) return;
@@ -252,10 +299,10 @@ export default function ScrapingPage() {
   }, [toast]);
 
   const handleExport = useCallback(async (jobId: string, formats: string[]) => {
-    setExporting(true);
+    setExporting(`${jobId}-multi`);
     try { const res = await scraping.exportData({ job_id: jobId, formats }); toast('success', `Export: ${Object.keys(res.data.results).join(', ')}`); return res.data; }
     catch (err: any) { toast('error', err?.response?.data?.detail || 'Gagal export'); }
-    finally { setExporting(false); }
+    finally { setExporting(null); }
   }, [toast]);
 
   const handleAutoClean = useCallback(async (jobId: string) => {
@@ -336,13 +383,13 @@ export default function ScrapingPage() {
       </div>
 
       {/* Mode Selector */}
-      <div className="flex gap-2 mb-6">
-        {[{ id: 'single', label: 'Single URL', icon: Globe }, { id: 'batch', label: 'Batch URLs', icon: Layers }, { id: 'recursive', label: 'Recursive', icon: GitBranch }, { id: 'discover', label: 'Auto Discover', icon: Radar }].map(({ id, label, icon: Icon }) => (
-          <button key={id} onClick={() => setMode(id as ScrapeMode)} className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition ${mode === id ? 'bg-primary-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
-            <Icon className="w-4 h-4" /> {label}
-          </button>
-        ))}
-      </div>
+        <div className="flex gap-2 mb-6">
+          {[{ id: 'single', label: 'Single URL', icon: Globe }, { id: 'universal', label: 'Universal', icon: Zap }, { id: 'batch', label: 'Batch URLs', icon: Layers }, { id: 'recursive', label: 'Recursive', icon: GitBranch }, { id: 'discover', label: 'Auto Discover', icon: Radar }].map(({ id, label, icon: Icon }) => (
+            <button key={id} onClick={() => setMode(id as ScrapeMode)} className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition ${mode === id ? 'bg-primary-600 text-white shadow-sm' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'}`}>
+              <Icon className="w-4 h-4" /> {label}
+            </button>
+          ))}
+        </div>
 
       {/* Input Section */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
@@ -359,11 +406,9 @@ export default function ScrapingPage() {
                 <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input type="url" value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key === 'Enter' && handlePreview()} placeholder="https://example.com/data" className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-primary-500" />
               </div>
-              {mode === 'single' && (
-                <button onClick={handlePreview} disabled={loading || !url.trim()} className="px-5 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 transition flex items-center gap-2">
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />} Preview
-                </button>
-              )}
+              {mode === 'single' && <button onClick={handlePreview} disabled={loading || !url.trim()} className="px-5 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 transition flex items-center gap-2">{loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />} Preview</button>}
+              {mode === 'universal' && <button onClick={handleUniversalPreview} disabled={universalLoading || !url.trim()} className="px-5 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition flex items-center gap-2 shadow-sm">{universalLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />} Universal Scrape</button>}
+              {mode === 'single' && <button onClick={handleScrapeAndProcess} disabled={processingLoading || !url.trim()} className="px-5 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition flex items-center gap-2 shadow-sm">{processingLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} {processingText || 'Scrape & Analyze'}</button>}
             </div>
           </div>
         )}
@@ -371,6 +416,21 @@ export default function ScrapingPage() {
           <div className="flex gap-4 mt-4">
             <div><label className="block text-xs text-gray-500 mb-1">Max Depth</label><input type="number" value={maxDepth} onChange={e => setMaxDepth(+e.target.value)} min={1} max={5} className="w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm" /></div>
             <div><label className="block text-xs text-gray-500 mb-1">Max Pages</label><input type="number" value={maxPages} onChange={e => setMaxPages(+e.target.value)} min={1} max={50} className="w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm" /></div>
+          </div>
+        )}
+        {mode === 'batch' && (
+          <div className="mt-4">
+            <button onClick={handleBatchScrape} disabled={processingLoading || !batchUrls.trim()} className="px-5 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition flex items-center gap-2 shadow-sm">{processingLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Layers className="w-4 h-4" />} {processingText || 'Batch Scrape'}</button>
+          </div>
+        )}
+        {mode === 'recursive' && (
+          <div className="mt-4">
+            <button onClick={handleRecursiveScrape} disabled={processingLoading || !url.trim()} className="px-5 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition flex items-center gap-2 shadow-sm">{processingLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <GitBranch className="w-4 h-4" />} {processingText || 'Recursive Scrape'}</button>
+          </div>
+        )}
+        {mode === 'discover' && (
+          <div className="mt-4">
+            <button onClick={handleDiscoverScrape} disabled={processingLoading || !url.trim()} className="px-5 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition flex items-center gap-2 shadow-sm">{processingLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Radar className="w-4 h-4" />} {processingText || 'Auto Discover'}</button>
           </div>
         )}
         <div className="mt-4 flex flex-wrap gap-3">
@@ -383,13 +443,7 @@ export default function ScrapingPage() {
           <ToggleChip label="Pola" active={runPatterns} onClick={() => setRunPatterns(!runPatterns)} icon={Fingerprint} />
           <ToggleChip label="JS Render" active={useSelenium} onClick={() => setUseSelenium(!useSelenium)} icon={Zap} />
         </div>
-        <div className="mt-4 flex gap-2 items-center">
-          {mode === 'single' && <button onClick={handleScrapeAndProcess} disabled={processingLoading || !url.trim()} className="px-5 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition flex items-center gap-2 shadow-sm">{processingLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} {processingText || 'Scrape & Analyze'}</button>}
-          {mode === 'batch' && <button onClick={handleBatchScrape} disabled={processingLoading || !batchUrls.trim()} className="px-5 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition flex items-center gap-2 shadow-sm">{processingLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Layers className="w-4 h-4" />} {processingText || 'Batch Scrape'}</button>}
-          {mode === 'recursive' && <button onClick={handleRecursiveScrape} disabled={processingLoading || !url.trim()} className="px-5 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition flex items-center gap-2 shadow-sm">{processingLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <GitBranch className="w-4 h-4" />} {processingText || 'Recursive Scrape'}</button>}
-          {mode === 'discover' && <button onClick={handleDiscoverScrape} disabled={processingLoading || !url.trim()} className="px-5 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition flex items-center gap-2 shadow-sm">{processingLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Radar className="w-4 h-4" />} {processingText || 'Auto Discover'}</button>}
-          {processingLoading && <span className="text-sm text-gray-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> {processingText}</span>}
-        </div>
+        {(processingLoading || universalLoading) && <div className="text-sm text-gray-500 flex items-center gap-2 mt-2"><Loader2 className="w-4 h-4 animate-spin" /> {processingText || 'Memproses...'}</div>}
       </div>
 
       {/* Preview Results */}
@@ -434,7 +488,7 @@ export default function ScrapingPage() {
             {advanced && <StatCard label="Outliers" value={advanced.outlier_summary?.total_outlier_rows || 0} color="text-purple-600" />}
           </div>
           <div className="flex gap-2 mb-6 border-b border-gray-200 dark:border-gray-700 pb-2 overflow-x-auto">
-            {[{ id: 'overview', label: 'Overview', icon: BarChart3 }, { id: 'advanced', label: 'Statistik', icon: Brain }, { id: 'sentiment', label: 'Sentimen', icon: MessageSquare }, { id: 'patterns', label: 'Pola', icon: Fingerprint }, { id: 'export', label: 'Export', icon: Download }, { id: 'transform', label: 'Transform', icon: Wand2 }, { id: 'ultra', label: 'Ultra', icon: Zap }].map(({ id, label, icon: Icon }) => (
+            {[{ id: 'overview', label: 'Overview', icon: BarChart3 }, { id: 'advanced', label: 'Statistik', icon: Brain }, { id: 'sentiment', label: 'Sentimen', icon: MessageSquare }, { id: 'patterns', label: 'Pola', icon: Fingerprint }, { id: 'export', label: 'Export', icon: Download }, { id: 'transform', label: 'Transform', icon: Wand2 }, { id: 'train', label: 'Train ML', icon: Brain }, { id: 'ultra', label: 'Ultra', icon: Zap }].map(({ id, label, icon: Icon }) => (
               <button key={id} onClick={() => setActiveTab(id as any)} className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition whitespace-nowrap ${activeTab === id ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300' : 'text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700'}`}><Icon className="w-4 h-4" />{label}</button>
             ))}
           </div>
@@ -500,16 +554,55 @@ export default function ScrapingPage() {
           {activeTab === 'export' && result && (
             <div className="space-y-4">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2"><Download className="w-5 h-5" /> Export Data</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {[{ fmt: 'csv', label: 'CSV', icon: FileText, desc: 'Comma-separated' }, { fmt: 'json', label: 'JSON', icon: FileJson, desc: 'JSON format' }, { fmt: 'excel', label: 'Excel', icon: FileSpreadsheet, desc: '.xlsx' }, { fmt: 'parquet', label: 'Parquet', icon: Database, desc: 'Columnar' }, { fmt: 'xml', label: 'XML', icon: FileCode, desc: 'Markup' }, { fmt: 'sql', label: 'SQL', icon: FileCode, desc: 'INSERT statements' }].map(({ fmt, label, icon: Icon, desc }) => (
-                  <button key={fmt} onClick={() => handleExport(result.id, [fmt])} disabled={exporting} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-left"><div className="flex items-center gap-2 mb-1"><Icon className="w-5 h-5 text-primary-600" /><span className="font-medium text-gray-900 dark:text-white">{label}</span></div><p className="text-xs text-gray-500">{desc}</p></button>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[{ fmt: 'csv', label: 'CSV', icon: FileText, desc: 'Comma-separated' }, { fmt: 'json', label: 'JSON', icon: FileJson, desc: 'JSON format' }, { fmt: 'excel', label: 'Excel', icon: FileSpreadsheet, desc: '.xlsx' }, { fmt: 'word', label: 'Word', icon: FileText, desc: '.docx' }, { fmt: 'html', label: 'HTML', icon: FileCode, desc: 'Tabel HTML' }, { fmt: 'parquet', label: 'Parquet', icon: Database, desc: 'Columnar' }, { fmt: 'xml', label: 'XML', icon: FileCode, desc: 'Markup' }, { fmt: 'sql', label: 'SQL', icon: FileCode, desc: 'INSERT statements' }].map(({ fmt, label, icon: Icon, desc }) => (
+                  <button key={fmt} onClick={() => handleExportDownload(result.id, fmt)} disabled={exporting === `${result.id}-${fmt}`} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition text-left">
+                    <div className="flex items-center gap-2 mb-1"><Icon className="w-5 h-5 text-primary-600" /><span className="font-medium text-gray-900 dark:text-white">{label}</span></div>
+                    <p className="text-xs text-gray-500">{desc}</p>
+                    {exporting === `${result.id}-${fmt}` && <Loader2 className="w-3 h-3 animate-spin ml-auto mt-1" />}
+                  </button>
                 ))}
               </div>
-              <button onClick={() => handleExport(result.id, ['csv', 'json', 'excel'])} disabled={exporting} className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50 transition flex items-center gap-2">
-                {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Export Semua (CSV + JSON + Excel)
+              <button onClick={() => handleExport(result.id, ['csv', 'json', 'excel', 'word'])} disabled={!!exporting} className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:opacity-50 transition flex items-center gap-2">
+                {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />} Export Semua (CSV + JSON + Excel + Word)
               </button>
             </div>
           )}
+
+          {/* Train ML Tab */}
+          <RequireResult result={result}>
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2"><Brain className="w-5 h-5" /> Latih Model ML dari Data Ini</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Kolom Target <span className="text-red-500">*</span></label>
+                  <select value={trainTargetCol} onChange={e => setTrainTargetCol(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm">
+                    <option value="">Pilih kolom...</option>
+                    {(result.columns_typed && Object.keys(result.columns_typed)).map(col => (
+                      <option key={col} value={col}>{col}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Task Type</label>
+                  <select value={trainTaskType} onChange={e => setTrainTaskType(e.target.value as any)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm">
+                    <option value="classification">Klasifikasi</option>
+                    <option value="regression">Regresi</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Nama Model</label>
+                  <input type="text" placeholder="Opsional" className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm" />
+                </div>
+              </div>
+              <button onClick={handleTrainFromScrape} disabled={trainLoading || !trainTargetCol.trim()} className="px-5 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 disabled:opacity-50 transition flex items-center gap-2 shadow-sm">
+                {trainLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Brain className="w-4 h-4" />} {trainLoading ? 'Melatih...' : 'Latih Model'}
+              </button>
+              {result.columns_typed && Object.keys(result.columns_typed).length === 0 && (
+                <p className="text-sm text-yellow-600">Tidak ada kolom terdeteksi. Jalankan scraping dengan "Deteksi Tipe" aktif.</p>
+              )}
+            </div>
+          </RequireResult>
 
           {activeTab === 'transform' && result && (
             <div className="space-y-4">

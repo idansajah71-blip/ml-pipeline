@@ -266,8 +266,14 @@ async def init_db():
                 quality_issues JSONB DEFAULT '[]'::jsonb,
                 clusters JSONB DEFAULT '{}'::jsonb,
                 ml_processing_applied JSONB DEFAULT '[]'::jsonb,
+                advanced_analysis JSONB DEFAULT '{}'::jsonb,
+                sentiment_analysis JSONB DEFAULT '{}'::jsonb,
+                pattern_analysis JSONB DEFAULT '{}'::jsonb,
+                scrape_metadata JSONB DEFAULT '{}'::jsonb,
                 content_hash VARCHAR(64),
                 error_message TEXT,
+                scrape_type VARCHAR(30) DEFAULT 'single',
+                batch_results JSONB DEFAULT '[]'::jsonb,
                 created_at TIMESTAMP DEFAULT NOW(),
                 scraped_at TIMESTAMP,
                 processed_at TIMESTAMP
@@ -276,6 +282,19 @@ async def init_db():
         await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_scrape_jobs_user_id ON scrape_jobs (user_id)"))
         await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_scrape_jobs_status ON scrape_jobs (status)"))
         await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_scrape_jobs_created_at ON scrape_jobs (created_at)"))
+        # Add missing columns to existing scrape_jobs table
+        for col_def in [
+            "ALTER TABLE scrape_jobs ADD COLUMN IF NOT EXISTS advanced_analysis JSONB DEFAULT '{}'::jsonb",
+            "ALTER TABLE scrape_jobs ADD COLUMN IF NOT EXISTS sentiment_analysis JSONB DEFAULT '{}'::jsonb",
+            "ALTER TABLE scrape_jobs ADD COLUMN IF NOT EXISTS pattern_analysis JSONB DEFAULT '{}'::jsonb",
+            "ALTER TABLE scrape_jobs ADD COLUMN IF NOT EXISTS scrape_metadata JSONB DEFAULT '{}'::jsonb",
+            "ALTER TABLE scrape_jobs ADD COLUMN IF NOT EXISTS scrape_type VARCHAR(30) DEFAULT 'single'",
+            "ALTER TABLE scrape_jobs ADD COLUMN IF NOT EXISTS batch_results JSONB DEFAULT '[]'::jsonb",
+        ]:
+            try:
+                await conn.execute(text(col_def))
+            except Exception:
+                pass  # Column already exists
         # Seed default external data sources
         await conn.execute(text("""
             INSERT INTO external_data_sources (id, name, slug, base_url, source_type,

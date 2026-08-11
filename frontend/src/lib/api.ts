@@ -555,6 +555,43 @@ export interface ScrapePreview {
   scrape_duration_ms: number;
 }
 
+export interface UniversalScrapeResult {
+  url: string;
+  title: string;
+  html?: string;
+  tables: { headers: string[]; rows: Record<string, any>[]; row_count: number }[];
+  text_blocks: string[][];
+  metadata: Record<string, any>;
+  row_count: number;
+  column_count: number;
+  content_hash: string;
+  links: string[];
+  images: { src: string; alt: string }[];
+  json_ld: Record<string, any>[];
+  feeds: string[];
+  api_endpoints: { url: string; type: string }[];
+  open_graph: Record<string, string>;
+  keywords: string[];
+  language: string;
+  word_count: number;
+  reading_time_minutes: number;
+  scrape_strategy: string;
+  scrape_duration_ms: number;
+  status_code: number;
+}
+
+export interface TrainFromScrapeResponse {
+  dataset_id: string;
+  dataset_name: string;
+  task_type: string;
+  target_column: string;
+  model_name: string;
+  model_id: string;
+  status: string;
+  metrics: Record<string, any>;
+  message: string;
+}
+
 export interface AdvancedAnalysis {
   row_count: number;
   column_count: number;
@@ -622,6 +659,24 @@ export interface PatternAnalysis {
 export const scraping = {
   preview: (url: string) =>
     api.post<ScrapePreview>('/scraping/preview', { url }),
+  universalScrape: (data: {
+    url: string;
+    extract_tables?: boolean;
+    extract_lists?: boolean;
+    use_js?: boolean;
+    use_selenium?: boolean;
+    wait_seconds?: number;
+  }) => api.post<UniversalScrapeResult>('/scraping/universal', data),
+  downloadExport: (jobId: string, format: string) =>
+    api.get(`/scraping/export/${jobId}/${format}`, { responseType: 'blob' }),
+  trainFromScrape: (data: {
+    job_id: string;
+    target_column: string;
+    task_type?: string;
+    test_size?: number;
+    algorithm?: string;
+    name?: string;
+  }) => api.post<TrainFromScrapeResponse>('/scraping/train', data),
   scrapeAndProcess: (data: {
     url: string;
     auto_rename?: boolean;

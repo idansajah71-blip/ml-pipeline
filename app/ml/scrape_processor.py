@@ -18,6 +18,7 @@ from app.ml.pattern_detector import PatternDetector, PatternResult
 class ProcessedData:
     raw_row_count: int = 0
     clean_row_count: int = 0
+    column_count: int = 0
     duplicates_removed: int = 0
     columns_typed: dict = field(default_factory=dict)
     columns_renamed: dict = field(default_factory=dict)
@@ -33,6 +34,7 @@ class ProcessedData:
         return {
             "raw_row_count": self.raw_row_count,
             "clean_row_count": self.clean_row_count,
+            "column_count": self.column_count,
             "duplicates_removed": self.duplicates_removed,
             "columns_typed": self.columns_typed,
             "columns_renamed": self.columns_renamed,
@@ -190,6 +192,7 @@ class ScrapeDataProcessor:
             result.duplicates_removed = before - len(df)
 
         df = self._clean_dataframe(df)
+        result.column_count = len(df.columns)
 
         if detect_types:
             for col in df.columns:
@@ -254,5 +257,22 @@ class ScrapeDataProcessor:
 
     def to_dict_list(self, processed: ProcessedData) -> list[dict]:
         if processed.df is not None and not processed.df.empty:
-            return processed.df.where(processed.df.notna(), None).to_dict(orient="records")
+            import numpy as np
+            records = processed.df.where(processed.df.notna(), None).to_dict(orient="records")
+            cleaned = []
+            for row in records:
+                cleaned_row = {}
+                for k, v in row.items():
+                    if isinstance(v, (np.integer,)):
+                        cleaned_row[k] = int(v)
+                    elif isinstance(v, (np.floating,)):
+                        cleaned_row[k] = float(v)
+                    elif isinstance(v, np.bool_):
+                        cleaned_row[k] = bool(v)
+                    elif isinstance(v, np.ndarray):
+                        cleaned_row[k] = v.tolist()
+                    else:
+                        cleaned_row[k] = v
+                cleaned.append(cleaned_row)
+            return cleaned
         return []

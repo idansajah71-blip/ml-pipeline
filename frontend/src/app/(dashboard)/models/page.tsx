@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Trash2, Rocket, Brain, Loader2, Eye, Star, Zap } from 'lucide-react';
+import { Plus, Trash2, Rocket, Brain, Loader2, Eye, Star, Zap, GitBranch, Blend, PieChart, BarChart } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import Pagination from '@/components/Pagination';
@@ -9,12 +9,21 @@ import SearchInput from '@/components/SearchInput';
 import { CardSkeleton } from '@/components/Skeleton';
 import { useToast } from '@/components/Toast';
 import FavoriteStar from '@/components/FavoriteStar';
+import WorkspaceTabs from '@/components/WorkspaceTabs';
 import { models, datasets as datasetsApi, algorithms } from '@/lib/api';
 import { useModels, useDatasets, useAlgorithms } from '@/lib/hooks';
 import { useFavorites } from '@/lib/useFavorites';
 import { ALGORITHMS } from '@/lib/algorithms';
 import Tooltip from '@/components/Tooltip';
 import Link from 'next/link';
+
+const MODELS_TABS = [
+  { label: 'Models', href: '/models', icon: Brain },
+  { label: 'Versions', href: '/model-versions', icon: GitBranch },
+  { label: 'Ensemble', href: '/ensemble', icon: Blend },
+  { label: 'Explainability', href: '/explain', icon: PieChart },
+  { label: 'Benchmark', href: '/benchmark', icon: BarChart },
+];
 
 const ITEMS_PER_PAGE = 9;
 
@@ -117,11 +126,13 @@ export default function ModelsPage() {
 
   return (
     <div className="space-y-6">
+      <WorkspaceTabs
+        tabs={MODELS_TABS}
+        title="Models"
+        description="Create, train, and manage your ML models"
+      />
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Models</h1>
-          <p className="text-gray-500 dark:text-gray-400">Create, train, and manage your ML models</p>
-        </div>
         <div className="flex flex-wrap items-center gap-3">
           <Link
             href="/models/trash"

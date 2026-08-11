@@ -4,39 +4,66 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronRight, Home } from 'lucide-react';
 
-// ── Human-readable route labels ──────────────────────────────────────────────
+// ── Human-readable route labels (New IA) ─────────────────────────────────────
 const ROUTE_LABELS: Record<string, string> = {
-  'training-wizard':    'Training Wizard',
-  'datasets':           'Dataset',
-  'models':             'Model',
-  'model-versions':     'Versi Model',
-  'experiments':        'Eksperimen',
-  'experiment-compare': 'Perbandingan',
-  'predictions':        'Prediksi',
-  'marketplace':        'Marketplace',
-  'serving':            'Serving',
+  // Workspace
+  'datasets':           'Data',
+  'models':             'Models',
+  'experiments':        'Experiments',
+  'predictions':        'Predictions',
+  'serving':            'Deployments',
   'monitoring':         'Monitoring',
-  'ab-tests':           'A/B Testing',
-  'batch-jobs':         'Batch Job',
-  'feature-store':      'Feature Store',
-  'feature-monitoring': 'Monitoring Fitur',
-  'explain':            'Explainability',
+
+  // Data sub-features
+  'data-quality':       'Quality',
+  'data-validation':    'Validation',
+  'data-explorer':      'External Data',
+  'data-versions':      'Versions',
+
+  // Model sub-features
+  'model-versions':     'Versions',
   'ensemble':           'Ensemble',
-  'mlflow':             'MLflow',
+  'explain':            'Explainability',
   'benchmark':          'Benchmark',
-  'data-quality':       'Kualitas Data',
-  'data-validation':    'Validasi Data',
-  'audit-logs':         'Log Audit',
-  'organizations':      'Organisasi',
-  'quota':              'Kuota API',
-  'costs':              'Biaya',
-  'webhooks':           'Webhook',
-  'settings':           'Pengaturan',
-  'privacy':            'Kebijakan Privasi',
-  'panduan-algoritma':  'Panduan Algoritma',
-  'profile':            'Profil',
-  'trash':              'Sampah',
   'automl':             'AutoML',
+
+  // Experiment sub-features
+  'experiment-compare': 'Comparison',
+
+  // Predictions sub-features
+  'try-predict':        'Playground',
+  'batch-jobs':         'Batch',
+
+  // Deployments sub-features
+  'ab-tests':           'A/B Testing',
+  'ab-testing':         'A/B Testing',
+
+  // Monitoring sub-features
+  'feature-monitoring': 'Feature Drift',
+  'system-health':      'System Health',
+
+  // ML Tools
+  'training-wizard':    'Training Wizard',
+  'marketplace':        'Marketplace',
+  'scraping':           'Web Scraping',
+
+  // Integrations
+  'mlflow':             'MLflow',
+  'feature-store':      'Feature Store',
+  'webhooks':           'Webhooks',
+
+  // Organization
+  'organizations':      'Team',
+  'quota':              'Usage & API',
+  'costs':              'Costs',
+
+  // System
+  'audit-logs':         'Audit Logs',
+  'settings':           'Settings',
+  'privacy':            'Privacy',
+  'profile':            'Profile',
+  'trash':              'Trash',
+  'panduan-algoritma':  'Algorithm Guide',
 };
 
 function labelForSegment(segment: string): string {
@@ -57,7 +84,7 @@ export default function Breadcrumb() {
 
   // Build crumb list
   const crumbs: { label: string; href: string }[] = [
-    { label: 'Dasbor', href: '/' },
+    { label: 'Dashboard', href: '/' },
   ];
 
   let cumPath = '';

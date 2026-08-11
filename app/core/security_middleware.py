@@ -64,11 +64,18 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return self.default_limit, self.default_window
 
     async def dispatch(self, request: Request, call_next):
-        if request.url.path in ["/health", "/metrics", "/docs", "/openapi.json", "/redoc"]:
+        path = request.url.path
+
+        # Skip rate limiting entirely for health checks and docs
+        if any(path.startswith(p) for p in ["/health", "/metrics", "/docs", "/openapi", "/redoc"]):
+            return await call_next(request)
+
+        # Skip rate limiting for OPTIONS (CORS preflight)
+        if request.method == "OPTIONS":
             return await call_next(request)
 
         client_key = self.get_client_key(request)
-        limit, window = self.get_rate_limit(request.url.path)
+        limit, window = self.get_rate_limit(path)
 
         redis_client = await get_redis()
 

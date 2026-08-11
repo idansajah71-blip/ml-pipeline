@@ -1,12 +1,18 @@
 'use client';
 
 import { useState } from 'react';
-import { FlaskConical } from 'lucide-react';
+import { FlaskConical, ArrowRightLeft } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import WorkspaceTabs from '@/components/WorkspaceTabs';
 import { useExperiments } from '@/lib/hooks';
 import { Experiment } from '@/types';
 import { format } from 'date-fns';
+
+const EXPERIMENTS_TABS = [
+  { label: 'Experiments', href: '/experiments', icon: FlaskConical },
+  { label: 'Comparison', href: '/experiment-compare', icon: ArrowRightLeft },
+];
 
 export default function ExperimentsPage() {
   const { experiments: experimentsList, isLoading } = useExperiments();
@@ -14,10 +20,11 @@ export default function ExperimentsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Experiments</h1>
-        <p className="text-gray-500 dark:text-gray-400">Track your model training experiments</p>
-      </div>
+      <WorkspaceTabs
+        tabs={EXPERIMENTS_TABS}
+        title="Experiments"
+        description="Track and compare model training experiments"
+      />
 
       {isLoading ? (
         <LoadingSpinner size="lg" className="mx-auto" />

@@ -1,16 +1,24 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Upload, Trash2, Eye, Database, Download, Star } from 'lucide-react';
+import { Upload, Trash2, Eye, Database, Download, Star, Shield, FileCheck, Search } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import DragDropUpload from '@/components/DragDropUpload';
 import EmptyState from '@/components/EmptyState';
 import ConfirmModal from '@/components/ConfirmModal';
 import FavoriteStar from '@/components/FavoriteStar';
+import WorkspaceTabs from '@/components/WorkspaceTabs';
 import { datasets } from '@/lib/api';
 import { useDatasets } from '@/lib/hooks';
 import { useFavorites } from '@/lib/useFavorites';
 import Link from 'next/link';
+
+const DATA_TABS = [
+  { label: 'Datasets', href: '/datasets', icon: Database },
+  { label: 'Quality', href: '/data-quality', icon: Shield },
+  { label: 'Validation', href: '/data-validation', icon: FileCheck },
+  { label: 'External Data', href: '/data-explorer', icon: Search },
+];
 
 const SAMPLE_DATASETS = [
   { name: 'Iris (Klasifikasi)', file: '/samples/iris.csv', desc: '150 baris, 4 fitur, 3 kelas' },
@@ -84,11 +92,13 @@ export default function DatasetsPage() {
 
   return (
     <div className="space-y-6">
+      <WorkspaceTabs
+        tabs={DATA_TABS}
+        title="Data"
+        description="Upload, validate, and explore your datasets"
+      />
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Dataset</h1>
-          <p className="text-gray-500 dark:text-gray-400">Unggah dan kelola dataset Anda</p>
-        </div>
         <Link
           href="/datasets/trash"
           className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"

@@ -1,9 +1,16 @@
 'use client';
 
-import { BarChart3, Cpu, HardDrive, MemoryStick } from 'lucide-react';
+import { BarChart3, Cpu, HardDrive, MemoryStick, Activity, AlertTriangle, LineChart } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import WorkspaceTabs from '@/components/WorkspaceTabs';
 import { useStats, useSystem } from '@/lib/hooks';
+
+const MONITORING_TABS = [
+  { label: 'Overview', href: '/monitoring', icon: BarChart3 },
+  { label: 'Feature Drift', href: '/feature-monitoring', icon: Activity },
+  { label: 'System Health', href: '/system-health', icon: AlertTriangle },
+];
 
 const COLORS = ['#3B82F6', '#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#6366F1'];
 
@@ -48,10 +55,11 @@ export default function MonitoringPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Monitoring</h1>
-        <p className="text-gray-500">Metrik performa sistem dan model</p>
-      </div>
+      <WorkspaceTabs
+        tabs={MONITORING_TABS}
+        title="Monitoring"
+        description="System and model performance metrics"
+      />
 
       {stats && (
         <div className="rounded-xl border border-gray-200 bg-white p-6">

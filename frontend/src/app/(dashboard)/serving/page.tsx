@@ -1,9 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Zap, Plus, Trash2, Activity, AlertCircle } from 'lucide-react';
+import { Zap, Plus, Trash2, Activity, AlertCircle, Rocket, TestTube2 } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import WorkspaceTabs from '@/components/WorkspaceTabs';
 import { serving, models, formatApiError } from '@/lib/api';
+
+const DEPLOYMENTS_TABS = [
+  { label: 'Endpoints', href: '/serving', icon: Rocket },
+  { label: 'A/B Testing', href: '/ab-tests', icon: TestTube2 },
+];
 
 export default function ServingPage() {
   const [endpoints, setEndpoints] = useState<any[]>([]);
@@ -96,10 +102,14 @@ export default function ServingPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Model Serving</h1>
-          <p className="text-gray-500 dark:text-gray-400">Endpoint inferensi untuk produksi dengan caching</p>
-        </div>
+        <WorkspaceTabs
+          tabs={DEPLOYMENTS_TABS}
+          title="Deployments"
+          description="Deploy and manage model serving endpoints"
+        />
+      </div>
+
+      <div className="flex items-center justify-end">
         <button
           onClick={() => setShowCreate(true)}
           className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"

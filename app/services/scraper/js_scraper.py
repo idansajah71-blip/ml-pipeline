@@ -207,6 +207,7 @@ class JsRenderedScraper:
         html = None
         resp_status = 200
         resp_headers = {}
+        resp = None  # keep in scope for RenderedPage construction
 
         # Try httpx first
         try:
@@ -244,6 +245,7 @@ class JsRenderedScraper:
                 html = curl_resp.text
                 resp_status = curl_resp.status_code
                 resp_headers = dict(curl_resp.headers)
+                resp = None  # httpx resp is not available; use resp_status below
             except Exception as e2:
                 logger.warning(f"curl_cffi also failed for {url}: {e2}")
                 raise

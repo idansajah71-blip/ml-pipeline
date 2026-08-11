@@ -54,6 +54,12 @@ TECHNICAL_ERROR_TRANSLATIONS = [
      'Layanan antrean/cache (Redis) sedang tidak tersedia. Silakan coba lagi sebentar lagi.'),
     (re.compile(r'redis', re.IGNORECASE),
      'Layanan antrean/cache sedang tidak tersedia. Silakan coba lagi sebentar lagi.'),
+    (re.compile(r'ForeignKeyViolation|foreign key constraint', re.IGNORECASE),
+     'Data yang dirujuk tidak ditemukan. Periksa kembali data yang dikirim.'),
+    (re.compile(r'unique constraint|duplicate key', re.IGNORECASE),
+     'Data dengan nama/ID yang sama sudah ada. Gunakan nama yang berbeda.'),
+    (re.compile(r'not-null constraint', re.IGNORECASE),
+     'Ada kolom wajib yang belum diisi. Lengkapi semua field yang diperlukan.'),
     (re.compile(r'asyncpg|psycopg2|sqlalchemy\.exc|postgresql', re.IGNORECASE),
      'Terjadi kendala sementara pada database. Silakan coba lagi, atau hubungi admin jika berlanjut.'),
     (re.compile(r'connection refused|connect call failed|timed out', re.IGNORECASE),
@@ -168,11 +174,29 @@ def humanize_http_detail(detail, status_code: int = 500):
     - Strings that match known technical patterns get translated.
     - Strings that look like raw Python exceptions get replaced by the
       HTTP-status translation instead of leaking internals.
+    - 500 errors with user-friendly messages (already translated by endpoints) pass through.
     """
     if not isinstance(detail, str):
         return detail
     if not detail.strip():
         return translate_http_status(status_code)
+
+    # For 500 errors, if the detail already looks like a user-friendly message
+    # (contains Indonesian or English user-facing words), don't re-translate
+    if status_code == 500:
+        user_friendly_indicators = [
+            'Gagal', 'gagal', 'Silakan', 'silakan', 'Berhasil', 'berhasil',
+            'Terjadi', 'terjadi', 'kendala', 'hubungi admin',
+            'File', 'data', 'Data', 'tidak ditemukan', 'Tidak',
+            'Please', 'please', 'Error', 'error',
+        ]
+        has_friendly = any(ind in detail for ind in user_friendly_indicators)
+        is_raw_traceback = bool(re.search(
+            r"(Traceback \(most recent call last\)|File \"|\n  File |raise )",
+            detail,
+        ))
+        if has_friendly and not is_raw_traceback:
+            return detail
 
     translated = translate_error_message(detail)
     if translated != detail:

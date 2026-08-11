@@ -43,7 +43,10 @@ async def compare_experiments(
         raise HTTPException(status_code=400, detail="Maximum 5 experiments")
 
     result = await db.execute(
-        select(Experiment).where(Experiment.id.in_(experiment_ids))
+        select(Experiment).where(
+            Experiment.id.in_(experiment_ids),
+            Experiment.owner_id == current_user.id,
+        )
     )
     experiments = list(result.scalars().all())
 
@@ -104,7 +107,10 @@ async def get_leaderboard(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(Experiment).where(Experiment.status == "completed")
+    query = select(Experiment).where(
+        Experiment.status == "completed",
+        Experiment.owner_id == current_user.id,
+    )
     if algorithm:
         query = query.where(Experiment.parameters["algorithm"].as_string() == algorithm)
     query = query.order_by(Experiment.created_at.desc()).limit(100)

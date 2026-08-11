@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.core.security import get_current_active_user
 from app.models.user import User
 from app.models.model_version import ModelVersion, ModelLineage, ModelArtifact
+from app.models.model import MLModel
 from app.services.audit_service import AuditService
 
 router = APIRouter(prefix="/model-versions", tags=["Model Versioning"])
@@ -73,6 +74,11 @@ async def create_version(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
+    # Validate model exists
+    model_check = await db.execute(select(MLModel).where(MLModel.id == data.model_id))
+    if not model_check.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Model tidak ditemukan")
+
     result = await db.execute(
         select(ModelVersion)
         .where(ModelVersion.model_id == data.model_id)

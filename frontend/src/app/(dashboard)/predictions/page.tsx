@@ -3,12 +3,19 @@
 import { useState, useMemo } from 'react';
 import {
   Zap, Loader2, CheckCircle, AlertCircle, ChevronDown, ChevronUp,
-  X
+  X, Sparkles, Layers
 } from 'lucide-react';
+import WorkspaceTabs from '@/components/WorkspaceTabs';
 import { models, formatApiError } from '@/lib/api';
 import { useModels } from '@/lib/hooks';
 import { PredictionItem, MLModel } from '@/types';
 import { SmartInputForm } from '@/components/SmartInput';
+
+const PREDICTIONS_TABS = [
+  { label: 'Playground', href: '/try-predict', icon: Sparkles },
+  { label: 'History', href: '/predictions', icon: Zap },
+  { label: 'Batch', href: '/batch-jobs', icon: Layers },
+];
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -227,13 +234,11 @@ export default function PredictionsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page title */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Prediksi</h1>
-        <p className="text-gray-500 dark:text-gray-400">
-          Jalankan prediksi dari model yang sudah dilatih
-        </p>
-      </div>
+      <WorkspaceTabs
+        tabs={PREDICTIONS_TABS}
+        title="Predictions"
+        description="Run predictions from trained models"
+      />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* ── Left: input panel ── */}
