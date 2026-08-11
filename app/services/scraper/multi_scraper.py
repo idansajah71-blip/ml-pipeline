@@ -83,6 +83,7 @@ class MultiScraper:
         self._proxy_index = 0
         self._rate_limit_delay = 1.0
         self._last_request_time = 0.0
+        self._rate_lock = asyncio.Lock()
 
     def _get_next_proxy(self) -> Optional[str]:
         if not self.proxies:
@@ -95,11 +96,12 @@ class MultiScraper:
         return random.choice(USER_AGENTS)
 
     async def _rate_limit(self):
-        now = time.time()
-        elapsed = now - self._last_request_time
-        if elapsed < self._rate_limit_delay:
-            await asyncio.sleep(self._rate_limit_delay - elapsed)
-        self._last_request_time = time.time()
+        async with self._rate_lock:
+            now = time.time()
+            elapsed = now - self._last_request_time
+            if elapsed < self._rate_limit_delay:
+                await asyncio.sleep(self._rate_limit_delay - elapsed)
+            self._last_request_time = time.time()
 
     async def scrape_single(self, task: ScrapeTask, max_retries: int = 3) -> ScrapeTaskResult:
         task_result = ScrapeTaskResult(url=task.url, success=False)

@@ -93,10 +93,12 @@ class RateLimiter:
                     return self._parse_robots(resp.text)
         except Exception:
             pass
-        # Fallback: curl_cffi
+        # Fallback: curl_cffi (run sync call off the event loop)
         try:
             from curl_cffi import requests as curl_requests
-            resp = curl_requests.get(robots_url, impersonate="chrome", timeout=10)
+            resp = await asyncio.to_thread(
+                curl_requests.get, robots_url, impersonate="chrome", timeout=10
+            )
             if resp.status_code == 200:
                 return self._parse_robots(resp.text)
         except Exception:

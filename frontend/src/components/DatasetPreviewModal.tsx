@@ -23,17 +23,21 @@ export default function DatasetPreviewModal({ datasetId, datasetName, onClose }:
   const [error, setError] = useState('');
 
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchPreview = async () => {
       try {
         const res = await datasets.preview(datasetId);
-        setData(res.data);
+        if (!controller.signal.aborted) setData(res.data);
       } catch (err: any) {
-        setError(err.response?.data?.detail || 'Failed to load preview');
+        if (!controller.signal.aborted) setError(err.response?.data?.detail || 'Failed to load preview');
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
     fetchPreview();
+
+    return () => controller.abort();
   }, [datasetId]);
 
   return (

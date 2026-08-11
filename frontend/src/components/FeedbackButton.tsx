@@ -8,16 +8,29 @@ export default function FeedbackButton() {
   const [rating, setRating] = useState(0);
   const [message, setMessage] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!message.trim()) return;
-    setSubmitted(true);
-    setTimeout(() => {
-      setOpen(false);
-      setSubmitted(false);
-      setRating(0);
-      setMessage('');
-    }, 2000);
+    setSending(true);
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/notifications/feedback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating, message, page: window.location.pathname }),
+      });
+    } catch {
+      // Silently fail — feedback is non-critical
+    } finally {
+      setSending(false);
+      setSubmitted(true);
+      setTimeout(() => {
+        setOpen(false);
+        setSubmitted(false);
+        setRating(0);
+        setMessage('');
+      }, 2000);
+    }
   };
 
   return (

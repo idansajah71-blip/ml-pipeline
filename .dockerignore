@@ -91,3 +91,12 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
+
+# Secrets / credentials
+*.pem
+*.key
+*.cert
+*.crt
+
+# Scripts that may contain credentials
+scripts/

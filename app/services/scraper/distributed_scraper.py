@@ -77,7 +77,8 @@ class DistributedScraper:
 
     def create_job(self, urls: list[str], strategy: str = "round_robin",
                    max_per_worker: int = None) -> str:
-        job_id = hashlib.md5(f"{urls}{datetime.now()}".encode()).hexdigest()[:12]
+        import uuid
+        job_id = uuid.uuid4().hex[:12]
         job = DistributedJob(
             job_id=job_id, urls=urls, total_urls=len(urls),
             status="pending", strategy=strategy, started_at=datetime.now().isoformat(),

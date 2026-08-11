@@ -41,8 +41,9 @@ export default function OnboardingTour() {
 
   useEffect(() => {
     const done = localStorage.getItem(STORAGE_KEY);
+    let timer: NodeJS.Timeout | undefined;
     if (!done) {
-      setTimeout(() => setVisible(true), 1000);
+      timer = setTimeout(() => setVisible(true), 1000);
     }
 
     const handleRestart = () => {
@@ -51,7 +52,10 @@ export default function OnboardingTour() {
       setVisible(true);
     };
     window.addEventListener('restart-onboarding', handleRestart);
-    return () => window.removeEventListener('restart-onboarding', handleRestart);
+    return () => {
+      if (timer) clearTimeout(timer);
+      window.removeEventListener('restart-onboarding', handleRestart);
+    };
   }, []);
 
   useEffect(() => {

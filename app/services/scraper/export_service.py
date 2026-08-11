@@ -109,7 +109,7 @@ class ExportService:
         filepath = os.path.join(self.EXPORT_DIR, filename)
 
         safe = df.where(df.notna(), None)
-        html = safe.to_html(index=False, border=1, escape=False)
+        html = safe.to_html(index=False, border=1, escape=True)
         full = f"<!DOCTYPE html><html><head><meta charset='utf-8'><title>Scraped Data</title></head><body>{html}</body></html>"
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(full)

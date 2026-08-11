@@ -156,7 +156,6 @@ async def request_password_reset(
 
         return {
             "message": "If the email exists, a password reset link has been sent",
-            "token": reset_token,
         }
 
     return {"message": "If the email exists, a password reset link has been sent"}

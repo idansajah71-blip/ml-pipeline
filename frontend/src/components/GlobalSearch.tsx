@@ -53,11 +53,14 @@ export default function GlobalSearch() {
     const q = debouncedQuery.toLowerCase();
     setLoading(true);
 
+    const controller = new AbortController();
+
     Promise.allSettled([
       modelsApi.list(),
       datasetsApi.list(),
       experimentsApi.list(),
     ]).then(([mRes, dRes, eRes]) => {
+      if (controller.signal.aborted) return;
       const out: SearchResult[] = [];
 
       if (mRes.status === 'fulfilled') {
@@ -96,7 +99,11 @@ export default function GlobalSearch() {
 
       setResults(out);
       setActive(0);
-    }).finally(() => setLoading(false));
+    }).finally(() => {
+      if (!controller.signal.aborted) setLoading(false);
+    });
+
+    return () => controller.abort();
   }, [debouncedQuery]);
 
   const navigate = useCallback((href: string) => {

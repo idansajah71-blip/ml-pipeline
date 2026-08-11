@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Copy, Check } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -12,12 +12,19 @@ interface CopyButtonProps {
 
 export default function CopyButton({ text, className, label }: CopyButtonProps) {
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      timerRef.current = setTimeout(() => setCopied(false), 2000);
     } catch {
       const textarea = document.createElement('textarea');
       textarea.value = text;
@@ -26,7 +33,7 @@ export default function CopyButton({ text, className, label }: CopyButtonProps) 
       document.execCommand('copy');
       document.body.removeChild(textarea);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      timerRef.current = setTimeout(() => setCopied(false), 2000);
     }
   };
 
