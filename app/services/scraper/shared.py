@@ -17,6 +17,8 @@ USER_AGENTS: List[str] = [
 
 def get_user_id(user) -> str:
     """Extract user ID string from user object."""
+    if user is None:
+        return ""
     return str(user.id)
 
 

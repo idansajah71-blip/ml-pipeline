@@ -117,6 +117,8 @@ export const auth = {
   register: (data: RegisterPayload) => api.post<TokenResponse>('/auth/register', data),
   refresh: (refreshToken: string) => api.post<TokenResponse>('/auth/refresh', { refresh_token: refreshToken }),
   me: () => api.get('/auth/me'),
+  updateProfile: (data: { full_name?: string; email?: string; username?: string }) =>
+    api.put('/auth/me', data),
 };
 
 export const datasets = {

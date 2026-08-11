@@ -283,7 +283,7 @@ class JsRenderedScraper:
         elapsed = int((datetime.now() - start).total_seconds() * 1000)
 
         return RenderedPage(
-            url=url, html=html, status_code=resp.status_code,
+            url=url, html=html, status_code=resp_status,
             headers=resp_headers, is_spa=is_spa, spa_framework=framework,
             has_infinite_scroll=has_scroll, ajax_endpoints=ajax_eps,
             lazy_loaded_elements=lazy_count, total_dom_nodes=dom_nodes,

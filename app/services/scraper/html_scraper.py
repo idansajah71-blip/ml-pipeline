@@ -101,11 +101,13 @@ class HtmlScraper:
             settings = get_settings()
             import redis.asyncio as redis
             client = redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
-            cached = await client.get(f"scrape_cache:{hashlib.md5(url.encode()).hexdigest()}")
-            await client.aclose()
-            if cached:
-                import json
-                return json.loads(cached)
+            try:
+                cached = await client.get(f"scrape_cache:{hashlib.md5(url.encode()).hexdigest()}")
+                if cached:
+                    import json
+                    return json.loads(cached)
+            finally:
+                await client.aclose()
         except Exception:
             pass
         return None
@@ -120,9 +122,11 @@ class HtmlScraper:
             import redis.asyncio as redis
             import json
             client = redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
-            key = f"scrape_cache:{hashlib.md5(url.encode()).hexdigest()}"
-            await client.setex(key, ttl or self.CACHE_TTL_SECONDS, json.dumps(data, default=str))
-            await client.aclose()
+            try:
+                key = f"scrape_cache:{hashlib.md5(url.encode()).hexdigest()}"
+                await client.setex(key, ttl or self.CACHE_TTL_SECONDS, json.dumps(data, default=str))
+            finally:
+                await client.aclose()
         except Exception:
             pass
 
@@ -133,10 +137,14 @@ class HtmlScraper:
         parsed = urlparse(url)
         if not parsed.netloc:
             raise ValueError(f"URL tidak valid: {url}")
-        blocked = ["localhost", "127.0.0.1", "0.0.0.0", "169.254.", "10.", "192.168.", "172."]
+        blocked_private = ["localhost", "127.0.0.1", "0.0.0.0", "169.254.", "10.", "192.168."]
         hostname = parsed.hostname or ""
-        for b in blocked:
+        for b in blocked_private:
             if hostname.startswith(b) or hostname == b.rstrip("."):
+                raise ValueError(f"URL internal/privat tidak diizinkan: {url}")
+        if hostname.startswith("172."):
+            parts = hostname.split(".")
+            if len(parts) >= 2 and parts[1].isdigit() and 16 <= int(parts[1]) <= 31:
                 raise ValueError(f"URL internal/privat tidak diizinkan: {url}")
         return url
 

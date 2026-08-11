@@ -1,6 +1,7 @@
 """Auth Scraper — Login/session management, cookie persistence, OAuth support."""
 import re
 import json
+import asyncio
 import logging
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass, field
@@ -282,13 +283,15 @@ class AuthScraper:
             "is_authenticated": state.is_authenticated,
             "saved_at": datetime.now().isoformat(),
         }
-        with open(filepath, "w") as f:
-            json.dump(data, f, indent=2)
+        await asyncio.to_thread(self._write_session_sync, filepath, data)
         return True
 
+    def _write_session_sync(self, filepath: str, data: dict) -> None:
+        with open(filepath, "w") as f:
+            json.dump(data, f, indent=2)
+
     async def load_session(self, filepath: str) -> SessionState:
-        with open(filepath) as f:
-            data = json.load(f)
+        data = await asyncio.to_thread(self._read_session_sync, filepath)
         state = SessionState(
             domain=data.get("domain", ""),
             cookies=data.get("cookies", {}),
@@ -299,6 +302,10 @@ class AuthScraper:
         )
         self._states[state.domain] = state
         return state
+
+    def _read_session_sync(self, filepath: str) -> dict:
+        with open(filepath) as f:
+            return json.load(f)
 
     def get_state(self, domain: str) -> Optional[SessionState]:
         return self._states.get(domain)

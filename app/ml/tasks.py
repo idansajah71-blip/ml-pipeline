@@ -38,10 +38,13 @@ def train_model_task(
     owner_id: str,
 ):
     from app.ml.pipeline import MLPipeline
+    from app.models.model import MLModel, ModelStatus
+    from app.models.experiment import Experiment, ExperimentStatus
 
     task_id = self.request.id
     start_time = datetime.utcnow()
 
+    session = get_sync_session()
     try:
         self.update_state(state="STARTED", meta={"step": "loading_data", "progress": 5})
         publish_progress(experiment_id, {"step": "loading_data", "progress": 5, "status": "started"})
@@ -75,6 +78,23 @@ def train_model_task(
             artifacts = pipeline.save_artifacts(model_dir)
             result["artifacts"] = artifacts
 
+            model_obj = session.query(MLModel).filter(MLModel.id == model_id).first()
+            experiment = (
+                session.query(Experiment)
+                .filter(Experiment.id == experiment_id)
+                .first()
+            )
+            if model_obj:
+                model_obj.status = ModelStatus.TRAINED
+                model_obj.file_path = artifacts["model_path"]
+                model_obj.metrics = result.get("metrics", {})
+                model_obj.parameters = result.get("parameters", {})
+            if experiment:
+                experiment.status = ExperimentStatus.COMPLETED
+                experiment.results = result
+                experiment.duration_seconds = str(result.get("duration_seconds", 0))
+            session.commit()
+
         self.update_state(state="STARTED", meta={"step": "completed", "progress": 100})
         publish_progress(experiment_id, {"step": "completed", "progress": 100, "status": "completed", "metrics": result.get("metrics", {})})
 
@@ -88,6 +108,7 @@ def train_model_task(
         return result
 
     except Exception as e:
+        session.rollback()
         duration = (datetime.utcnow() - start_time).total_seconds()
         publish_progress(experiment_id, {"step": "failed", "progress": 0, "status": "failed", "error": str(e)})
         error_result = {
@@ -105,6 +126,9 @@ def train_model_task(
 
         return error_result
 
+    finally:
+        session.close()
+
 
 @celery_app.task(bind=True, name="ml.automl")
 def automl_task(
@@ -117,11 +141,14 @@ def automl_task(
     owner_id: str,
 ):
     from app.ml.pipeline import MLPipeline
+    from app.models.model import MLModel, ModelStatus
+    from app.models.experiment import Experiment, ExperimentStatus
 
     task_id = self.request.id
     start_time = datetime.utcnow()
     results = []
 
+    session = get_sync_session()
     try:
         with open(dataset_path, "rb") as f:
             file_content = f.read()
@@ -184,9 +211,26 @@ def automl_task(
         # Notify on AutoML completion
         _notify_training_complete(owner_id, model_id, experiment_id, results[0] if results else {}, duration)
 
+        try:
+            model_obj = session.query(MLModel).filter(MLModel.id == model_id).first()
+            experiment = (
+                session.query(Experiment)
+                .filter(Experiment.id == experiment_id)
+                .first()
+            )
+            if model_obj:
+                model_obj.status = ModelStatus.TRAINED
+                model_obj.metrics = result_data.get("best_metrics", {})
+            if experiment:
+                experiment.status = ExperimentStatus.COMPLETED
+                experiment.results = result_data
+            session.commit()
+        except Exception as db_err:
+            session.rollback()
         return result_data
 
     except Exception as e:
+        session.rollback()
         duration = (datetime.utcnow() - start_time).total_seconds()
         publish_progress(experiment_id, {"step": "failed", "progress": 0, "status": "failed", "error": str(e)})
 
@@ -202,6 +246,9 @@ def automl_task(
             "duration_seconds": round(duration, 2),
             "task_id": task_id,
         }
+
+    finally:
+        session.close()
 
 
 @celery_app.task(name="ml.check_model_performance")

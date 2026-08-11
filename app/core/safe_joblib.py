@@ -26,6 +26,9 @@ ALLOWED_PREFIXES = (
     'fractions.',
     'numbers.',
     '_codecs.',
+    'xgboost.',
+    'lightgbm.',
+    'catboost.',
 )
 
 ALLOWED_GLOBALS = frozenset({

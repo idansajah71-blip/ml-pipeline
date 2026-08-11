@@ -61,7 +61,10 @@ export default function SettingsPage() {
     setError('');
     setSuccess('');
     try {
-      await auth.me();
+      await auth.updateProfile({
+        full_name: profileForm.full_name,
+        email: profileForm.email,
+      });
       setSuccess('Profile updated successfully');
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Update failed');
@@ -84,7 +87,7 @@ export default function SettingsPage() {
     setError('');
     setSuccess('');
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/auth/change-password`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || '/api/v1'}/auth/change-password`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -95,6 +98,10 @@ export default function SettingsPage() {
           new_password: passwordForm.new_password,
         }),
       });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.detail || 'Password change failed');
+      }
       setSuccess('Password changed successfully');
       setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
     } catch (err: any) {

@@ -91,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {
-    const storedRefresh = refreshToken || localStorage.getItem('refresh_token');
+    const storedRefresh = localStorage.getItem('refresh_token');
     if (!storedRefresh) return null;
 
     try {
@@ -108,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout();
       return null;
     }
-  }, [refreshToken]);
+  }, []);
 
   const logout = useCallback(() => {
     setToken(null);
