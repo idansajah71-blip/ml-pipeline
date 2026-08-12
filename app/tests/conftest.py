@@ -45,32 +45,17 @@ app.dependency_overrides[get_db] = override_get_db
 @pytest.fixture(autouse=True)
 async def setup_database():
     async with test_engine.begin() as conn:
-        # 1. Drop all tables first (removes FK dependencies on ENUMs)
-        await conn.run_sync(Base.metadata.drop_all)
-        # 2. Drop orphaned Postgres ENUM types left by previous runs
-        rows = (
-            await conn.execute(text(
-                "SELECT t.typname FROM pg_type t "
-                "JOIN pg_namespace n ON n.oid = t.typnamespace "
-                "WHERE n.nspname = 'public' AND t.typtype = 'e'"
-            ))
-        ).all()
-        for row in rows:
-            await conn.execute(text(f'DROP TYPE IF EXISTS "{row[0]}" CASCADE'))
-        # 3. Create everything fresh
+        # Reset entire public schema — drops all tables, ENUMs, sequences, etc.
+        # This is the only reliable way to clean orphaned PostgreSQL ENUM types.
+        await conn.execute(text("DROP SCHEMA public CASCADE"))
+        await conn.execute(text("CREATE SCHEMA public"))
+        await conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
         await conn.run_sync(Base.metadata.create_all)
     yield
     async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        rows = (
-            await conn.execute(text(
-                "SELECT t.typname FROM pg_type t "
-                "JOIN pg_namespace n ON n.oid = t.typnamespace "
-                "WHERE n.nspname = 'public' AND t.typtype = 'e'"
-            ))
-        ).all()
-        for row in rows:
-            await conn.execute(text(f'DROP TYPE IF EXISTS "{row[0]}" CASCADE'))
+        await conn.execute(text("DROP SCHEMA public CASCADE"))
+        await conn.execute(text("CREATE SCHEMA public"))
+        await conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
     await test_engine.dispose()
 
 
