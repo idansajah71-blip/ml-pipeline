@@ -169,6 +169,11 @@ class HyperparameterTuner:
         timeout_seconds: Optional[int] = None,
         n_jobs: int = 1,
     ) -> Tuple[Any, Dict[str, Any]]:
+        suggest_fn = PARAM_SUGGESTERS.get(algorithm)
+        if suggest_fn is None:
+            logger.warning(f"No search space for {algorithm}. Using default params.")
+            return model_class, {'message': f'No search space for {algorithm}', 'best_params': {}}
+
         if optuna is None:
             logger.warning("Optuna not installed. Falling back to default parameters.")
             return model_class, {
@@ -178,11 +183,6 @@ class HyperparameterTuner:
 
         if scoring is None:
             scoring = 'f1_weighted' if problem_type == 'classification' else 'r2'
-
-        suggest_fn = PARAM_SUGGESTERS.get(algorithm)
-        if suggest_fn is None:
-            logger.warning(f"No Optuna search space for {algorithm}. Using default params.")
-            return model_class, {'message': f'No search space for {algorithm}', 'best_params': {}}
 
         from sklearn.model_selection import cross_val_score
 

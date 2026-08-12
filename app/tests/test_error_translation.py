@@ -164,6 +164,7 @@ async def register_and_login(client: AsyncClient) -> str:
 
 
 @pytest.mark.asyncio
+@pytest.mark.skipif(not HAS_CELERY, reason="celery not installed")
 async def test_async_training_falls_back_to_sync_when_broker_down(client: AsyncClient, monkeypatch):
     """When Celery dispatch fails, training must continue synchronously (200, not 503)."""
     from app.tests.conftest import TestSessionLocal

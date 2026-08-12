@@ -3,7 +3,9 @@ import numpy as np
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LogisticRegression, Ridge
 
-from app.ml.hyperparameter_tuner import HyperparameterTuner, tune_hyperparameters
+from app.ml.hyperparameter_tuner import HyperparameterTuner, tune_hyperparameters, optuna
+
+HAS_OPTUNA = optuna is not None
 
 
 @pytest.fixture
@@ -23,6 +25,7 @@ def regressor_data():
 
 
 class TestHyperparameterTuner:
+    @pytest.mark.skipif(not HAS_OPTUNA, reason="optuna not installed")
     def test_grid_search_classification(self, classifier_data):
         X, y = classifier_data
         tuner = HyperparameterTuner()
@@ -52,6 +55,7 @@ class TestHyperparameterTuner:
         assert 'best_params' in results
         assert best_model is not None
 
+    @pytest.mark.skipif(not HAS_OPTUNA, reason="optuna not installed")
     def test_regression_tuning(self, regressor_data):
         X, y = regressor_data
         tuner = HyperparameterTuner()

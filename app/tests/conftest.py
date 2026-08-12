@@ -56,22 +56,30 @@ async def _reset_schema(conn):
         await conn.execute(text(f'DROP TYPE IF EXISTS "{row[0]}" CASCADE'))
 
 
+async def _verify_tables_exist():
+    """Check that the users table exists — raises if it doesn't."""
+    async with test_engine.connect() as conn:
+        result = await conn.execute(
+            text("SELECT 1 FROM information_schema.tables "
+                 "WHERE table_schema='public' AND table_name='users'")
+        )
+        if result.scalar() is None:
+            raise RuntimeError("users table missing after create_all")
+
+
 @pytest.fixture(autouse=True)
 async def setup_database():
-    # Step 1: Reset schema
-    async with test_engine.begin() as conn:
-        await _reset_schema(conn)
-    # Step 2: Create tables
-    try:
-        async with test_engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-    except Exception as exc:
-        logger.error("create_all FAILED: %s", exc, exc_info=True)
-        # Retry once — previous drop may have left stale prepared statements
+    for attempt in range(3):
         async with test_engine.begin() as conn:
             await _reset_schema(conn)
         async with test_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+        try:
+            await _verify_tables_exist()
+            break
+        except RuntimeError:
+            if attempt == 2:
+                logger.error("create_all: tables still missing after 3 attempts")
     yield
     async with test_engine.begin() as conn:
         await _reset_schema(conn)
