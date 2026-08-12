@@ -1,5 +1,6 @@
 import pytest
 import asyncio
+import logging
 from typing import AsyncGenerator
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
@@ -11,13 +12,12 @@ from app.core.database import Base, get_db
 from app.core.config import get_settings
 from app.models.user import User, UserRole
 
+logger = logging.getLogger(__name__)
+
 settings = get_settings()
 
 TEST_DATABASE_URL = "postgresql+asyncpg://test_user:test_password@localhost:5432/test_db"
 
-# NullPool: each session gets a fresh connection and returns it immediately,
-# avoiding the asyncpg pool-teardown race that caused flaky IntegrityError/
-# AttributeError when dispose() ran while pooled connections were in flight.
 test_engine = create_async_engine(
     TEST_DATABASE_URL,
     echo=False,
@@ -42,33 +42,45 @@ async def override_get_db():
 app.dependency_overrides[get_db] = override_get_db
 
 
+async def _reset_schema(conn):
+    """Drop and recreate the public schema, then drop any orphaned ENUM types."""
+    await conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
+    await conn.execute(text("CREATE SCHEMA public"))
+    await conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
+    rows = (await conn.execute(
+        text("SELECT t.typname FROM pg_type t "
+             "JOIN pg_namespace n ON n.oid = t.typnamespace "
+             "WHERE n.nspname = 'public' AND t.typtype = 'e'")
+    )).all()
+    for row in rows:
+        await conn.execute(text(f'DROP TYPE IF EXISTS "{row[0]}" CASCADE'))
+
+
 @pytest.fixture(autouse=True)
 async def setup_database():
-    # Use separate connections for teardown and setup to avoid rollback
-    # killing the schema drop if create_all fails.
+    # Step 1: Reset schema
     async with test_engine.begin() as conn:
-        await conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
-        await conn.execute(text("CREATE SCHEMA public"))
-        await conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
-    # Now create tables in a fresh transaction
-    async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await _reset_schema(conn)
+    # Step 2: Create tables
+    try:
+        async with test_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as exc:
+        logger.error("create_all FAILED: %s", exc, exc_info=True)
+        # Retry once — previous drop may have left stale prepared statements
+        async with test_engine.begin() as conn:
+            await _reset_schema(conn)
+        async with test_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
     yield
     async with test_engine.begin() as conn:
-        await conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
-        await conn.execute(text("CREATE SCHEMA public"))
-        await conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
+        await _reset_schema(conn)
 
 
 @pytest.fixture(autouse=True)
 async def flush_rate_limits():
-    """Flush Redis rate-limit & training-quota keys before each test to avoid 429s.
-
-    The middleware uses get_redis() → settings.REDIS_URL (db 0), so the old
-    hardcoded db 1 never actually cleared the counters that caused 429s.
-    """
+    """Flush Redis rate-limit & training-quota keys before each test to avoid 429s."""
     import redis.asyncio as aioredis
-    from app.core.config import get_settings
     try:
         r = aioredis.from_url(get_settings().REDIS_URL)
         keys = await r.keys("rate_limit:*")
@@ -101,7 +113,6 @@ async def register_and_login(client: AsyncClient, email: str = "test@example.com
     )
     token = login_res.json()["access_token"]
 
-    # Update role in a fresh session
     async with TestSessionLocal() as session:
         await session.execute(
             sa_update(User).where(User.email == email).values(role=role)

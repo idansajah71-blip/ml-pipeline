@@ -2,6 +2,12 @@ import pytest
 from fastapi import HTTPException
 from httpx import AsyncClient
 
+try:
+    import celery  # noqa: F401
+    HAS_CELERY = True
+except ImportError:
+    HAS_CELERY = False
+
 from app.core.error_utils import (
     translate_error_message,
     sanitize_error_message,
@@ -113,6 +119,7 @@ class _StubTask:
     """Fake used when Celery is not installed at all."""
 
 
+@pytest.mark.skipif(not HAS_CELERY, reason="celery not installed")
 def test_dispatch_raises_503_when_broker_down(monkeypatch):
     from app.services.model_service import ModelService
 
@@ -126,6 +133,7 @@ def test_dispatch_raises_503_when_broker_down(monkeypatch):
     assert "sinkron" in excinfo.value.detail.lower()
 
 
+@pytest.mark.skipif(not HAS_CELERY, reason="celery not installed")
 def test_dispatch_raises_503_when_celery_stub(monkeypatch):
     from app.services.model_service import ModelService
 
