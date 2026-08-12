@@ -1001,44 +1001,44 @@ frontend/src/components/Breadcrumb.tsx     # Rewritten: PARENT_MAP for group con
 
 ---
 
-## REMAINING WORK (Optional Future Session)
+## REMAINING WORK — HIGH PRIORITY ONLY
 
-### 1. Remaining ~66 LOW Priority Bugs
+### Task 1: N+1 Query Optimization ✅ SELESAI
 
-These are cosmetic/style issues that don't affect functionality:
+**Status**: FIXED — 7 dari 8 patterns sudah diperbaiki (commit `9cdb2f1`)
 
-- **Frontend (18 bugs)**: Missing ARIA labels, empty dependency arrays, unused state vars, missing error states
-- **Backend (21 bugs)**: Missing response models, type hints, verbose logging
-- **Scraper (10 bugs)**: Hardcoded timeouts, missing retry logic
-- **Docker/K8s (8 bugs)**: Missing resource limits, no pod disruption budget
-- **DevOps (9 bugs)**: Missing branch protection, no backup automation
+| File | Function | Before | After |
+|------|----------|--------|-------|
+| `monitoring.py` | `get_model_alerts` | 3N+1 queries | Single grouped aggregate |
+| `marketplace.py` | `get_my_models` | N+1 feedback queries | Batch aggregate query |
+| `marketplace.py` | `get_contributor_stats` | N+1 count queries | Single aggregate |
+| `marketplace.py` | `get_my_models_usage_stats` | 4N+1 queries | 2 batch aggregate queries |
+| `experiments.py` | `compare_experiments` | N queries (loop) | Single `.in_()` query |
+| `ensemble.py` | `create_ensemble` | N queries (loop) | Single `.in_()` query |
+| `ensemble.py` | `ensemble_predict` | N queries (loop) | Single batch load + dict lookup |
+| `serving_service.py` | `predict_batch` | 2N queries (N sequential predict) | True batch inference (DataFrame) |
 
-### 2. N+1 Query Optimization (8 patterns found)
+### Task 2: Training-Serving Consistency Test ✅ SELESAI
 
-- `model_list` endpoint: queries datasets separately per model
-- `team_members` endpoint: queries user role per member
-- `experiment_list` endpoint: queries runs per experiment
-- And 5 more patterns
+**Status**: CREATED — `app/ml/consistency_test.py`
 
-### 3. Docker Resource Limits
+**What it does**:
+- `test_training_serving_consistency()`: Takes raw input → runs through training pipeline processor → compares with serving path → verifies predictions match
+- `generate_consistency_report()`: Samples N data points from dataset, runs consistency check for each, returns full report
 
-Currently missing:
-- CPU/memory limits in docker-compose.yml
-- Pod resource requests/limits in k8s deployment
-- PodDisruptionBudget for HPA
+**How to use**:
+```python
+from app.ml.consistency_test import generate_consistency_report
 
-### 4. Scraper Efficiency
+# After training
+pipeline = MLPipeline()
+pipeline.run_training(file_content, filename, target_column, ...)
 
-- HTML scraper re-parses unchanged content
-- No pagination support for large datasets
-- Missing rate limiting per-domain (only global)
-
-### 5. Frontend Cosmetic Cleanup
-
-- Inconsistent button sizes
-- Missing loading skeletons
-- No skeleton screens for data tables
-- Dark mode contrast issues in some components
+# Run consistency test
+report = generate_consistency_report(pipeline, df, target_column, n_samples=10)
+print(report['all_consistent'])  # True if no skew
+print(report['recommendation'])
+```
 
 ---
 
@@ -1046,6 +1046,7 @@ Currently missing:
 
 | Commit | Description | Files |
 |--------|-------------|-------|
+| `9cdb2f1` | Critical ML methodology fixes: data leakage, CV, serving, security, N+1, consistency test | 12 files, +771/-253 |
 | `2de9b9c` | Web Scraping Overhaul (Phases 75-84) | 23 files, +3222/-733 |
 | `3164534` | Dashboard UI/UX overhaul | 28 files, +1908/-237 |
 | `b22bb8c` | IA redesign + backend fixes | 6 files, +352/-78 |
@@ -1057,5 +1058,5 @@ Currently missing:
 
 *File ini dibuat pada: 2026-07-30*  
 *Terakhir diupdate: 12 Agustus 2026*  
-*Total phases: 74/74 SELESAI + External Data Phase 1-10 SELESAI + Web Scraping Overhaul Fase 1-10 + Bug Fixes P0-P7 + IA Redesign*  
+*Total: Semua task HIGH priority SELESAI*  
 *GitHub: https://github.com/idansajah71-blip/ml-pipeline*

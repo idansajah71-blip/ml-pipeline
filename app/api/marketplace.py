@@ -941,15 +941,28 @@ async def get_my_models(
         ModelShare.shared_by == current_user.id
     )
     result = await db.execute(stmt)
+    shares_models = result.all()
+
+    if not shares_models:
+        return {"models": [], "total": 0}
+
+    share_ids = [share.id for share, _ in shares_models]
+
+    fb_agg_result = await db.execute(
+        select(
+            ModelFeedback.share_id,
+            func.count(ModelFeedback.id).label("total"),
+            func.avg(ModelFeedback.rating).label("avg_rating"),
+        ).where(ModelFeedback.share_id.in_(share_ids)).group_by(ModelFeedback.share_id)
+    )
+    fb_agg = {row.share_id: row for row in fb_agg_result.all()}
+
     models = []
-    for share, model in result.all():
+    for share, model in shares_models:
         entry = _share_to_dict(share, model)
-        # Get feedback stats
-        fb_stmt = select(ModelFeedback).where(ModelFeedback.share_id == share.id)
-        fb_result = await db.execute(fb_stmt)
-        feedbacks = fb_result.scalars().all()
-        entry["total_feedback"] = len(feedbacks)
-        entry["avg_user_rating"] = round(sum(f.rating for f in feedbacks) / len(feedbacks), 1) if feedbacks else None
+        agg = fb_agg.get(share.id)
+        entry["total_feedback"] = agg.total if agg else 0
+        entry["avg_user_rating"] = round(float(agg.avg_rating), 1) if agg and agg.avg_rating else None
         models.append(entry)
     return {"models": models, "total": len(models)}
 
@@ -968,14 +981,15 @@ async def get_contributor_stats(
     total_downloads = sum(s.downloads or 0 for s in shares)
     avg_rating = sum(s.rating or 0 for s in shares) / total_models if total_models > 0 else 0
 
-    # Get total feedback across all models
-    total_feedback = 0
-    for s in shares:
-        fb_stmt = select(func.count(ModelFeedback.id)).where(ModelFeedback.share_id == s.id)
-        fb_result = await db.execute(fb_stmt)
-        total_feedback += fb_result.scalar() or 0
+    share_ids = [s.id for s in shares]
+    if share_ids:
+        fb_result = await db.execute(
+            select(func.count(ModelFeedback.id)).where(ModelFeedback.share_id.in_(share_ids))
+        )
+        total_feedback = fb_result.scalar() or 0
+    else:
+        total_feedback = 0
 
-    # Badge calculation
     badge = "Baru"
     if total_models >= 10 and avg_rating >= 4.5 and total_downloads >= 100:
         badge = "Kontributor Elite"
@@ -1306,7 +1320,6 @@ async def get_my_models_usage_stats(
     Aggregated usage statistics for all models shared by the current user.
     Returns: total downloads, avg rating, total feedback, per-model breakdown.
     """
-    # Get all shares by this user
     stmt = select(ModelShare, MLModel).join(MLModel, ModelShare.model_id == MLModel.id).where(
         ModelShare.shared_by == current_user.id
     )
@@ -1322,35 +1335,39 @@ async def get_my_models_usage_stats(
             "models": [],
         }
 
+    model_ids = list(set(model.id for _, model in shares))
+
+    fb_agg_result = await db.execute(
+        select(
+            ModelFeedback.model_id,
+            func.count(ModelFeedback.id).label("feedback_count"),
+            func.avg(ModelFeedback.rating).label("avg_rating"),
+            func.count().filter(ModelFeedback.is_accurate == True).label("accurate_count"),
+        ).where(ModelFeedback.model_id.in_(model_ids)).group_by(ModelFeedback.model_id)
+    )
+    fb_agg = {row.model_id: row for row in fb_agg_result.all()}
+
+    pred_agg_result = await db.execute(
+        select(
+            Prediction.model_id,
+            func.count(Prediction.id).label("prediction_count"),
+        ).where(Prediction.model_id.in_(model_ids)).group_by(Prediction.model_id)
+    )
+    pred_agg = {row.model_id: row for row in pred_agg_result.all()}
+
     total_downloads = 0
     total_rating = 0.0
     total_feedback = 0
     models_stats = []
 
     for share, model in shares:
-        # Count feedback for this model
-        fb_stmt = select(func.count(ModelFeedback.id)).where(ModelFeedback.model_id == model.id)
-        fb_result = await db.execute(fb_stmt)
-        feedback_count = fb_result.scalar() or 0
+        fb = fb_agg.get(model.id)
+        pred = pred_agg.get(model.id)
 
-        # Average feedback rating
-        avg_fb_stmt = select(func.avg(ModelFeedback.rating)).where(ModelFeedback.model_id == model.id)
-        avg_fb_result = await db.execute(avg_fb_stmt)
-        avg_fb_rating = avg_fb_result.scalar() or 0
-
-        # Count predictions for this model
-        from app.models.prediction import Prediction
-        pred_stmt = select(func.count(Prediction.id)).where(Prediction.model_id == model.id)
-        pred_result = await db.execute(pred_stmt)
-        prediction_count = pred_result.scalar() or 0
-
-        # Accuracy from feedback
-        accurate_stmt = select(func.count(ModelFeedback.id)).where(
-            ModelFeedback.model_id == model.id,
-            ModelFeedback.is_accurate == True,
-        )
-        accurate_result = await db.execute(accurate_stmt)
-        accurate_count = accurate_result.scalar() or 0
+        feedback_count = fb.feedback_count if fb else 0
+        avg_fb_rating = float(fb.avg_rating) if fb and fb.avg_rating else 0
+        accurate_count = fb.accurate_count if fb else 0
+        prediction_count = pred.prediction_count if pred else 0
         accuracy_pct = round(accurate_count / feedback_count * 100, 1) if feedback_count > 0 else None
 
         downloads = share.downloads or 0

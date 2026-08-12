@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, and_
 from typing import Dict, Any, Optional, List
 from uuid import UUID
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel
 import json
 
@@ -121,7 +121,7 @@ async def get_model_performance(
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    cutoff = datetime.utcnow() - timedelta(hours=hours)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
 
     preds_result = await db.execute(
         select(Prediction)
@@ -258,7 +258,7 @@ async def get_prediction_stats(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    cutoff = datetime.utcnow() - timedelta(hours=hours)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
     stmt = select(Prediction).where(Prediction.created_at >= cutoff)
 
     if model_id:
@@ -302,66 +302,65 @@ async def get_model_alerts(
     )
     deployed_models = list(result.scalars().all())
 
+    if not deployed_models:
+        return {"total_alerts": 0, "alerts": [], "checked_at": datetime.now(timezone.utc).isoformat()}
+
+    model_ids = [m.id for m in deployed_models]
+    model_names = {m.id: m.name for m in deployed_models}
+    cutoff_24h = datetime.now(timezone.utc) - timedelta(hours=24)
+
+    stats_result = await db.execute(
+        select(
+            Prediction.model_id,
+            func.count(Prediction.id).label("pred_count"),
+            func.avg(Prediction.confidence).label("avg_conf"),
+            func.avg(Prediction.latency_ms).label("avg_lat"),
+        ).where(
+            Prediction.model_id.in_(model_ids),
+            Prediction.created_at >= cutoff_24h,
+        ).group_by(Prediction.model_id)
+    )
+    model_stats = {row.model_id: row for row in stats_result.all()}
+
     alerts = []
-    cutoff_24h = datetime.utcnow() - timedelta(hours=24)
+    for model_id in model_ids:
+        stats = model_stats.get(model_id)
+        name = model_names[model_id]
 
-    for model in deployed_models:
-        preds_result = await db.execute(
-            select(func.count(Prediction.id)).where(
-                Prediction.model_id == model.id,
-                Prediction.created_at >= cutoff_24h,
-            )
-        )
-        pred_count = preds_result.scalar()
-
-        if pred_count == 0:
+        if stats is None or stats.pred_count == 0:
             alerts.append({
-                "model_id": str(model.id),
-                "model_name": model.name,
+                "model_id": str(model_id),
+                "model_name": name,
                 "alert_type": "no_predictions",
                 "severity": "warning",
-                "message": f"No predictions in last 24h for {model.name}",
+                "message": f"No predictions in last 24h for {name}",
             })
             continue
 
-        avg_conf_result = await db.execute(
-            select(func.avg(Prediction.confidence)).where(
-                Prediction.model_id == model.id,
-                Prediction.created_at >= cutoff_24h,
-            )
-        )
-        avg_conf = avg_conf_result.scalar() or 0
-
+        avg_conf = stats.avg_conf or 0
         if avg_conf < 0.5:
             alerts.append({
-                "model_id": str(model.id),
-                "model_name": model.name,
+                "model_id": str(model_id),
+                "model_name": name,
                 "alert_type": "low_confidence",
                 "severity": "critical",
-                "message": f"Low avg confidence ({avg_conf:.2%}) for {model.name}",
+                "message": f"Low avg confidence ({avg_conf:.2%}) for {name}",
             })
 
-        avg_lat_result = await db.execute(
-            select(func.avg(Prediction.latency_ms)).where(
-                Prediction.model_id == model.id,
-                Prediction.created_at >= cutoff_24h,
-            )
-        )
-        avg_lat = avg_lat_result.scalar() or 0
-
+        avg_lat = stats.avg_lat or 0
         if avg_lat > 1000:
             alerts.append({
-                "model_id": str(model.id),
-                "model_name": model.name,
+                "model_id": str(model_id),
+                "model_name": name,
                 "alert_type": "high_latency",
                 "severity": "warning",
-                "message": f"High avg latency ({avg_lat:.0f}ms) for {model.name}",
+                "message": f"High avg latency ({avg_lat:.0f}ms) for {name}",
             })
 
     return {
         "total_alerts": len(alerts),
         "alerts": alerts,
-        "checked_at": datetime.utcnow().isoformat(),
+        "checked_at": datetime.now(timezone.utc).isoformat(),
     }
 
 
@@ -405,7 +404,7 @@ async def check_latency_sla(
     if not model:
         raise HTTPException(status_code=404, detail="Model not found")
 
-    cutoff = datetime.utcnow() - timedelta(hours=req.window_hours)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=req.window_hours)
 
     avg_result = await db.execute(
         select(func.avg(Prediction.latency_ms)).where(
@@ -442,5 +441,5 @@ async def check_latency_sla(
             "violation_percentage": round(violation_pct, 2),
         },
         "sla_met": violation_pct < 5.0,
-        "checked_at": datetime.utcnow().isoformat(),
+        "checked_at": datetime.now(timezone.utc).isoformat(),
     }

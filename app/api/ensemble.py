@@ -5,7 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel
 from typing import Optional, List
 import uuid
-import numpy as np
+from datetime import datetime, timezone
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
@@ -54,13 +54,15 @@ async def create_ensemble(
     if len(data.model_ids) < 2:
         raise HTTPException(status_code=400, detail="At least 2 models required")
 
-    models_list = []
-    for mid in data.model_ids:
-        result = await db.execute(select(MLModel).where(MLModel.id == mid))
-        model = result.scalar_one_or_none()
-        if not model:
-            raise HTTPException(status_code=404, detail=f"Model {mid} not found")
-        models_list.append(model)
+    result = await db.execute(
+        select(MLModel).where(MLModel.id.in_(data.model_ids))
+    )
+    models_list = list(result.scalars().all())
+
+    found_ids = {str(m.id) for m in models_list}
+    missing = [str(mid) for mid in data.model_ids if str(mid) not in found_ids]
+    if missing:
+        raise HTTPException(status_code=404, detail=f"Models not found: {', '.join(missing)}")
 
     ensemble_id = str(uuid.uuid4())
     weights = data.weights or {str(mid): 1.0 / len(data.model_ids) for mid in data.model_ids}
@@ -73,7 +75,7 @@ async def create_ensemble(
         "model_ids": [str(mid) for mid in data.model_ids],
         "weights": weights,
         "owner_id": str(current_user.id),
-        "created_at": "2026-01-01T00:00:00",
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
     return EnsembleResponse(**ensembles_store[ensemble_id])
@@ -97,10 +99,13 @@ async def ensemble_predict(
     if not ensemble:
         raise HTTPException(status_code=404, detail="Ensemble not found")
 
+    model_ids = [UUID(mid) for mid in ensemble["model_ids"]]
+    result = await db.execute(select(MLModel).where(MLModel.id.in_(model_ids)))
+    model_map = {str(m.id): m for m in result.scalars().all()}
+
     predictions = []
     for mid in ensemble["model_ids"]:
-        result = await db.execute(select(MLModel).where(MLModel.id == UUID(mid)))
-        model = result.scalar_one_or_none()
+        model = model_map.get(mid)
         if not model or not model.file_path:
             continue
 

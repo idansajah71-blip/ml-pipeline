@@ -104,18 +104,18 @@ async def compare_experiments(
     if len(compare_request.experiment_ids) < 2:
         raise HTTPException(status_code=400, detail="At least 2 experiments required")
 
-    experiments = []
-    for exp_id in compare_request.experiment_ids:
-        result = await db.execute(
-            select(Experiment).where(
-                Experiment.id == exp_id,
-                Experiment.owner_id == current_user.id,
-            )
+    result = await db.execute(
+        select(Experiment).where(
+            Experiment.id.in_(compare_request.experiment_ids),
+            Experiment.owner_id == current_user.id,
         )
-        exp = result.scalar_one_or_none()
-        if not exp:
-            raise HTTPException(status_code=404, detail=f"Experiment {exp_id} not found")
-        experiments.append(exp)
+    )
+    experiments = list(result.scalars().all())
+
+    found_ids = {str(exp.id) for exp in experiments}
+    missing = [str(eid) for eid in compare_request.experiment_ids if str(eid) not in found_ids]
+    if missing:
+        raise HTTPException(status_code=404, detail=f"Experiments not found: {', '.join(missing)}")
 
     comparison = []
     for exp in experiments:
