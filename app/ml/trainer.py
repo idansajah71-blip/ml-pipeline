@@ -267,8 +267,8 @@ class ModelTrainer:
                 elif n_classes > 2:
                     metrics['roc_auc_ovr'] = float(roc_auc_score(y_test, y_proba, multi_class='ovr', average='macro'))
                 metrics['log_loss'] = float(log_loss(y_test, y_proba))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"Probability-based metrics failed: {e}")
 
         return metrics
 

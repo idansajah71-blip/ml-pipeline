@@ -1,14 +1,18 @@
 import os
 import json
 import hashlib
-from datetime import datetime
-from typing import Optional
+import threading
+from datetime import datetime, timezone
+from typing import Optional, Dict, Any
 from uuid import UUID
 
 from app.core.safe_joblib import safe_load
 
 
 class ModelServingService:
+    _model_cache: Dict[str, Any] = {}
+    _cache_lock = threading.Lock()
+
     def __init__(self, session, redis_client=None):
         self.session = session
         self.redis = redis_client
@@ -18,6 +22,18 @@ class ModelServingService:
 
     def _hash_input(self, data: dict) -> str:
         return hashlib.md5(json.dumps(data, sort_keys=True, default=str).encode()).hexdigest()
+
+    def _get_cached_model(self, model_id: str, file_path: str) -> Any:
+        with self._cache_lock:
+            if model_id in self._model_cache:
+                return self._model_cache[model_id]
+
+        model_data = safe_load(file_path)
+
+        with self._cache_lock:
+            self._model_cache[model_id] = model_data
+
+        return model_data
 
     async def predict(self, endpoint_id: UUID, input_data: dict):
         from app.models.serving import ServingEndpoint, ServingLog
@@ -52,7 +68,7 @@ class ModelServingService:
             return {"error": "Model not found"}
 
         try:
-            model_data = safe_load(model.file_path)
+            model_data = self._get_cached_model(str(model.id), model.file_path)
             ml_model = model_data.get("model") if isinstance(model_data, dict) else model_data
             scaler = model_data.get("scaler") if isinstance(model_data, dict) else None
 
@@ -79,11 +95,50 @@ class ModelServingService:
             return {"error": str(e)}
 
     async def predict_batch(self, endpoint_id: UUID, inputs: list):
-        results = []
-        for inp in inputs:
-            result = await self.predict(endpoint_id, inp)
-            results.append(result)
-        return results
+        from app.models.serving import ServingEndpoint, ServingLog
+        from app.models.model import MLModel
+        from sqlalchemy import select
+        import time
+        import pandas as pd
+
+        result = await self.session.execute(
+            select(ServingEndpoint).where(ServingEndpoint.id == endpoint_id)
+        )
+        endpoint = result.scalar_one_or_none()
+        if not endpoint or not endpoint.is_active:
+            return [{"error": "Endpoint not found or inactive"}] * len(inputs)
+
+        model_result = await self.session.execute(
+            select(MLModel).where(MLModel.id == endpoint.model_id)
+        )
+        model = model_result.scalar_one_or_none()
+        if not model or not model.file_path:
+            return [{"error": "Model not found"}] * len(inputs)
+
+        try:
+            model_data = self._get_cached_model(str(model.id), model.file_path)
+            ml_model = model_data.get("model") if isinstance(model_data, dict) else model_data
+            scaler = model_data.get("scaler") if isinstance(model_data, dict) else None
+
+            df = pd.DataFrame(inputs)
+            if scaler:
+                numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+                if numeric_cols:
+                    df[numeric_cols] = scaler.transform(df[numeric_cols])
+
+            start = time.perf_counter()
+            predictions = ml_model.predict(df)
+            latency = (time.perf_counter() - start) * 1000
+
+            results = []
+            for i, pred in enumerate(predictions):
+                pred_value = pred.tolist() if hasattr(pred, 'tolist') else str(pred)
+                results.append({"prediction": pred_value, "latency_ms": round(latency / len(inputs), 3), "cache_hit": False})
+
+            return results
+
+        except Exception as e:
+            return [{"error": str(e)}] * len(inputs)
 
     async def _log(self, endpoint_id, input_data, prediction, latency, cache_hit=False, error=None):
         from app.models.serving import ServingLog
@@ -103,7 +158,7 @@ class ModelServingService:
         from sqlalchemy import select, func
         from datetime import timedelta
 
-        cutoff = datetime.utcnow() - timedelta(hours=hours)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
         result = await self.session.execute(
             select(
                 func.count(ServingLog.id).label("total"),

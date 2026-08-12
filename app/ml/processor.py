@@ -75,23 +75,33 @@ class DataProcessor:
 
         return categorical_cols, high_cardinality_cols
 
-    def _apply_imputation(self, df: pd.DataFrame) -> pd.DataFrame:
-        df = df.copy()
+    def _fit_imputation(self, df: pd.DataFrame) -> None:
+        """Fit imputation values from training data only."""
+        self._numeric_fill_values = {}
+        self._categorical_fill_values = {}
 
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         for col in numeric_cols:
             if df[col].isna().any():
-                median_val = df[col].median()
-                df[col] = df[col].fillna(median_val)
+                self._numeric_fill_values[col] = df[col].median()
 
         categorical_cols = df.select_dtypes(include=['object', 'category']).columns
         for col in categorical_cols:
             if df[col].isna().any():
                 mode_val = df[col].mode()
-                if not mode_val.empty:
-                    df[col] = df[col].fillna(mode_val[0])
-                else:
-                    df[col] = df[col].fillna('missing')
+                self._categorical_fill_values[col] = mode_val[0] if not mode_val.empty else 'missing'
+
+    def _transform_imputation(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Transform using imputation values fitted on training data."""
+        df = df.copy()
+
+        for col, median_val in self._numeric_fill_values.items():
+            if col in df.columns:
+                df[col] = df[col].fillna(median_val)
+
+        for col, fill_val in self._categorical_fill_values.items():
+            if col in df.columns:
+                df[col] = df[col].fillna(fill_val)
 
         return df
 
@@ -104,8 +114,6 @@ class DataProcessor:
     ) -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame, pd.Series, Dict[str, Any]]:
         metadata = {}
 
-        df = self._apply_imputation(df)
-
         X = df.drop(columns=[target_column])
         y = df[target_column]
 
@@ -117,45 +125,59 @@ class DataProcessor:
         if high_cardinality_cols:
             X = X.drop(columns=high_cardinality_cols)
 
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=test_size, random_state=random_state,
+            stratify=y if y.dtype == 'object' or (hasattr(y, 'nunique') and y.nunique() <= 20) else None
+        )
+
+        self._fit_imputation(pd.concat([X_train, y_train], axis=1))
+        X_train = self._transform_imputation(X_train)
+        X_test = self._transform_imputation(X_test)
+
         if categorical_cols:
-            ohe = OneHotEncoder(sparse_output=False, handle_unknown='ignore', drop=None)
-            ohe_data = ohe.fit_transform(X[categorical_cols])
-            ohe_feature_names = ohe.get_feature_names_out(categorical_cols).tolist()
+            available_cat_cols = [c for c in categorical_cols if c in X_train.columns]
+            if available_cat_cols:
+                ohe = OneHotEncoder(sparse_output=False, handle_unknown='ignore', drop=None)
+                ohe_data = ohe.fit_transform(X_train[available_cat_cols])
+                ohe_feature_names = ohe.get_feature_names_out(available_cat_cols).tolist()
 
-            ohe_df = pd.DataFrame(ohe_data, columns=ohe_feature_names, index=X.index)
-            X = X.drop(columns=categorical_cols)
-            X = pd.concat([X, ohe_df], axis=1)
+                ohe_train_df = pd.DataFrame(ohe_data, columns=ohe_feature_names, index=X_train.index)
+                X_train = X_train.drop(columns=available_cat_cols)
+                X_train = pd.concat([X_train, ohe_train_df], axis=1)
 
-            self.one_hot_encoders['features'] = ohe
-            self.one_hot_columns = categorical_cols
-            metadata['one_hot_encoded_columns'] = categorical_cols
-            metadata['one_hot_feature_names'] = ohe_feature_names
+                ohe_test_data = ohe.transform(X_test[available_cat_cols])
+                ohe_test_df = pd.DataFrame(ohe_test_data, columns=ohe_feature_names, index=X_test.index)
+                X_test = X_test.drop(columns=available_cat_cols)
+                X_test = pd.concat([X_test, ohe_test_df], axis=1)
+
+                self.one_hot_encoders['features'] = ohe
+                self.one_hot_columns = available_cat_cols
+                metadata['one_hot_encoded_columns'] = available_cat_cols
+                metadata['one_hot_feature_names'] = ohe_feature_names
 
         if y.dtype == 'object':
             le = LabelEncoder()
             y = le.fit_transform(y)
             self.label_encoders[target_column] = le
             metadata[f'encoder_{target_column}'] = le.classes_.tolist()
-
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=random_state, stratify=y if len(np.unique(y)) > 1 else None
-        )
+            y_train = pd.Series(y[X_train.index])
+            y_test = pd.Series(y[X_test.index])
 
         numeric_cols = X_train.select_dtypes(include=[np.number]).columns.tolist()
         if numeric_cols:
-            X_train[numeric_cols] = self.scaler.fit_transform(X_train[numeric_cols])
+            self.scaler.fit(X_train[numeric_cols])
+            X_train[numeric_cols] = self.scaler.transform(X_train[numeric_cols])
             X_test[numeric_cols] = self.scaler.transform(X_test[numeric_cols])
             metadata['scaled_columns'] = numeric_cols
 
-        metadata['feature_names'] = list(X.columns)
-        metadata['n_features'] = X.shape[1]
+        metadata['feature_names'] = list(X_train.columns)
+        metadata['n_features'] = X_train.shape[1]
         metadata['n_classes'] = len(np.unique(y))
 
-        # Collect column statistics for input validation during prediction
         column_stats = {}
-        for col in X.columns:
-            if col in X.select_dtypes(include=[np.number]).columns:
-                col_data = X[col].dropna()
+        for col in X_train.columns:
+            if col in X_train.select_dtypes(include=[np.number]).columns:
+                col_data = X_train[col].dropna()
                 column_stats[col] = {
                     'dtype': 'numeric',
                     'mean': float(col_data.mean()) if len(col_data) > 0 else 0,
@@ -166,7 +188,7 @@ class DataProcessor:
                     'q75': float(col_data.quantile(0.75)) if len(col_data) > 0 else 0,
                 }
             else:
-                unique_vals = X[col].dropna().unique()
+                unique_vals = X_train[col].dropna().unique()
                 column_stats[col] = {
                     'dtype': 'categorical',
                     'unique_values': [str(v) for v in unique_vals[:50]],
@@ -179,7 +201,7 @@ class DataProcessor:
     def preprocess_input(self, data: List[Dict[str, Any]], feature_names: List[str]) -> pd.DataFrame:
         df = pd.DataFrame(data)
 
-        df = self._apply_imputation(df)
+        df = self._transform_imputation(df)
 
         if 'features' in self.one_hot_encoders and self.one_hot_columns:
             available_cat_cols = [c for c in self.one_hot_columns if c in df.columns]
@@ -199,7 +221,7 @@ class DataProcessor:
 
         for feat in feature_names:
             if feat not in df.columns:
-                df[feat] = 0
+                df[feat] = np.nan
 
         df = df[feature_names]
 

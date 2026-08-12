@@ -150,6 +150,7 @@ class AutoProcessor:
         """
         Automated preprocessing for simple mode.
         Makes intelligent decisions about encoding, imputation, and feature selection.
+        All preprocessing is fit ONLY on training data to prevent data leakage.
         """
         metadata = {}
         warnings_list = []
@@ -178,27 +179,6 @@ class AutoProcessor:
                 f"{', '.join(high_cardinality_cols[:5])}{'...' if len(high_cardinality_cols) > 5 else ''}"
             )
 
-        if numeric_cols:
-            self.numeric_imputer = SimpleImputer(strategy='median')
-            X[numeric_cols] = self.numeric_imputer.fit_transform(X[numeric_cols])
-
-        if categorical_cols:
-            self.categorical_imputer = SimpleImputer(strategy='most_frequent')
-            X[categorical_cols] = self.categorical_imputer.fit_transform(X[categorical_cols])
-
-            ohe = OneHotEncoder(sparse_output=False, handle_unknown='ignore', max_categories=50)
-            ohe_data = ohe.fit_transform(X[categorical_cols])
-            ohe_feature_names = ohe.get_feature_names_out(categorical_cols).tolist()
-
-            ohe_df = pd.DataFrame(ohe_data, columns=ohe_feature_names, index=X.index)
-            X = X.drop(columns=categorical_cols)
-            X = pd.concat([X, ohe_df], axis=1)
-
-            self.one_hot_encoders['features'] = ohe
-            self.one_hot_columns = categorical_cols
-            metadata['one_hot_encoded_columns'] = categorical_cols
-            metadata['n_one_hot_features'] = len(ohe_feature_names)
-
         if y.dtype == 'object':
             le = LabelEncoder()
             y = le.fit_transform(y)
@@ -211,10 +191,43 @@ class AutoProcessor:
                 self.target_encoder = le
                 metadata['target_classes'] = le.classes_.tolist()
 
+        stratify = y if problem_type == 'classification' and len(np.unique(y)) > 1 else None
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=test_size, random_state=random_state,
-            stratify=y if problem_type == 'classification' and len(np.unique(y)) > 1 else None
+            X, y, test_size=test_size, random_state=random_state, stratify=stratify
         )
+
+        train_numeric_cols = [c for c in X_train.select_dtypes(include=[np.number]).columns.tolist()]
+        if train_numeric_cols:
+            self.numeric_imputer = SimpleImputer(strategy='median')
+            self.numeric_imputer.fit(X_train[train_numeric_cols])
+            X_train[train_numeric_cols] = self.numeric_imputer.transform(X_train[train_numeric_cols])
+            X_test[train_numeric_cols] = self.numeric_imputer.transform(X_test[train_numeric_cols])
+
+        train_cat_cols = [c for c in categorical_cols if c in X_train.columns]
+        if train_cat_cols:
+            self.categorical_imputer = SimpleImputer(strategy='most_frequent')
+            self.categorical_imputer.fit(X_train[train_cat_cols])
+            X_train[train_cat_cols] = self.categorical_imputer.transform(X_train[train_cat_cols])
+            X_test[train_cat_cols] = self.categorical_imputer.transform(X_test[train_cat_cols])
+
+            ohe = OneHotEncoder(sparse_output=False, handle_unknown='ignore', max_categories=50)
+            ohe.fit(X_train[train_cat_cols])
+
+            ohe_train_data = ohe.transform(X_train[train_cat_cols])
+            ohe_feature_names = ohe.get_feature_names_out(train_cat_cols).tolist()
+            ohe_train_df = pd.DataFrame(ohe_train_data, columns=ohe_feature_names, index=X_train.index)
+            X_train = X_train.drop(columns=train_cat_cols)
+            X_train = pd.concat([X_train, ohe_train_df], axis=1)
+
+            ohe_test_data = ohe.transform(X_test[train_cat_cols])
+            ohe_test_df = pd.DataFrame(ohe_test_data, columns=ohe_feature_names, index=X_test.index)
+            X_test = X_test.drop(columns=train_cat_cols)
+            X_test = pd.concat([X_test, ohe_test_df], axis=1)
+
+            self.one_hot_encoders['features'] = ohe
+            self.one_hot_columns = train_cat_cols
+            metadata['one_hot_encoded_columns'] = train_cat_cols
+            metadata['n_one_hot_features'] = len(ohe_feature_names)
 
         numeric_cols = X_train.select_dtypes(include=[np.number]).columns.tolist()
         if numeric_cols:
@@ -223,17 +236,16 @@ class AutoProcessor:
             X_test[numeric_cols] = self.scaler.transform(X_test[numeric_cols])
             metadata['scaled_columns'] = numeric_cols
 
-        self.feature_names = list(X.columns)
+        self.feature_names = list(X_train.columns)
         metadata['feature_names'] = self.feature_names
-        metadata['n_features'] = X.shape[1]
+        metadata['n_features'] = X_train.shape[1]
         metadata['n_classes'] = len(np.unique(y))
         metadata['warnings'] = warnings_list
 
-        # Collect column statistics for input validation during prediction
         column_stats = {}
-        for col in X.columns:
-            if col in X.select_dtypes(include=[np.number]).columns:
-                col_data = X[col].dropna()
+        for col in X_train.columns:
+            if col in X_train.select_dtypes(include=[np.number]).columns:
+                col_data = X_train[col].dropna()
                 column_stats[col] = {
                     'dtype': 'numeric',
                     'mean': float(col_data.mean()) if len(col_data) > 0 else 0,
@@ -244,7 +256,7 @@ class AutoProcessor:
                     'q75': float(col_data.quantile(0.75)) if len(col_data) > 0 else 0,
                 }
             else:
-                unique_vals = X[col].dropna().unique()
+                unique_vals = X_train[col].dropna().unique()
                 column_stats[col] = {
                     'dtype': 'categorical',
                     'unique_values': [str(v) for v in unique_vals[:50]],
@@ -286,7 +298,7 @@ class AutoProcessor:
 
         for feat in feature_names:
             if feat not in df.columns:
-                df[feat] = 0
+                df[feat] = np.nan
 
         df = df[feature_names]
 

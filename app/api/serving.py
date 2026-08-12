@@ -82,7 +82,11 @@ async def list_endpoints(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(ServingEndpoint).order_by(ServingEndpoint.created_at.desc()))
+    result = await db.execute(
+        select(ServingEndpoint).where(
+            ServingEndpoint.owner_id == current_user.id
+        ).order_by(ServingEndpoint.created_at.desc())
+    )
     endpoints = list(result.scalars().all())
     return [EndpointResponse.model_validate(e) for e in endpoints]
 
@@ -94,6 +98,16 @@ async def predict(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
+    result = await db.execute(
+        select(ServingEndpoint).where(
+            ServingEndpoint.id == endpoint_id,
+            ServingEndpoint.owner_id == current_user.id,
+        )
+    )
+    endpoint = result.scalar_one_or_none()
+    if not endpoint:
+        raise HTTPException(status_code=404, detail="Endpoint not found")
+
     redis_client = await get_redis()
     service = ModelServingService(db, redis_client)
     result = await service.predict(endpoint_id, data.data)
@@ -109,6 +123,16 @@ async def predict_batch(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
+    result = await db.execute(
+        select(ServingEndpoint).where(
+            ServingEndpoint.id == endpoint_id,
+            ServingEndpoint.owner_id == current_user.id,
+        )
+    )
+    endpoint = result.scalar_one_or_none()
+    if not endpoint:
+        raise HTTPException(status_code=404, detail="Endpoint not found")
+
     redis_client = await get_redis()
     service = ModelServingService(db, redis_client)
     results = await service.predict_batch(endpoint_id, data.inputs)
@@ -122,6 +146,16 @@ async def get_endpoint_metrics(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
+    result = await db.execute(
+        select(ServingEndpoint).where(
+            ServingEndpoint.id == endpoint_id,
+            ServingEndpoint.owner_id == current_user.id,
+        )
+    )
+    endpoint = result.scalar_one_or_none()
+    if not endpoint:
+        raise HTTPException(status_code=404, detail="Endpoint not found")
+
     redis_client = await get_redis()
     service = ModelServingService(db, redis_client)
     metrics = await service.get_metrics(endpoint_id, hours)
@@ -134,7 +168,12 @@ async def delete_endpoint(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(ServingEndpoint).where(ServingEndpoint.id == endpoint_id))
+    result = await db.execute(
+        select(ServingEndpoint).where(
+            ServingEndpoint.id == endpoint_id,
+            ServingEndpoint.owner_id == current_user.id,
+        )
+    )
     endpoint = result.scalar_one_or_none()
     if not endpoint:
         raise HTTPException(status_code=404, detail="Endpoint not found")

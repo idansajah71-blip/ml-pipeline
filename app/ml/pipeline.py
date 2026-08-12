@@ -1,5 +1,6 @@
 import time
 import uuid
+import logging
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 import pandas as pd
@@ -7,6 +8,9 @@ import numpy as np
 
 from app.ml.processor import DataProcessor
 from app.ml.trainer import ModelTrainer
+from app.ml.data_quality_gate import DataQualityGate
+
+logger = logging.getLogger(__name__)
 
 
 class MLPipeline:
@@ -35,6 +39,18 @@ class MLPipeline:
             df = self.processor.load_data(file_content, filename)
             data_info = self.processor.get_data_info(df)
 
+            quality_gate = DataQualityGate()
+            quality_result = quality_gate.check(df, target_column, strict=True)
+
+            if quality_result['blocked']:
+                return {
+                    'experiment_id': self.experiment_id,
+                    'status': 'rejected',
+                    'error': 'Dataset failed quality gate',
+                    'quality_gate': quality_result,
+                    'duration_seconds': round(time.time() - start_time, 2),
+                }
+
             X_train, X_test, y_train, y_test, preprocess_metadata = self.processor.preprocess(
                 df, target_column, test_size=test_size
             )
@@ -47,12 +63,11 @@ class MLPipeline:
             metrics = self.trainer.evaluate(X_test, y_test)
 
             try:
-                cv_results = self.trainer.cross_validate(
-                    pd.concat([X_train, X_test]), pd.concat([y_train, y_test]), cv=5
-                )
+                cv_results = self.trainer.cross_validate(X_train, y_train, cv=5)
                 metrics['cross_validation'] = cv_results
-            except Exception:
-                cv_results = None
+            except Exception as e:
+                metrics['cross_validation'] = {'error': str(e), 'status': 'failed'}
+                logger.warning(f"Cross-validation failed: {e}")
 
             feature_importance = self.trainer.get_feature_importance(preprocess_metadata['feature_names'])
 
@@ -82,6 +97,7 @@ class MLPipeline:
                 },
                 'preprocess_metadata': preprocess_metadata,
                 'feature_importance': feature_importance,
+                'quality_gate': quality_result,
                 'duration_seconds': round(duration, 2),
                 'completed_at': datetime.now(timezone.utc).isoformat(),
                 'status': 'completed',
@@ -119,28 +135,7 @@ class MLPipeline:
             if hasattr(self.trainer.model, 'predict_proba'):
                 probabilities = self.trainer.model.predict_proba(input_df)
 
-            # Get uncertainty estimates from cross-validation std
             problem_type = self.training_metadata.get('problem_type', 'classification')
-            cv_data = self.training_metadata.get('cross_validation', {})
-            metrics = self.training_metadata.get('metrics', {})
-
-            # Calculate confidence interval width from CV scores
-            cv_std = 0.0
-            if problem_type == 'regression':
-                r2_scores = cv_data.get('r2', {}).get('scores', [])
-                if r2_scores:
-                    import numpy as np
-                    cv_std = float(np.std(r2_scores))
-                else:
-                    rmse = metrics.get('rmse', 0)
-                    cv_std = rmse * 0.1 if rmse else 0.05
-            else:
-                acc_scores = cv_data.get('accuracy', {}).get('scores', [])
-                if acc_scores:
-                    import numpy as np
-                    cv_std = float(np.std(acc_scores))
-                else:
-                    cv_std = 0.05
 
             latency_ms = int((time.time() - start_time) * 1000)
 
@@ -156,23 +151,12 @@ class MLPipeline:
                     result['probabilities'] = {
                         str(cls): float(prob) for cls, prob in zip(self.trainer.model.classes_, probabilities[i])
                     }
-                    # Confidence label for classification
                     if max_prob >= 0.85:
                         result['confidence_level'] = 'high'
                     elif max_prob >= 0.6:
                         result['confidence_level'] = 'medium'
                     else:
                         result['confidence_level'] = 'low'
-                elif problem_type == 'regression':
-                    pred_val = float(pred)
-                    # Confidence interval: prediction ± z * cv_std * predicted_value_scale
-                    z_score = 1.96  # 95% CI
-                    margin = z_score * cv_std * abs(pred_val) if pred_val != 0 else z_score * cv_std
-                    result['confidence_interval'] = {
-                        'lower': round(pred_val - margin, 4),
-                        'upper': round(pred_val + margin, 4),
-                        'confidence_level': 'high' if cv_std < 0.05 else ('medium' if cv_std < 0.15 else 'low'),
-                    }
                 results.append(result)
 
             return {
@@ -193,51 +177,45 @@ class MLPipeline:
         return self.processor.validate_input(data, feature_names, column_stats)
 
     def save_artifacts(self, base_path: str) -> Dict[str, str]:
-        import os
-        import joblib
-        os.makedirs(base_path, exist_ok=True)
+        from app.ml.artifact_manager import ArtifactManager
 
-        model_path = os.path.join(base_path, 'model.joblib')
-        self.trainer.save_model(model_path)
+        model_id = self.training_metadata.get('experiment_id', 'unknown')
+        version = self.training_metadata.get('version', 1)
 
-        processor_path = os.path.join(base_path, 'processor.joblib')
-        joblib.dump({
-            'scaler': self.processor.scaler,
-            'label_encoders': self.processor.label_encoders,
-            'one_hot_encoders': getattr(self.processor, 'one_hot_encoders', {}),
-            'one_hot_columns': getattr(self.processor, 'one_hot_columns', []),
-        }, processor_path)
-
-        import json
-        metadata_path = os.path.join(base_path, 'metadata.json')
-        with open(metadata_path, 'w') as f:
-            json.dump(self.training_metadata, f, indent=2, default=str)
+        manager = ArtifactManager(base_path)
+        result = manager.save_bundle(
+            model=self.trainer.model,
+            processor_data={
+                'scaler': self.processor.scaler,
+                'label_encoders': self.processor.label_encoders,
+                'one_hot_encoders': getattr(self.processor, 'one_hot_encoders', {}),
+                'one_hot_columns': getattr(self.processor, 'one_hot_columns', []),
+            },
+            metadata=self.training_metadata,
+            model_id=model_id,
+            version=version,
+        )
 
         return {
-            'model_path': model_path,
-            'processor_path': processor_path,
-            'metadata_path': metadata_path,
+            'model_path': result['model_path'],
+            'processor_path': result['processor_path'],
+            'metadata_path': result['metadata_path'],
+            'manifest_path': result['manifest_path'],
+            'artifact_hash': result['artifact_hash'],
         }
 
     def load_artifacts(self, base_path: str) -> Dict[str, Any]:
-        import os
-        import json
-        from app.core.safe_joblib import safe_load
+        from app.ml.artifact_manager import ArtifactManager
 
-        model_path = os.path.join(base_path, 'model.joblib')
-        processor_path = os.path.join(base_path, 'processor.joblib')
-        metadata_path = os.path.join(base_path, 'metadata.json')
+        manager = ArtifactManager(base_path)
+        bundle = manager.load_bundle(base_path)
 
-        self.trainer.load_model(model_path)
-
-        if os.path.exists(processor_path):
-            proc_data = safe_load(processor_path)
-            self.processor.scaler = proc_data['scaler']
-            self.processor.label_encoders = proc_data.get('label_encoders', {})
-            self.processor.one_hot_encoders = proc_data.get('one_hot_encoders', {})
-            self.processor.one_hot_columns = proc_data.get('one_hot_columns', [])
-
-        with open(metadata_path, 'r') as f:
-            self.training_metadata = json.load(f)
+        self.trainer.model = bundle['model']
+        proc_data = bundle['processor']
+        self.processor.scaler = proc_data['scaler']
+        self.processor.label_encoders = proc_data.get('label_encoders', {})
+        self.processor.one_hot_encoders = proc_data.get('one_hot_encoders', {})
+        self.processor.one_hot_columns = proc_data.get('one_hot_columns', [])
+        self.training_metadata = bundle['metadata']
 
         return self.training_metadata

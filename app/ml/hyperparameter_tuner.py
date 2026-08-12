@@ -228,13 +228,16 @@ class HyperparameterTuner:
 
             results = {
                 'best_params': study.best_params,
-                'best_score': float(study.best_value),
+                'optimization_score': float(study.best_value),
                 'scoring_metric': scoring,
                 'method': 'optuna_tpe',
                 'cv_folds': cv,
                 'n_trials': len(study.trials),
                 'duration_seconds': round(duration, 2),
                 'completed_at': datetime.now(timezone.utc).isoformat(),
+                'note': 'optimization_score is the CV score used during search. '
+                        'It is optimistically biased. Always evaluate on a held-out test set '
+                        'for the final generalization estimate.',
                 'optimization_history': [
                     {
                         'trial': t.number,

@@ -9,6 +9,7 @@ from sklearn.linear_model import LogisticRegression, Ridge, Lasso
 from sklearn.svm import SVC, SVR
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from sklearn.dummy import DummyClassifier, DummyRegressor
 from sklearn.model_selection import cross_val_score
 from sklearn.metrics import (
     accuracy_score,
@@ -24,7 +25,7 @@ from sklearn.metrics import (
 )
 import joblib
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 
 from app.core.safe_joblib import safe_load
@@ -138,7 +139,6 @@ class AutoTrainer:
     ) -> Tuple[Any, Dict[str, Any]]:
         """
         Automatically select and train the best model.
-        
         Returns:
             Tuple of (trained_model, training_info)
         """
@@ -158,18 +158,46 @@ class AutoTrainer:
         self.model = model_info['class'](**params)
         self.model.fit(X_train, y_train)
 
+        baseline_scores = self._compute_baseline(X_train, y_train, problem_type)
+
         training_info = {
             'algorithm': self.algorithm,
             'parameters': params,
             'problem_type': problem_type,
             'model_description': model_info['description'],
-            'trained_at': datetime.utcnow().isoformat(),
+            'trained_at': datetime.now(timezone.utc).isoformat(),
             'n_samples': n_samples,
             'n_features': n_features,
             'auto_selected': True,
+            'baseline_comparison': baseline_scores,
         }
 
         return self.model, training_info
+
+    def _compute_baseline(self, X_train, y_train, problem_type: str) -> Dict[str, Any]:
+        """Compute baseline model scores for comparison."""
+        try:
+            if problem_type == 'classification':
+                strategy = 'most_frequent' if len(np.unique(y_train)) > 1 else 'stratified'
+                baseline = DummyClassifier(strategy=strategy, random_state=42)
+                scoring = 'f1_weighted' if len(np.unique(y_train)) > 2 else 'accuracy'
+            else:
+                baseline = DummyRegressor(strategy='mean')
+                scoring = 'r2'
+
+            scores = cross_val_score(baseline, X_train, y_train, cv=min(5, len(X_train) // 10), scoring=scoring)
+
+            return {
+                'baseline_model': f'DummyClassifier({strategy})' if problem_type == 'classification' else 'DummyRegressor(mean)',
+                'baseline_score': float(scores.mean()),
+                'baseline_std': float(scores.std()),
+                'scoring_metric': scoring,
+                'improvement_note': 'Compare model score against baseline. '
+                                    'A good model should significantly outperform the baseline.',
+            }
+        except Exception as e:
+            logger.warning(f"Baseline computation failed: {e}")
+            return {'error': str(e)}
 
     def evaluate(self, X_test, y_test, problem_type: str) -> Dict[str, Any]:
         """Evaluate the trained model with appropriate metrics."""
@@ -195,8 +223,8 @@ class AutoTrainer:
                         metrics['roc_auc'] = float(roc_auc_score(y_test, y_proba[:, 1]))
                     else:
                         metrics['roc_auc'] = float(roc_auc_score(y_test, y_proba, multi_class='ovr'))
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"ROC AUC calculation failed: {e}")
         else:
             metrics = {
                 'mse': float(mean_squared_error(y_test, y_pred)),

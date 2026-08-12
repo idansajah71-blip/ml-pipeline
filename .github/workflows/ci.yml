@@ -59,12 +59,12 @@ jobs:
       - name: Run linting
         run: |
           pip install ruff
-          ruff check app/ --exit-non-zero-on-fix || true
+          ruff check app/ --exit-non-zero-on-fix
 
       - name: Run type checking
         run: |
           pip install mypy
-          mypy app/ --ignore-missing-imports || true
+          mypy app/ --ignore-missing-imports
 
       - name: Run tests
         env:
@@ -101,11 +101,11 @@ jobs:
 
       - name: Run linting
         working-directory: ./frontend
-        run: npm run lint || true
+        run: npm run lint
 
       - name: Type check
         working-directory: ./frontend
-        run: npx tsc --noEmit || true
+        run: npx tsc --noEmit
 
       - name: Build
         working-directory: ./frontend
@@ -127,8 +127,8 @@ jobs:
       - name: Run security scan
         run: |
           pip install safety bandit
-          safety check -r requirements.txt || true
-          bandit -r app/ -ll || true
+          safety check -r requirements.txt
+          bandit -r app/ -ll
 
   docker-build:
     name: Docker Build Test
