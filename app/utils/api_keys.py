@@ -2,13 +2,17 @@ import hashlib
 import secrets
 from typing import Optional
 
+from app.core.config import get_settings
+
 
 def generate_api_key() -> str:
     return f"ml_{secrets.token_urlsafe(32)}"
 
 
 def hash_api_key(api_key: str) -> str:
-    return hashlib.sha256(api_key.encode()).hexdigest()
+    settings = get_settings()
+    pepper = settings.API_KEY_PEPPER or "dev-api-key-pepper-change-in-production"
+    return hashlib.sha256((api_key + pepper).encode()).hexdigest()
 
 
 def validate_api_key_format(api_key: str) -> bool:

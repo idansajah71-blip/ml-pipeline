@@ -4,7 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.core.database import get_db
-from app.core.security import get_current_active_user
+from app.core.security import get_current_active_user, require_admin
 from app.models.user import User
 from app.services.api_quota_service import APIQuotaService
 
@@ -41,7 +41,7 @@ async def get_quota(
 @router.put("/tier")
 async def set_tier(
     data: TierUpdate,
-    current_user: User = Depends(require_admin if False else get_current_active_user),
+    current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     service = APIQuotaService(db)

@@ -168,3 +168,24 @@ class ImportScrapeResponse(BaseModel):
     row_count: int
     column_count: int
     message: str = "Dataset berhasil dibuat dari data scraping"
+
+
+class TrainFromScrapeRequest(BaseModel):
+    job_id: str
+    target_column: str
+    task_type: str = Field("classification", description="classification, regression")
+    test_size: float = Field(0.2, ge=0.05, le=0.5)
+    algorithm: str = Field("random_forest", description="Algorithm to use for training")
+    name: Optional[str] = None
+
+
+class TrainFromScrapeResponse(BaseModel):
+    dataset_id: str
+    dataset_name: str
+    task_type: str
+    target_column: str
+    model_name: str
+    model_id: str
+    status: str
+    metrics: dict
+    message: str

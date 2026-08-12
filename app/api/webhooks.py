@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel
 from typing import Optional, List
 import httpx
@@ -148,7 +148,7 @@ async def trigger_webhooks(db, event: str, payload: dict):
             log.response_status = response.status_code
             log.success = 1 if response.status_code < 400 else 0
             log.duration_ms = duration
-            webhook.last_triggered_at = datetime.utcnow()
+            webhook.last_triggered_at = datetime.now(timezone.utc)
             webhook.last_status_code = response.status_code
 
         except Exception as e:

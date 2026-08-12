@@ -10,7 +10,6 @@ from app.core.database import get_db
 from app.core.security import get_current_active_user
 from app.core.config import get_settings
 from app.core.error_utils import sanitize_error_message, log_error
-from app.core.safe_joblib import safe_load
 from app.models.user import User
 from app.models.model import MLModel
 from app.models.dataset import Dataset
@@ -38,7 +37,7 @@ class MLflowRunLogRequest(BaseModel):
 @router.get("/status")
 async def mlflow_status(current_user: User = Depends(get_current_active_user)):
     tracker = get_mlflow_tracker(
-        tracking_uri=settings.MLFLOW_TRACKING_URI if hasattr(settings, 'MLFLOW_TRACKING_URI') else None,
+        tracking_uri=settings.MLFLOW_TRACKING_URI,
     )
     return {
         "available": tracker.is_available,
@@ -53,7 +52,7 @@ async def list_runs(
     current_user: User = Depends(get_current_active_user),
 ):
     tracker = get_mlflow_tracker(
-        tracking_uri=settings.MLFLOW_TRACKING_URI if hasattr(settings, 'MLFLOW_TRACKING_URI') else None,
+        tracking_uri=settings.MLFLOW_TRACKING_URI,
     )
     runs = tracker.get_experiment_runs(max_results=max_results)
     return {"runs": runs, "total": len(runs)}
@@ -71,7 +70,7 @@ async def log_training_run(
         raise HTTPException(status_code=404, detail="Model not found")
 
     tracker = get_mlflow_tracker(
-        tracking_uri=settings.MLFLOW_TRACKING_URI if hasattr(settings, 'MLFLOW_TRACKING_URI') else None,
+        tracking_uri=settings.MLFLOW_TRACKING_URI,
     )
 
     if not tracker.is_available:

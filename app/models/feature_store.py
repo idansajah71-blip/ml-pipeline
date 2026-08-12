@@ -1,10 +1,11 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, JSON, Text, Integer, Float, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+from app.core.utils import utcnow_naive
 
 
 class FeatureGroup(Base):
@@ -16,8 +17,8 @@ class FeatureGroup(Base):
     owner_id = Column(UUID(as_uuid=True), nullable=False)
     tags = Column(JSON, default=list)
     schema_definition = Column(JSON, default=dict)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
 
     features = relationship("Feature", back_populates="feature_group")
 
@@ -35,8 +36,8 @@ class Feature(Base):
     validation_rules = Column(JSON, default=dict)
     transformation = Column(JSON, default=dict)
     owner_id = Column(UUID(as_uuid=True), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
 
     feature_group = relationship("FeatureGroup", back_populates="features")
 
@@ -49,4 +50,4 @@ class FeatureSnapshot(Base):
     row_key = Column(String(255), nullable=False)
     features = Column(JSON, nullable=False)
     version = Column(Integer, default=1)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)

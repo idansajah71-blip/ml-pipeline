@@ -12,7 +12,7 @@ import re
 import logging
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_active_user
 
 logger = logging.getLogger(__name__)
 
@@ -84,8 +84,8 @@ async def _check_rate_limit(
     window_seconds: int,
 ) -> bool:
     """Check if user has exceeded rate limit for an action. Returns True if OK."""
-    from datetime import datetime, timedelta
-    cutoff = datetime.utcnow() - timedelta(seconds=window_seconds)
+    from datetime import datetime, timezone, timedelta
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=window_seconds)
     result = await db.execute(
         text("""
             SELECT COUNT(*) FROM external_data_search_logs
@@ -141,7 +141,7 @@ async def search_external_data(
     source: Optional[str] = Query(None, description="Filter by source slug"),
     limit: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_active_user),
 ):
     """Search all active external data sources for datasets matching the query."""
     # Rate limit check
@@ -149,7 +149,7 @@ async def search_external_data(
     if not await _check_rate_limit(db, user_id, "search", MAX_SEARCH_PER_MINUTE, 60):
         raise HTTPException(
             status_code=429,
-            detail=f"Batas pencarian terlampaui. Maksimal {MAX_SEARCH_PER_MINUTE} pencarian per menit."
+            detail=f"Search rate limit exceeded. Maximum {MAX_SEARCH_PER_MINUTE} searches per minute."
         )
 
     from app.services.external_data.source_registry import get_all_sources, get_source
@@ -201,7 +201,7 @@ async def preview_external_data(
     result_id: str,
     source_slug: str = Query(..., description="Source slug"),
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_active_user),
 ):
     """Preview data for a search result (first 10 rows)."""
     # Validate result_id format
@@ -237,7 +237,7 @@ async def preview_external_data(
 async def import_external_data(
     req: ImportRequest,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(get_current_active_user),
 ):
     """Import external data as a new Dataset in the platform."""
     user_id = str(current_user.id)
@@ -246,7 +246,7 @@ async def import_external_data(
     if not await _check_rate_limit(db, user_id, "import", MAX_IMPORT_PER_HOUR, 3600):
         raise HTTPException(
             status_code=429,
-            detail=f"Batas impor terlampaui. Maksimal {MAX_IMPORT_PER_HOUR} impor per jam."
+            detail=f"Import rate limit exceeded. Maximum {MAX_IMPORT_PER_HOUR} imports per hour."
         )
 
     from app.services.external_data.source_registry import get_source

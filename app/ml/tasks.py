@@ -1,7 +1,7 @@
 import os
 import json
 import traceback
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from celery import current_task
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
@@ -42,7 +42,7 @@ def train_model_task(
     from app.models.experiment import Experiment, ExperimentStatus
 
     task_id = self.request.id
-    start_time = datetime.utcnow()
+    start_time = datetime.now(timezone.utc)
 
     session = get_sync_session()
     try:
@@ -98,7 +98,7 @@ def train_model_task(
         self.update_state(state="STARTED", meta={"step": "completed", "progress": 100})
         publish_progress(experiment_id, {"step": "completed", "progress": 100, "status": "completed", "metrics": result.get("metrics", {})})
 
-        duration = (datetime.utcnow() - start_time).total_seconds()
+        duration = (datetime.now(timezone.utc) - start_time).total_seconds()
         result["duration_seconds"] = round(duration, 2)
         result["task_id"] = task_id
 
@@ -109,7 +109,7 @@ def train_model_task(
 
     except Exception as e:
         session.rollback()
-        duration = (datetime.utcnow() - start_time).total_seconds()
+        duration = (datetime.now(timezone.utc) - start_time).total_seconds()
         publish_progress(experiment_id, {"step": "failed", "progress": 0, "status": "failed", "error": str(e)})
         error_result = {
             "experiment_id": experiment_id,
@@ -145,7 +145,7 @@ def automl_task(
     from app.models.experiment import Experiment, ExperimentStatus
 
     task_id = self.request.id
-    start_time = datetime.utcnow()
+    start_time = datetime.now(timezone.utc)
     results = []
 
     session = get_sync_session()
@@ -189,7 +189,7 @@ def automl_task(
             key=lambda x: x.get("metrics", {}).get("f1_macro", 0), reverse=True
         )
 
-        duration = (datetime.utcnow() - start_time).total_seconds()
+        duration = (datetime.now(timezone.utc) - start_time).total_seconds()
         publish_progress(experiment_id, {
             "step": "completed",
             "progress": 100,
@@ -231,7 +231,7 @@ def automl_task(
 
     except Exception as e:
         session.rollback()
-        duration = (datetime.utcnow() - start_time).total_seconds()
+        duration = (datetime.now(timezone.utc) - start_time).total_seconds()
         publish_progress(experiment_id, {"step": "failed", "progress": 0, "status": "failed", "error": str(e)})
 
         # Notify on AutoML failure
@@ -265,7 +265,7 @@ def check_model_performance():
 
         alerts = []
         for model in deployed_models:
-            recent_cutoff = datetime.utcnow() - timedelta(hours=24)
+            recent_cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
             recent_preds = session.query(Prediction).filter(
                 Prediction.model_id == model.id,
                 Prediction.created_at >= recent_cutoff,
@@ -301,7 +301,7 @@ def check_model_performance():
             "status": "completed",
             "models_checked": len(deployed_models),
             "alerts": alerts,
-            "checked_at": datetime.utcnow().isoformat(),
+            "checked_at": datetime.now(timezone.utc).isoformat(),
         }
 
     finally:
@@ -315,7 +315,7 @@ def scheduled_retraining_check():
 
     session = get_sync_session()
     try:
-        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
 
         stale_models = session.query(MLModel).filter(
             MLModel.status == ModelStatus.DEPLOYED,
@@ -335,14 +335,14 @@ def scheduled_retraining_check():
                 "algorithm": model.algorithm,
                 "last_updated": model.updated_at.isoformat() if model.updated_at else None,
                 "last_experiment": latest_experiment.id if latest_experiment else None,
-                "days_stale": (datetime.utcnow() - model.updated_at).days if model.updated_at else None,
+                "days_stale": (datetime.now(timezone.utc) - model.updated_at).days if model.updated_at else None,
             })
 
         return {
             "status": "completed",
             "stale_models": len(retrain_candidates),
             "candidates": retrain_candidates,
-            "checked_at": datetime.utcnow().isoformat(),
+            "checked_at": datetime.now(timezone.utc).isoformat(),
         }
 
     finally:

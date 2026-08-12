@@ -1,6 +1,6 @@
 import os
 import shutil
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
@@ -78,7 +78,7 @@ class DataRetentionService:
         deleted_items = {"datasets": 0, "models": 0, "experiments": 0, "files_freed_mb": 0}
 
         if policy["dataset_retention_days"] > 0:
-            cutoff_date = datetime.utcnow() - timedelta(days=policy["dataset_retention_days"])
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=policy["dataset_retention_days"])
             result = await self.db.execute(
                 select(Dataset).where(
                     and_(
@@ -99,7 +99,7 @@ class DataRetentionService:
                 deleted_items["datasets"] += 1
 
         if policy["model_retention_days"] > 0:
-            cutoff_date = datetime.utcnow() - timedelta(days=policy["model_retention_days"])
+            cutoff_date = datetime.now(timezone.utc) - timedelta(days=policy["model_retention_days"])
             result = await self.db.execute(
                 select(MLModel).where(
                     and_(

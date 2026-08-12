@@ -1,6 +1,6 @@
 import re
 from typing import List, Dict, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 import hashlib
 import json
 
@@ -82,7 +82,7 @@ class SecurityScanner:
                     "severity": "critical",
                     "pattern": pattern,
                     "input_type": input_type,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 })
         return threats
 
@@ -95,7 +95,7 @@ class SecurityScanner:
                     "severity": "high",
                     "pattern": pattern,
                     "input_type": input_type,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 })
         return threats
 
@@ -108,7 +108,7 @@ class SecurityScanner:
                     "severity": "high",
                     "pattern": pattern,
                     "input_type": input_type,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 })
         return threats
 
@@ -121,7 +121,7 @@ class SecurityScanner:
                     "severity": "critical",
                     "pattern": pattern,
                     "input_type": input_type,
-                    "timestamp": datetime.utcnow().isoformat(),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 })
         return threats
 
@@ -134,7 +134,7 @@ class SecurityScanner:
                 "type": "pii_email",
                 "severity": "low",
                 "input_type": input_type,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             })
 
         phone_pattern = r'(\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}'
@@ -143,7 +143,7 @@ class SecurityScanner:
                 "type": "pii_phone",
                 "severity": "low",
                 "input_type": input_type,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             })
 
         ssn_pattern = r'\d{3}-\d{2}-\d{4}'
@@ -152,7 +152,7 @@ class SecurityScanner:
                 "type": "pii_ssn",
                 "severity": "critical",
                 "input_type": input_type,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             })
 
         return threats

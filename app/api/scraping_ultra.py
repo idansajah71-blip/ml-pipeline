@@ -3,7 +3,7 @@ distributed, validation, AutoML, anomaly, forecast, cluster, dim reduce,
 feature engineering, enrichment, target scrapers."""
 import logging
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -634,13 +634,13 @@ async def test_proxy(
             latency_ms = int((time.time() - start) * 1000)
             proxy.is_healthy = resp.status_code == 200
             proxy.avg_response_ms = latency_ms
-            proxy.last_checked_at = datetime.utcnow()
+            proxy.last_checked_at = datetime.now(timezone.utc)
             proxy.total_requests = (proxy.total_requests or 0) + 1
             await db.commit()
             return {"healthy": True, "latency_ms": latency_ms, "ip": resp.json().get("origin", "")}
     except Exception as e:
         proxy.is_healthy = False
         proxy.failed_requests = (proxy.failed_requests or 0) + 1
-        proxy.last_checked_at = datetime.utcnow()
+        proxy.last_checked_at = datetime.now(timezone.utc)
         await db.commit()
         return {"healthy": False, "error": str(e)}

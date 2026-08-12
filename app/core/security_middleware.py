@@ -1,5 +1,6 @@
 import time
 from typing import Dict, Optional, Callable
+from contextvars import ContextVar
 from fastapi import Request, Response, HTTPException, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -9,6 +10,14 @@ from app.core.logging import get_logger
 from app.core.redis import get_redis
 
 logger = get_logger(__name__)
+
+# Request ID context variable for propagating correlation IDs
+# through async call stacks to error handlers and logger calls.
+request_id_ctx: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
+
+def get_request_id() -> Optional[str]:
+    """Retrieve the current request ID from context."""
+    return request_id_ctx.get()
 
 TIER_UPLOAD_LIMITS_MB = {
     "free": 10,
@@ -230,6 +239,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         request.state.request_id = request_id
         request.state.user_id = None
 
+        # Set the request ID in context for error handlers and loggers
+        token = request_id_ctx.set(request_id)
+
         start_time = time.time()
 
         logger.info(
@@ -240,7 +252,10 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             client_ip=request.client.host if request.client else "unknown",
         )
 
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        finally:
+            request_id_ctx.reset(token)
 
         duration = time.time() - start_time
         status_code = response.status_code

@@ -1,9 +1,10 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, JSON, Text, Float, ForeignKey, Integer, Index
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.core.database import Base
+from app.core.utils import utcnow_naive
 
 
 class FeatureDriftAlert(Base):
@@ -19,7 +20,7 @@ class FeatureDriftAlert(Base):
     drift_score = Column(Float)
     details = Column(JSON, default=dict)
     acknowledged = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
     __table_args__ = (
         Index("ix_drift_alerts_severity", "severity"),
@@ -45,7 +46,7 @@ class FeatureStats(Base):
     histogram = Column(JSON, default=dict)
     window_start = Column(DateTime)
     window_end = Column(DateTime)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
     __table_args__ = (
         Index("ix_feature_stats_feature_name", "feature_name"),

@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from uuid import UUID
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
@@ -39,7 +38,7 @@ async def record_cost(
         "usage_hours": data.usage_hours,
         "gpu_hours": data.gpu_hours,
         "details": data.details,
-        "recorded_at": datetime.utcnow().isoformat(),
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
     }
     costs_store.append(entry)
     return {"status": "recorded", "id": entry["id"]}
@@ -50,7 +49,7 @@ async def cost_summary(
     days: int = 30,
     current_user: User = Depends(get_current_active_user),
 ):
-    cutoff = datetime.utcnow() - timedelta(days=days)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
     user_costs = [c for c in costs_store if c["user_id"] == str(current_user.id)]
 
     total_cost = sum(c["cost_usd"] for c in user_costs)

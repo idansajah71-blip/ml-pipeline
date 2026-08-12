@@ -8,7 +8,7 @@ A read endpoint lets you inspect where users are dropping off.
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import defaultdict, deque
 
 from app.core.security import get_current_active_user
@@ -48,7 +48,7 @@ async def record_funnel_event(
     _events.append({
         **event.dict(),
         "user_id": str(current_user.id),
-        "ts": datetime.utcnow().isoformat(),
+        "ts": datetime.now(timezone.utc).isoformat(),
     })
     # 204 No Content — frontend doesn't wait for a response body
 

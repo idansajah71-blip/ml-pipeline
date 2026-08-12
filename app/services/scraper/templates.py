@@ -2,7 +2,7 @@
 import uuid
 import json
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -80,7 +80,7 @@ class TemplateManager:
         for key, value in kwargs.items():
             if hasattr(template, key) and key not in ("id", "user_id", "created_at"):
                 setattr(template, key, value)
-        template.updated_at = datetime.utcnow()
+        template.updated_at = datetime.now(timezone.utc)
         await self._db.commit()
         await self._db.refresh(template)
         return template.to_dict()

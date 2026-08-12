@@ -4,7 +4,7 @@ from sqlalchemy import select
 from uuid import UUID
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
@@ -93,7 +93,7 @@ async def get_feature_stats(
     db: AsyncSession = Depends(get_db),
 ):
     from datetime import timedelta
-    cutoff = datetime.utcnow() - timedelta(hours=hours)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
     result = await db.execute(
         select(FeatureStats)
         .where(FeatureStats.feature_name == feature_name)

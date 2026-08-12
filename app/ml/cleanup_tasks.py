@@ -1,6 +1,6 @@
 import os
 import traceback
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from celery import current_task
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
@@ -23,8 +23,8 @@ def garbage_collect_models():
 
     session = get_sync_session()
     try:
-        ninety_days_ago = datetime.utcnow() - timedelta(days=90)
-        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        ninety_days_ago = datetime.now(timezone.utc) - timedelta(days=90)
+        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
 
         stale_archived = session.query(MLModel).filter(
             MLModel.status == ModelStatus.ARCHIVED,
@@ -58,7 +58,7 @@ def garbage_collect_models():
             "status": "completed",
             "archived_count": archived_count,
             "auto_archived_count": auto_archived,
-            "checked_at": datetime.utcnow().isoformat(),
+            "checked_at": datetime.now(timezone.utc).isoformat(),
         }
 
     except Exception as e:
@@ -78,7 +78,7 @@ def cleanup_serving_logs():
 
     session = get_sync_session()
     try:
-        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        thirty_days_ago = datetime.now(timezone.utc) - timedelta(days=30)
         deleted = session.query(ServingLog).filter(
             ServingLog.created_at < thirty_days_ago
         ).delete()
@@ -87,7 +87,7 @@ def cleanup_serving_logs():
         return {
             "status": "completed",
             "deleted_logs": deleted,
-            "checked_at": datetime.utcnow().isoformat(),
+            "checked_at": datetime.now(timezone.utc).isoformat(),
         }
     except Exception as e:
         session.rollback()
@@ -102,7 +102,7 @@ def cleanup_audit_logs():
 
     session = get_sync_session()
     try:
-        sixty_days_ago = datetime.utcnow() - timedelta(days=60)
+        sixty_days_ago = datetime.now(timezone.utc) - timedelta(days=60)
         deleted = session.query(AuditLog).filter(
             AuditLog.created_at < sixty_days_ago
         ).delete()
@@ -111,7 +111,7 @@ def cleanup_audit_logs():
         return {
             "status": "completed",
             "deleted_logs": deleted,
-            "checked_at": datetime.utcnow().isoformat(),
+            "checked_at": datetime.now(timezone.utc).isoformat(),
         }
     except Exception as e:
         session.rollback()
@@ -135,7 +135,7 @@ def enforce_data_retention():
 
         for tier, policy in RETENTION_POLICIES.items():
             if policy["dataset_retention_days"] > 0:
-                cutoff_date = datetime.utcnow() - timedelta(days=policy["dataset_retention_days"])
+                cutoff_date = datetime.now(timezone.utc) - timedelta(days=policy["dataset_retention_days"])
                 old_datasets = session.query(Dataset).filter(
                     Dataset.created_at < cutoff_date,
                     Dataset.is_archived == False,
@@ -150,7 +150,7 @@ def enforce_data_retention():
                     deleted_items["datasets"] += 1
 
             if policy["model_retention_days"] > 0:
-                cutoff_date = datetime.utcnow() - timedelta(days=policy["model_retention_days"])
+                cutoff_date = datetime.now(timezone.utc) - timedelta(days=policy["model_retention_days"])
                 old_models = session.query(MLModel).filter(
                     MLModel.created_at < cutoff_date,
                     MLModel.status.notin_(["deployed", "production"]),
@@ -165,7 +165,7 @@ def enforce_data_retention():
                     session.delete(model)
                     deleted_items["models"] += 1
 
-        inactive_cutoff = datetime.utcnow() - timedelta(days=180)
+        inactive_cutoff = datetime.now(timezone.utc) - timedelta(days=180)
         inactive_users = session.query(User).filter(
             User.is_active == False,
             User.updated_at < inactive_cutoff,
@@ -198,7 +198,7 @@ def enforce_data_retention():
         return {
             "status": "completed",
             "deleted_items": deleted_items,
-            "completed_at": datetime.utcnow().isoformat(),
+            "completed_at": datetime.now(timezone.utc).isoformat(),
         }
 
     except Exception as e:
@@ -245,7 +245,7 @@ def cleanup_external_cache():
         return {
             "status": "completed",
             "deleted_entries": len(deleted),
-            "completed_at": datetime.utcnow().isoformat(),
+            "completed_at": datetime.now(timezone.utc).isoformat(),
         }
     except Exception as e:
         session.rollback()

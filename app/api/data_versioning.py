@@ -4,7 +4,7 @@ from sqlalchemy import select
 from uuid import UUID
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
@@ -66,7 +66,7 @@ async def create_dataset_version(
         "changelog": data.changelog,
         "checksum": checksum,
         "size_bytes": dataset.file_size or 0,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
     dataset_versions.append(version)
 

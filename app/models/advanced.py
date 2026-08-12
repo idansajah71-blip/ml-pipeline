@@ -1,9 +1,10 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, JSON, Text, Float, ForeignKey, Integer
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.core.database import Base
+from app.core.utils import utcnow_naive
 
 
 class DatasetVersion(Base):
@@ -21,7 +22,7 @@ class DatasetVersion(Base):
     checksum = Column(String(64))
     size_bytes = Column(Integer, default=0)
     owner_id = Column(UUID(as_uuid=True), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
 
 class EnsembleModel(Base):
@@ -35,8 +36,8 @@ class EnsembleModel(Base):
     weights = Column(JSON, default=dict)
     metrics = Column(JSON, default=dict)
     owner_id = Column(UUID(as_uuid=True), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
 
 
 class ComputeCost(Base):
@@ -50,7 +51,7 @@ class ComputeCost(Base):
     usage_hours = Column(Float, default=0)
     gpu_hours = Column(Float, default=0)
     details = Column(JSON, default=dict)
-    recorded_at = Column(DateTime, default=datetime.utcnow)
+    recorded_at = Column(DateTime, default=utcnow_naive)
 
 
 class ModelShare(Base):
@@ -65,4 +66,4 @@ class ModelShare(Base):
     downloads = Column(Integer, default=0)
     rating = Column(Float, default=0)
     tags = Column(JSON, default=list)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)

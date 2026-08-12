@@ -1,10 +1,11 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, JSON, Text, Integer, Float, ForeignKey, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+from app.core.utils import utcnow_naive
 
 
 class ServingEndpoint(Base):
@@ -20,8 +21,8 @@ class ServingEndpoint(Base):
     is_active = Column(Integer, default=1)
     metrics = Column(JSON, default=dict)
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
 
     model = relationship("MLModel")
     owner = relationship("User")
@@ -44,7 +45,7 @@ class ServingLog(Base):
     cache_hit = Column(Integer, default=0)
     status = Column(String(20), default="success")
     error_message = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
     __table_args__ = (
         Index("ix_serving_logs_endpoint_id", "endpoint_id"),

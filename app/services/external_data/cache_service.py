@@ -5,7 +5,7 @@ redundant API calls to external sources.
 """
 import hashlib
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -79,7 +79,7 @@ async def cache_search_results(
     """Store search results in cache."""
     query_hash = _hash_query(source_slug, query)
     ttl = ttl_days or SOURCE_CACHE_TTL.get(source_slug, DEFAULT_CACHE_TTL)
-    expires_at = datetime.utcnow() + timedelta(days=ttl)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=ttl)
 
     async with async_session_factory() as session:
         for r in results:
@@ -119,7 +119,7 @@ async def cache_fetched_data(
 ) -> str:
     """Cache fetched data (full DataFrame) to disk + DB. Returns the file path."""
     ttl = ttl_days or SOURCE_CACHE_TTL.get(source_slug, DEFAULT_CACHE_TTL)
-    expires_at = datetime.utcnow() + timedelta(days=ttl)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=ttl)
 
     # Save to disk
     cache_dir = os.path.join("ml_artifacts", "external_cache")

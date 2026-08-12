@@ -1,6 +1,6 @@
 import ipaddress
 from typing import Optional, List, Dict
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 
 from app.core.logging import get_logger
 from app.core.redis import get_redis
@@ -127,7 +127,7 @@ class IPReputationService:
 
         try:
             key = f"ip_block:{ip_address}"
-            await redis_client.set(key, datetime.utcnow().isoformat(), ex=self.BLOCK_DURATION_HOURS * 3600)
+            await redis_client.set(key, datetime.now(timezone.utc).isoformat(), ex=self.BLOCK_DURATION_HOURS * 3600)
 
             logger.warning(
                 f"IP blocked: {ip_address}",
@@ -164,7 +164,7 @@ class IPReputationService:
                     ip = key.replace("ip_block:", "")
                     block_time = await redis_client.get(key)
                     if block_time:
-                        remaining = self.BLOCK_DURATION_HOURS - (datetime.utcnow() - datetime.fromisoformat(block_time)).total_seconds() / 3600
+                        remaining = self.BLOCK_DURATION_HOURS - (datetime.now(timezone.utc) - datetime.fromisoformat(block_time)).total_seconds() / 3600
                         if remaining > 0:
                             blocked.append({
                                 "ip": ip,

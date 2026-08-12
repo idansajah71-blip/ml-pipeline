@@ -1,9 +1,10 @@
 """Scrape Configuration Models — Persistent storage for templates, schedules, webhooks, proxies."""
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Text, Boolean, Integer, Float, DateTime, JSON, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
+from app.core.utils import utcnow_naive
 
 
 class ScrapeTemplate(Base):
@@ -20,8 +21,8 @@ class ScrapeTemplate(Base):
     tags = Column(JSON, default=list)
     use_count = Column(Integer, default=0)
     is_public = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
 
     def to_dict(self) -> dict:
         return {
@@ -58,8 +59,8 @@ class ScrapeSchedule(Base):
     run_count = Column(Integer, default=0)
     last_status = Column(String(50), default="pending")
     last_error = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
 
     def to_dict(self) -> dict:
         return {
@@ -97,7 +98,7 @@ class ScrapeWebhookConfig(Base):
     last_triggered_at = Column(DateTime, nullable=True)
     last_status = Column(Integer, nullable=True)
     trigger_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
     def to_dict(self) -> dict:
         return {
@@ -132,7 +133,7 @@ class ScrapeProxyConfig(Base):
     avg_response_ms = Column(Float, default=0.0)
     total_requests = Column(Integer, default=0)
     failed_requests = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
     def to_dict(self) -> dict:
         return {
@@ -163,7 +164,7 @@ class ScrapeCache(Base):
     row_count = Column(Integer, default=0)
     hit_count = Column(Integer, default=0)
     expires_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
     def to_dict(self) -> dict:
         return {

@@ -7,7 +7,7 @@ import asyncio
 import logging
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from app.core.config import get_settings
@@ -314,7 +314,7 @@ async def check_system_health() -> Dict[str, Any]:
 
     return {
         "status": overall,
-        "checked_at": datetime.utcnow().isoformat() + "Z",
+        "checked_at": datetime.now(timezone.utc).isoformat() + "Z",
         "environment": settings.ENVIRONMENT,
         "app_version": settings.APP_VERSION,
         "components": checks,

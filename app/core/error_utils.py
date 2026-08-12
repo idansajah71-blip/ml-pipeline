@@ -126,16 +126,25 @@ def sanitize_error_message(error: Exception, include_type: bool = False) -> str:
 def log_error(error: Exception, context: Optional[str] = None, exc_info: bool = True):
     """
     Log error with full details for internal debugging.
-    
+
     Args:
         error: The exception to log
         context: Additional context about where the error occurred
         exc_info: Whether to include stack trace
     """
+    extra = {}
+    try:
+        from app.core.security_middleware import get_request_id
+        rid = get_request_id()
+        if rid:
+            extra["request_id"] = rid
+    except Exception:
+        pass
+
     if context:
-        logger.error(f"{context}: {error}", exc_info=exc_info)
+        logger.error(f"{context}: {error}", exc_info=exc_info, extra=extra)
     else:
-        logger.error(f"Error: {error}", exc_info=exc_info)
+        logger.error(f"Error: {error}", exc_info=exc_info, extra=extra)
 
 
 HTTP_STATUS_TRANSLATIONS = {

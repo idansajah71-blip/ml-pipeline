@@ -1,10 +1,11 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Float, Integer, Boolean, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+from app.core.utils import utcnow_naive
 
 
 class Prediction(Base):
@@ -19,7 +20,7 @@ class Prediction(Base):
     model_id = Column(UUID(as_uuid=True), ForeignKey("models.id"), nullable=False)
     feedback_correct = Column(Boolean, nullable=True)
     feedback_comment = Column(String(500), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
     model = relationship("MLModel", back_populates="predictions")
 

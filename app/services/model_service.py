@@ -1,6 +1,7 @@
 import os
 import uuid
 import json
+import asyncio
 from typing import Optional, List
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -198,21 +199,39 @@ class ModelService:
             with open(dataset.file_path, "rb") as f:
                 file_content = f.read()
 
-            if train_request.mode == TrainingMode.SIMPLE:
-                pipeline = AutoMLPipeline()
-                result = pipeline.run_training(
+            timeout = settings.TRAINING_TIMEOUT_SECONDS
+
+            def _run_training(pipeline, training_fn):
+                return training_fn(
                     file_content=file_content,
                     filename=os.path.basename(dataset.file_path),
                     target_column=target_col,
                 )
+
+            if train_request.mode == TrainingMode.SIMPLE:
+                pipeline = AutoMLPipeline()
+                training_fn = pipeline.run_training
             else:
                 pipeline = MLPipeline()
-                result = pipeline.run_training(
-                    file_content=file_content,
-                    filename=os.path.basename(dataset.file_path),
-                    target_column=target_col,
-                    algorithm=train_request.algorithm,
-                    parameters=train_request.parameters,
+                training_fn = (
+                    lambda **kwargs: pipeline.run_training(
+                        **kwargs,
+                        algorithm=train_request.algorithm,
+                        parameters=train_request.parameters,
+                    )
+                )
+
+            try:
+                result = await asyncio.wait_for(
+                    asyncio.to_thread(_run_training, pipeline, training_fn),
+                    timeout=timeout,
+                )
+            except asyncio.TimeoutError:
+                logger.error(f"Training timed out after {timeout}s for model {model_id}")
+                raise HTTPException(
+                    status_code=504,
+                    detail=f"Training exceeded timeout of {timeout} seconds. "
+                    f"Please use async training or reduce dataset size.",
                 )
 
             if result["status"] == "completed":

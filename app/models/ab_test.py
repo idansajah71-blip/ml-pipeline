@@ -1,11 +1,12 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Integer, Boolean, Enum, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
 
 from app.core.database import Base
+from app.core.utils import utcnow_naive
 
 
 class ABTestStatus(str, enum.Enum):
@@ -32,7 +33,7 @@ class ABTest(Base):
     results = Column(JSON, default=dict)
     started_at = Column(DateTime)
     ended_at = Column(DateTime)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
     model_a = relationship("MLModel", foreign_keys=[model_a_id])
     model_b = relationship("MLModel", foreign_keys=[model_b_id])

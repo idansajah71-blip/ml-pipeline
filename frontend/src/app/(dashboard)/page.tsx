@@ -5,10 +5,13 @@ import {
   ChevronRight, Upload, BrainCircuit, PlayCircle, BarChart3,
   TestTube2, Clock
 } from 'lucide-react';
+import type { ComponentType } from 'react';
 import StatusBadge from '@/components/StatusBadge';
 import LoadingSpinner from '@/components/LoadingSpinner';
-import { useModels, useDatasets, useExperiments } from '@/lib/hooks';
+import { useModels, useDatasets, useExperiments, useStats } from '@/lib/hooks';
 import Link from 'next/link';
+
+type IconComponent = ComponentType<{ className?: string }>;
 
 // ── ML Lifecycle Pipeline ────────────────────────────────────────────────────
 
@@ -26,7 +29,7 @@ const LIFECYCLE_STEPS = [
 // ── Stat Card ────────────────────────────────────────────────────────────────
 
 function StatCard({ title, value, icon: Icon, iconBg, href }: {
-  title: string; value: number; icon: any; iconBg: string; href: string;
+  title: string; value: number; icon: IconComponent; iconBg: string; href: string;
 }) {
   return (
     <Link
@@ -49,7 +52,7 @@ function StatCard({ title, value, icon: Icon, iconBg, href }: {
 // ── Activity Item ────────────────────────────────────────────────────────────
 
 function ActivityItem({ icon: Icon, iconColor, title, subtitle, time, href }: {
-  icon: any; iconColor: string; title: string; subtitle: string; time: string; href?: string;
+  icon: IconComponent; iconColor: string; title: string; subtitle: string; time: string; href?: string;
 }) {
   const content = (
     <div className="flex items-start gap-3">
@@ -79,6 +82,7 @@ export default function DashboardPage() {
   const { models: modelsList, isLoading: modelsLoading } = useModels();
   const { datasets: datasetsList, isLoading: datasetsLoading } = useDatasets();
   const { experiments: experimentsList, isLoading: experimentsLoading } = useExperiments();
+  const { stats, isLoading: statsLoading } = useStats();
 
   const loading = modelsLoading || datasetsLoading || experimentsLoading;
 
@@ -98,7 +102,7 @@ export default function DashboardPage() {
 
   // Build activity feed from available data
   const activities: Array<{
-    icon: any; iconColor: string; title: string; subtitle: string; time: string; href?: string;
+    icon: IconComponent; iconColor: string; title: string; subtitle: string; time: string; href?: string;
   }> = [];
 
   recentModels.forEach((m) => {
@@ -182,28 +186,28 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           title="Datasets"
-          value={datasetsList.length}
+          value={stats?.total_datasets ?? datasetsList.length}
           icon={Database}
           iconBg="bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
           href="/datasets"
         />
         <StatCard
           title="Experiments"
-          value={experimentsList.length}
+          value={stats?.total_experiments ?? experimentsList.length}
           icon={FlaskConical}
           iconBg="bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
           href="/experiments"
         />
         <StatCard
           title="Models"
-          value={modelsList.length}
+          value={stats?.total_models ?? modelsList.length}
           icon={Brain}
           iconBg="bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300"
           href="/models"
         />
         <StatCard
           title="Deployed"
-          value={deployedModels.length}
+          value={stats?.active_models ?? deployedModels.length}
           icon={Rocket}
           iconBg="bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"
           href="/serving"

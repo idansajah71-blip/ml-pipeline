@@ -1,9 +1,10 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, JSON, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.core.database import Base
+from app.core.utils import utcnow_naive
 
 
 class APIQuota(Base):
@@ -21,8 +22,8 @@ class APIQuota(Base):
     rpm_reset_at = Column(DateTime)
     daily_reset_at = Column(DateTime)
     monthly_reset_at = Column(DateTime)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
 
 
 class APIUsageLog(Base):
@@ -34,4 +35,4 @@ class APIUsageLog(Base):
     method = Column(String(10), nullable=False)
     status_code = Column(Integer)
     latency_ms = Column(Integer)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)

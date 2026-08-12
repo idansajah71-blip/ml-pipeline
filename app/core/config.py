@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
+    API_KEY_PEPPER: str = ""
+
     ML_ARTIFACTS_DIR: str = "./ml_artifacts"
     MAX_UPLOAD_SIZE_MB: int = 100
     TRAINING_TIMEOUT_SECONDS: int = 300
@@ -98,6 +100,17 @@ class Settings(BaseSettings):
             )
         if environment != "production" and not v:
             return "dev-secret-key-change-in-production"
+        return v
+
+    @field_validator("API_KEY_PEPPER")
+    @classmethod
+    def validate_api_key_pepper(cls, v: str, info) -> str:
+        environment = info.data.get("ENVIRONMENT", "development")
+        if environment == "production" and not v:
+            raise ValueError(
+                "API_KEY_PEPPER is required in production. "
+                "Set a secure random string via the API_KEY_PEPPER environment variable."
+            )
         return v
 
     @property

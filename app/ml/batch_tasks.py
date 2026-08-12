@@ -3,7 +3,7 @@ import json
 import traceback
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timezone
 from celery import current_task
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
@@ -51,7 +51,7 @@ def batch_predict_task(
             return {"status": "failed", "error": "Batch job not found"}
 
         job.status = BatchJobStatus.RUNNING
-        job.started_at = datetime.utcnow()
+        job.started_at = datetime.now(timezone.utc)
         job.task_id = task_id
         session.commit()
 
@@ -130,7 +130,7 @@ def batch_predict_task(
         job.failed_rows = failed
         job.avg_latency_ms = round(np.mean(latencies), 2) if latencies else 0
         job.status = BatchJobStatus.COMPLETED
-        job.completed_at = datetime.utcnow()
+        job.completed_at = datetime.now(timezone.utc)
         job.results_summary = {
             "total_predictions": len(results),
             "failed_rows": failed,

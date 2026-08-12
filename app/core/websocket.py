@@ -1,10 +1,13 @@
 import json
 import asyncio
+import logging
+from datetime import datetime, timezone
 from typing import Dict, Set, Optional
 from fastapi import WebSocket
 from app.core.config import get_settings
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 class ConnectionManager:
@@ -43,7 +46,7 @@ class ConnectionManager:
         try:
             self._pubsub_task = asyncio.create_task(self._listen_redis())
         except Exception as e:
-            print(f"Redis listener start error: {e}")
+            logger.error(f"Redis listener start error: {e}")
 
     async def _listen_redis(self):
         try:
@@ -66,7 +69,7 @@ class ConnectionManager:
         except asyncio.CancelledError:
             pass
         except Exception as e:
-            print(f"Redis listener error: {e}")
+            logger.error(f"Redis listener error: {e}")
 
     async def stop_redis_listener(self):
         if self._pubsub_task:
@@ -81,7 +84,12 @@ async def emit_scrape_progress(job_id: str, event: str, data: dict):
     try:
         import redis.asyncio as redis
         client = redis.from_url(settings.REDIS_URL, encoding="utf-8", decode_responses=True)
-        payload = {"event": event, "job_id": job_id, **data, "timestamp": __import__("datetime").datetime.utcnow().isoformat()}
+        payload = {
+            "event": event,
+            "job_id": job_id,
+            **data,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
         await client.publish(f"scrape:{job_id}", json.dumps(payload, default=str))
         await client.aclose()
     except Exception:

@@ -1,10 +1,11 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, JSON, Text, Integer, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+from app.core.utils import utcnow_naive
 
 
 class ModelVersion(Base):
@@ -21,7 +22,7 @@ class ModelVersion(Base):
     artifact_size_bytes = Column(Integer, default=0)
     parent_version_id = Column(UUID(as_uuid=True), ForeignKey("model_versions.id"), nullable=True)
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
     model = relationship("MLModel")
     owner = relationship("User")
@@ -36,7 +37,7 @@ class ModelLineage(Base):
     parent_model_id = Column(UUID(as_uuid=True), ForeignKey("models.id"), nullable=True)
     relationship_type = Column(String(50), nullable=False)
     metadata_json = Column(JSON, default=dict)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
     model = relationship("MLModel", foreign_keys=[model_id])
     parent_model = relationship("MLModel", foreign_keys=[parent_model_id])
@@ -53,7 +54,7 @@ class ModelArtifact(Base):
     file_path = Column(String(500))
     size_bytes = Column(Integer, default=0)
     metadata_json = Column(JSON, default=dict)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
     model = relationship("MLModel")
     version = relationship("ModelVersion")

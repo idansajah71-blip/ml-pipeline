@@ -3,7 +3,7 @@ import json
 import logging
 import uuid
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -98,7 +98,7 @@ class WebhookNotifier:
 
         test_payload = {
             "event": "test",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "data": {"message": "Test webhook from ML Pipeline"},
         }
 
@@ -129,7 +129,7 @@ class WebhookNotifier:
 
             payload = {
                 "event": event,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
                 "data": data,
             }
 
@@ -143,7 +143,7 @@ class WebhookNotifier:
                         headers["X-Webhook-Signature"] = f"sha256={sig}"
 
                     resp = await client.post(wh.url, json=payload, headers=headers)
-                    wh.last_triggered_at = datetime.utcnow()
+                    wh.last_triggered_at = datetime.now(timezone.utc)
                     wh.last_status = resp.status_code
 
                     if resp.status_code < 300:

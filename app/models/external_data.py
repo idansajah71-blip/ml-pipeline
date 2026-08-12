@@ -1,10 +1,11 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, JSON, Text, Float, Boolean, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
+from app.core.utils import utcnow_naive
 
 
 class ExternalDataSource(Base):
@@ -23,7 +24,7 @@ class ExternalDataSource(Base):
     api_key_env_var = Column(String(100), nullable=True)
     is_active = Column(Boolean, default=True)
     description = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
     caches = relationship("ExternalDatasetCache", back_populates="source")
     search_logs = relationship("ExternalDataSearchLog", back_populates="source")
@@ -50,7 +51,7 @@ class ExternalDatasetCache(Base):
     columns = Column(JSON, default=list)  # column names + types
     source_url = Column(String(500), nullable=True)
     license_note = Column(Text, nullable=True)
-    fetched_at = Column(DateTime, default=datetime.utcnow)
+    fetched_at = Column(DateTime, default=utcnow_naive)
     expires_at = Column(DateTime, nullable=True)
 
     source = relationship("ExternalDataSource", back_populates="caches")
@@ -72,7 +73,7 @@ class ExternalDataSearchLog(Base):
     matched_source_id = Column(UUID(as_uuid=True), ForeignKey("external_data_sources.id"), nullable=True)
     selected_result_id = Column(UUID(as_uuid=True), ForeignKey("external_dataset_cache.id"), nullable=True)
     imported = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
     source = relationship("ExternalDataSource", back_populates="search_logs")
 

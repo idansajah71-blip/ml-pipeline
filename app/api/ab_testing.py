@@ -4,7 +4,7 @@ from sqlalchemy import select
 from typing import List
 from uuid import UUID
 import random
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user, require_data_scientist
@@ -90,9 +90,9 @@ async def update_ab_test(
 
     if 'status' in update_dict:
         if update_dict['status'] == ABTestStatus.ACTIVE and test.status != ABTestStatus.ACTIVE:
-            test.started_at = datetime.utcnow()
+            test.started_at = datetime.now(timezone.utc)
         elif update_dict['status'] == ABTestStatus.COMPLETED:
-            test.ended_at = datetime.utcnow()
+            test.ended_at = datetime.now(timezone.utc)
 
     for field, value in update_dict.items():
         setattr(test, field, value)
@@ -105,6 +105,7 @@ async def update_ab_test(
 @router.post("/{test_id}/route")
 async def route_prediction(
     test_id: UUID,
+    current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(ABTest).where(ABTest.id == test_id))

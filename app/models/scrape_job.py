@@ -1,9 +1,10 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, DateTime, JSON, Text, Float, Boolean, Index
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.core.database import Base
+from app.core.utils import utcnow_naive
 
 
 class ScrapeJob(Base):
@@ -44,7 +45,7 @@ class ScrapeJob(Base):
     scrape_type = Column(String(30), default="single")
     batch_results = Column(JSON, default=list)
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
     scraped_at = Column(DateTime, nullable=True)
     processed_at = Column(DateTime, nullable=True)
 

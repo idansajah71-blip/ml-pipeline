@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from typing import Optional
 from sqlalchemy import select, func
 
@@ -28,7 +28,7 @@ class APIQuotaService:
             self.session.add(quota)
             await self.session.flush()
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         if quota.rpm_reset_at and quota.rpm_reset_at < now:
             quota.current_rpm = 0
             quota.rpm_reset_at = now + timedelta(minutes=1)
@@ -101,7 +101,7 @@ class APIQuotaService:
         quota = await self.get_or_create_quota(user_id)
         limits = self.TIER_LIMITS.get(quota.tier, self.TIER_LIMITS["free"])
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         month_start = today_start.replace(day=1)
 

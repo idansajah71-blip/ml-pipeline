@@ -1,9 +1,10 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, JSON, Text, Boolean, Integer
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.core.database import Base
+from app.core.utils import utcnow_naive
 
 
 class Webhook(Base):
@@ -19,7 +20,7 @@ class Webhook(Base):
     owner_id = Column(UUID(as_uuid=True), nullable=False)
     last_triggered_at = Column(DateTime)
     last_status_code = Column(Integer)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
 
 class WebhookLog(Base):
@@ -33,4 +34,4 @@ class WebhookLog(Base):
     response_body = Column(Text)
     success = Column(Boolean, default=False)
     duration_ms = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)

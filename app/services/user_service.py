@@ -7,6 +7,7 @@ from fastapi import HTTPException, status
 from app.models.user import User, UserRole
 from app.schemas.user import UserCreate, UserUpdate, UserResponse
 from app.core.security import get_password_hash, verify_password, generate_api_key
+from app.utils import api_keys
 
 
 class UserService:
@@ -42,7 +43,7 @@ class UserService:
             username=user_data.username,
             full_name=user_data.full_name,
             hashed_password=get_password_hash(user_data.password),
-            role=UserRole.USER,
+            role=user_data.role or UserRole.USER,
         )
         self.db.add(user)
         await self.db.flush()
@@ -73,9 +74,8 @@ class UserService:
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
 
-        import hashlib
         raw_key = generate_api_key()
-        key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
+        key_hash = api_keys.hash_api_key(raw_key)
         user.api_key = key_hash
         await self.db.flush()
         return raw_key

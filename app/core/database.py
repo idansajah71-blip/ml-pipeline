@@ -29,8 +29,6 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with async_session_factory() as session:
         try:
             yield session
-            if session.is_active and session.dirty:
-                await session.commit()
         except Exception:
             await session.rollback()
             raise

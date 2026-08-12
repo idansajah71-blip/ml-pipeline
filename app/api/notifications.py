@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, HttpUrl
 from typing import Optional, List, Dict, Any
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 import httpx
 import logging
 
@@ -59,7 +59,7 @@ async def send_webhook(url: str, event: str, payload: Dict[str, Any], secret: Op
             response = await client.post(url, json=payload, headers=headers, timeout=10)
             return response.status_code == 200
     except Exception as e:
-        print(f"Webhook delivery failed: {e}")
+        logger.error(f"Webhook delivery failed: {e}")
         return False
 
 
@@ -78,7 +78,7 @@ async def create_webhook(
         "secret": webhook.secret,
         "user_id": str(current_user.id),
         "is_active": True,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
     return WebhookResponse(
@@ -86,7 +86,7 @@ async def create_webhook(
         url=str(webhook.url),
         events=webhook.events,
         is_active=True,
-        created_at=datetime.utcnow().isoformat(),
+        created_at=datetime.now(timezone.utc).isoformat(),
     )
 
 

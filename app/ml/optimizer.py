@@ -2,7 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class ModelOptimizer:
@@ -108,7 +108,7 @@ class ModelOptimizer:
             "model": self.model,
             "scaler": self.scaler,
             "feature_names": self.feature_names,
-            "exported_at": datetime.utcnow().isoformat(),
+            "exported_at": datetime.now(timezone.utc).isoformat(),
         }
 
         if format == "joblib":

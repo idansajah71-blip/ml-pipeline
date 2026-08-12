@@ -1,9 +1,10 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, JSON, Text, Float, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.core.database import Base
+from app.core.utils import utcnow_naive
 
 
 class DataLineage(Base):
@@ -17,7 +18,7 @@ class DataLineage(Base):
     transformation = Column(String(255))
     metadata_json = Column(JSON, default=dict)
     owner_id = Column(UUID(as_uuid=True), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
 
 class CustomMetric(Base):
@@ -30,8 +31,8 @@ class CustomMetric(Base):
     model_id = Column(UUID(as_uuid=True), nullable=True)
     dashboard_config = Column(JSON, default=dict)
     owner_id = Column(UUID(as_uuid=True), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
 
 
 class MetricDataPoint(Base):
@@ -41,4 +42,4 @@ class MetricDataPoint(Base):
     metric_id = Column(UUID(as_uuid=True), nullable=False)
     value = Column(Float, nullable=False)
     labels = Column(JSON, default=dict)
-    recorded_at = Column(DateTime, default=datetime.utcnow)
+    recorded_at = Column(DateTime, default=utcnow_naive)

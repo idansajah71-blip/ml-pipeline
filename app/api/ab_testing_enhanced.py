@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Optional
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timezone
 import random
 
 from app.core.database import get_db
@@ -66,7 +66,7 @@ async def get_ab_test_metrics(
 
     duration_hours = None
     if test.started_at:
-        end = test.ended_at or datetime.utcnow()
+        end = test.ended_at or datetime.now(timezone.utc)
         duration_hours = round((end - test.started_at).total_seconds() / 3600, 2)
 
     return ABTestMetricsResponse(
@@ -86,6 +86,7 @@ async def record_prediction_outcome(
     test_id: UUID,
     group: str,
     correct: bool,
+    current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
     result = await db.execute(select(ABTest).where(ABTest.id == test_id))

@@ -1,11 +1,12 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Text, Enum, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
 
 from app.core.database import Base
+from app.core.utils import utcnow_naive
 
 
 class ExperimentStatus(str, enum.Enum):
@@ -29,7 +30,7 @@ class Experiment(Base):
     dataset_id = Column(UUID(as_uuid=True), ForeignKey("datasets.id"), nullable=False)
     model_id = Column(UUID(as_uuid=True), ForeignKey("models.id"), nullable=False)
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
     completed_at = Column(DateTime)
 
     dataset = relationship("Dataset", back_populates="experiments")

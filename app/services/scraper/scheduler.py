@@ -3,7 +3,7 @@ import asyncio
 import logging
 import uuid
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timezone, timedelta
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -175,7 +175,7 @@ class ScrapeScheduler:
         interval_minutes: int = 1440,
         template_id: str = None,
     ) -> Dict:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         next_run = now + timedelta(minutes=interval_minutes)
         schedule = ScrapeScheduleModel(
             id=uuid.uuid4(),

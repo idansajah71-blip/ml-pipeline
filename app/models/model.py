@@ -1,11 +1,12 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, JSON, Text, Float, Enum, Index, Boolean
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
 
 from app.core.database import Base
+from app.core.utils import utcnow_naive
 
 
 class ModelStatus(str, enum.Enum):
@@ -37,8 +38,8 @@ class MLModel(Base):
     parent_model_id = Column(UUID(as_uuid=True), ForeignKey("models.id"), nullable=True)
     model_card = Column(JSON, default=dict)
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
+    updated_at = Column(DateTime, default=utcnow_naive, onupdate=utcnow_naive)
 
     # ── Stage 1: Readiness scoring ────────────────────────────────────────
     readiness_score = Column(Integer, default=0)
@@ -75,7 +76,7 @@ class ModelShare(Base):
     rating = Column(Float, default=0.0)
     rating_count = Column(Integer, default=0)
     tags = Column(JSON, default=list)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
     # ── Stage 2: Rich publish metadata ────────────────────────────────────
     use_case = Column(Text, nullable=True)
@@ -114,7 +115,7 @@ class ModelFeedback(Base):
     comment = Column(Text, nullable=True)
     is_accurate = Column(Boolean, nullable=True)
     actual_value = Column(String(500), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
 
     model = relationship("MLModel", foreign_keys=[model_id])
     user = relationship("User", foreign_keys=[user_id])
@@ -138,7 +139,7 @@ class ModelReport(Base):
     status = Column(String(50), default="pending")  # pending / reviewed / resolved / dismissed
     admin_note = Column(Text, nullable=True)
     reviewed_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=utcnow_naive)
     reviewed_at = Column(DateTime, nullable=True)
 
     model = relationship("MLModel", foreign_keys=[model_id])
