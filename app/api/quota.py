@@ -59,6 +59,3 @@ async def check_quota(
     service = APIQuotaService(db)
     result = await service.check_and_increment(current_user.id)
     return result
-
-
-from app.core.security import require_admin as _require_admin

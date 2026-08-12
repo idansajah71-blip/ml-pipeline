@@ -174,4 +174,19 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    pass
+    # ── Drop indexes ──
+    for name in [
+        "ix_external_data_search_logs_created_at",
+        "ix_external_data_search_logs_user_id",
+        "ix_external_dataset_cache_expires_at",
+        "ix_external_dataset_cache_query_hash",
+        "ix_external_dataset_cache_source_id",
+        "ix_external_data_sources_is_active",
+        "ix_external_data_sources_slug",
+    ]:
+        op.execute(f"DROP INDEX IF EXISTS {name}")
+
+    # ── Drop tables (reverse dependency order) ──
+    op.execute("DROP TABLE IF EXISTS external_data_search_logs")
+    op.execute("DROP TABLE IF EXISTS external_dataset_cache")
+    op.execute("DROP TABLE IF EXISTS external_data_sources")

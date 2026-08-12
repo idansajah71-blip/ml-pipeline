@@ -4,13 +4,10 @@ from sqlalchemy import select
 from typing import Optional
 from uuid import UUID
 from datetime import datetime
-import pandas as pd
-import numpy as np
-import io
 import os
-import tempfile
 
 from app.core.database import get_db
+from app.core.config import get_settings
 from app.core.security import get_current_active_user
 from app.models.user import User
 from app.models.model import MLModel
@@ -27,6 +24,7 @@ from app.schemas.ml_ops import (
     AuditLogResponse, AuditLogListResponse,
 )
 
+settings = get_settings()
 router = APIRouter(prefix="/ml-ops", tags=["MLOps"])
 
 

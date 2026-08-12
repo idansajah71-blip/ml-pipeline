@@ -7,12 +7,10 @@ import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
-from app.core.config import get_settings
 from app.core.error_utils import sanitize_error_message, log_error
 from app.models.user import User
 from app.models.dataset import Dataset
 
-settings = get_settings()
 router = APIRouter(prefix="/data-validation", tags=["Data Validation"])
 logger = logging.getLogger(__name__)
 

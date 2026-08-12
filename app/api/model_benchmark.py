@@ -6,13 +6,13 @@ import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
-from app.core.config import get_settings
 from app.core.safe_joblib import safe_load
+from app.core.error_utils import sanitize_error_message, log_error
 from app.models.user import User
 from app.models.model import MLModel
 from app.models.dataset import Dataset
+from app.models.experiment import Experiment
 
-settings = get_settings()
 router = APIRouter(prefix="/benchmark", tags=["Model Benchmark"])
 logger = logging.getLogger(__name__)
 

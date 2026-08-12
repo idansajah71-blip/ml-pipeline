@@ -107,4 +107,31 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    pass
+    # ── Drop indexes ──
+    for name in [
+        "ix_model_reports_reported_by",
+        "ix_model_reports_status",
+        "ix_model_reports_share_id",
+        "ix_model_feedback_user_id",
+        "ix_model_feedback_model_id",
+    ]:
+        op.execute(f"DROP INDEX IF EXISTS {name}")
+
+    # ── Drop tables ──
+    op.execute("DROP TABLE IF EXISTS model_reports")
+    op.execute("DROP TABLE IF EXISTS model_feedback")
+
+    # ── Drop columns from model_shares ──
+    for col in [
+        "status", "review_note", "training_data_summary",
+        "example_inputs", "limitations", "use_case",
+        "lifecycle_stage", "deprecation_note", "deprecated_at", "last_trained_at",
+    ]:
+        op.execute(
+            sa.text(
+                f"DO $$ BEGIN "
+                f"    ALTER TABLE model_shares DROP COLUMN IF EXISTS {col}; "
+                f"EXCEPTION WHEN undefined_column THEN null; "
+                f"END $$;"
+            )
+        )
