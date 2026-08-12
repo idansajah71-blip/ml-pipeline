@@ -44,19 +44,20 @@ app.dependency_overrides[get_db] = override_get_db
 
 @pytest.fixture(autouse=True)
 async def setup_database():
+    # Use separate connections for teardown and setup to avoid rollback
+    # killing the schema drop if create_all fails.
     async with test_engine.begin() as conn:
-        # Reset entire public schema — drops all tables, ENUMs, sequences, etc.
-        # This is the only reliable way to clean orphaned PostgreSQL ENUM types.
-        await conn.execute(text("DROP SCHEMA public CASCADE"))
+        await conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
         await conn.execute(text("CREATE SCHEMA public"))
         await conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
+    # Now create tables in a fresh transaction
+    async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     yield
     async with test_engine.begin() as conn:
-        await conn.execute(text("DROP SCHEMA public CASCADE"))
+        await conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE"))
         await conn.execute(text("CREATE SCHEMA public"))
         await conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
-    await test_engine.dispose()
 
 
 @pytest.fixture(autouse=True)
