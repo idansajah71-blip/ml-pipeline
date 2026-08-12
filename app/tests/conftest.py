@@ -45,10 +45,9 @@ app.dependency_overrides[get_db] = override_get_db
 @pytest.fixture(autouse=True)
 async def setup_database():
     async with test_engine.begin() as conn:
-        # Idempotent reset: previous runs can leave orphaned Postgres ENUM
-        # types (DROP TABLE does not remove them), which makes the next
-        # CREATE TYPE fail with UniqueViolation on pg_type_typname_nsp_index.
-        await conn.run_sync(Base.metadata.drop_all, checkfirst=True)
+        # 1. Drop all tables first (removes FK dependencies on ENUMs)
+        await conn.run_sync(Base.metadata.drop_all)
+        # 2. Drop orphaned Postgres ENUM types left by previous runs
         rows = (
             await conn.execute(text(
                 "SELECT t.typname FROM pg_type t "
@@ -58,11 +57,20 @@ async def setup_database():
         ).all()
         for row in rows:
             await conn.execute(text(f'DROP TYPE IF EXISTS "{row[0]}" CASCADE'))
-        await conn.run_sync(Base.metadata.create_all, checkfirst=True)
+        # 3. Create everything fresh
+        await conn.run_sync(Base.metadata.create_all)
     yield
     async with test_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all, checkfirst=True)
-    # Dispose connections after each test to avoid stale connections
+        await conn.run_sync(Base.metadata.drop_all)
+        rows = (
+            await conn.execute(text(
+                "SELECT t.typname FROM pg_type t "
+                "JOIN pg_namespace n ON n.oid = t.typnamespace "
+                "WHERE n.nspname = 'public' AND t.typtype = 'e'"
+            ))
+        ).all()
+        for row in rows:
+            await conn.execute(text(f'DROP TYPE IF EXISTS "{row[0]}" CASCADE'))
     await test_engine.dispose()
 
 
