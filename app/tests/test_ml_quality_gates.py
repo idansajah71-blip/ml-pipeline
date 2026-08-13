@@ -39,10 +39,11 @@ class TestTrainingServingConsistency:
         assert result["status"] == "completed"
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            pipeline.save_artifacts(tmpdir)
+            paths = pipeline.save_artifacts(tmpdir)
+            bundle_dir = os.path.dirname(paths["model_path"])
 
             serving = ServingPipeline()
-            serving.load(tmpdir)
+            serving.load(bundle_dir)
 
             raw_df = pd.DataFrame([{"f1": 1.0, "f2": 2.0, "f3": 3.0}])
             train_result = pipeline.predict(
@@ -176,7 +177,7 @@ class TestSchemaCompatibility:
 
             # Verify integrity
             manager = ArtifactManager(tmpdir)
-            bundle_dir = paths["bundle_dir"]
+            bundle_dir = os.path.dirname(paths["model_path"])
             verification = manager.verify_bundle(bundle_dir)
             assert verification["valid"], f"Integrity check failed: {verification['errors']}"
 
