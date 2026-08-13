@@ -69,6 +69,20 @@ class MLPipeline:
                 metrics['cross_validation'] = {'error': str(e), 'status': 'failed'}
                 logger.warning(f"Cross-validation failed: {e}")
 
+            # ── Compute calibration residuals for conformal prediction (regression) ──
+            if problem_type == 'regression':
+                try:
+                    y_test_arr = np.array(y_test)
+                    y_pred_arr = np.array(self.trainer.model.predict(X_test))
+                    metrics['calibration_residuals'] = {
+                        'residuals': (y_test_arr - y_pred_arr).tolist(),
+                        'predictions': y_pred_arr.tolist(),
+                        'y_true': y_test_arr.tolist(),
+                        'n_calibration_samples': len(y_test_arr),
+                    }
+                except Exception as e:
+                    logger.warning(f"Calibration residuals computation failed: {e}")
+
             feature_importance = self.trainer.get_feature_importance(preprocess_metadata['feature_names'])
 
             benchmark_results = None
