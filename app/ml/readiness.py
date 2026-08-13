@@ -47,6 +47,7 @@ def compute_readiness_score(
     has_leakage: bool = False,
     random_seed: Optional[int] = None,
     library_versions: Optional[Dict[str, str]] = None,
+    deployment_history: Optional[list] = None,
 ) -> Dict[str, Any]:
     """
     Compute multi-dimensional readiness score.
@@ -227,6 +228,17 @@ def compute_readiness_score(
     sec_score = max(0, sec_score)
     sec_status = "pass" if sec_score >= 70 else "warning"
     gates.append({"name": "security", "score": sec_score, "status": sec_status, "weight": 2})
+
+    # ── Gate 13: Rollback Capability (0-100) ──────────────────────────
+    rb_score = 50  # neutral if unknown
+    if artifact_valid and feature_count > 0:
+        rb_score = 80  # can rollback if artifacts are valid
+    if deployment_history and len(deployment_history) > 0:
+        rb_score = 100  # proven rollback capability
+    rb_status = "pass" if rb_score >= 60 else "warning"
+    if rb_status == "warning":
+        recommendations.append("Rollback capability unknown. Ensure artifact versioning is in place.")
+    gates.append({"name": "rollback_capability", "score": rb_score, "status": rb_status, "weight": 2})
 
     # ── Compute weighted total ─────────────────────────────────────────
     total_weight = sum(g["weight"] for g in gates)
