@@ -4,6 +4,7 @@ import json
 import asyncio
 from typing import Optional, List
 from uuid import UUID
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from fastapi import HTTPException
@@ -438,6 +439,43 @@ class ModelService:
             raise HTTPException(status_code=404, detail="Model not found")
         if model.owner_id != owner_id:
             raise HTTPException(status_code=403, detail="Not authorized")
+
+        # ── ENFORCEMENT: Block production deployment if critical gates fail ──
+        if stage == "production":
+            readiness = model.readiness_details or {}
+            status = readiness.get("status", "")
+            critical_failures = readiness.get("critical_failures", [])
+
+            if status == "blocked":
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Model BLOCKED from production deployment. "
+                        f"Critical gate(s) failed: {', '.join(critical_failures)}. "
+                        f"Fix these issues before promoting to production."
+                    ),
+                )
+
+            if readiness.get("score", 0) < 50:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        f"Model readiness score {readiness.get('score', 0)} is below minimum "
+                        f"threshold of 50. Current status: {readiness.get('label', 'unknown')}. "
+                        f"Improve the model before promoting to production."
+                    ),
+                )
+
+            # Record deployment in history
+            history = model.deployment_history or []
+            history.append({
+                "action": "deploy",
+                "version": model.version,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "artifact_hash": model.artifact_hash,
+                "readiness_score": readiness.get("score"),
+            })
+            model.deployment_history = history
 
         model.stage = stage
         if stage == "production":
