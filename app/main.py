@@ -5,7 +5,11 @@ from fastapi.responses import JSONResponse
 import time
 import uuid
 import logging
+import warnings
 from contextlib import asynccontextmanager
+
+# Suppress known pyarrow FutureWarning from pandas internals
+warnings.filterwarnings("ignore", message=".*pyarrow.*", category=FutureWarning)
 
 from app.core.config import get_settings
 from app.core.database import init_db

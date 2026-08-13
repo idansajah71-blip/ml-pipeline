@@ -264,9 +264,34 @@ class ModelTrainer:
                 n_classes = len(np.unique(y_test))
                 if n_classes == 2:
                     metrics['roc_auc'] = float(roc_auc_score(y_test, y_proba[:, 1]))
+                    metrics['brier_score'] = float(np.mean((y_proba[:, 1] - y_test.astype(float)) ** 2))
                 elif n_classes > 2:
                     metrics['roc_auc_ovr'] = float(roc_auc_score(y_test, y_proba, multi_class='ovr', average='macro'))
+                    # Brier score for multiclass
+                    from sklearn.preprocessing import label_binarize
+                    classes = sorted(np.unique(y_test))
+                    y_bin = label_binarize(y_test, classes=classes)
+                    if y_bin.shape[1] == 1:
+                        y_bin = np.hstack([1 - y_bin, y_bin])
+                    metrics['brier_score'] = float(np.mean(np.sum((y_proba - y_bin) ** 2, axis=1)))
+
                 metrics['log_loss'] = float(log_loss(y_test, y_proba))
+
+                # Calibration via binned calibration (Expected Calibration Error)
+                try:
+                    from sklearn.calibration import calibration_curve
+                    if n_classes == 2:
+                        fraction_of_positives, mean_predicted_value = calibration_curve(
+                            y_test, y_proba[:, 1], n_bins=10, strategy='uniform'
+                        )
+                        ece = float(np.mean(np.abs(fraction_of_positives - mean_predicted_value)))
+                        metrics['expected_calibration_error'] = ece
+                        metrics['calibration_curve'] = {
+                            'fraction_of_positives': fraction_of_positives.tolist(),
+                            'mean_predicted_value': mean_predicted_value.tolist(),
+                        }
+                except Exception:
+                    pass
             except Exception as e:
                 logger.warning(f"Probability-based metrics failed: {e}")
 

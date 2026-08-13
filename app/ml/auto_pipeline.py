@@ -189,16 +189,10 @@ class AutoMLPipeline:
                 }
                 if probabilities is not None:
                     max_prob = float(probabilities[i].max())
-                    result['probability'] = max_prob
+                    result['predicted_probability'] = max_prob
                     result['probabilities'] = {
                         str(cls): float(prob) for cls, prob in zip(self.trainer.model.classes_, probabilities[i])
                     }
-                    if max_prob >= 0.85:
-                        result['confidence_level'] = 'high'
-                    elif max_prob >= 0.6:
-                        result['confidence_level'] = 'medium'
-                    else:
-                        result['confidence_level'] = 'low'
                 results.append(result)
 
             return {
@@ -225,19 +219,23 @@ class AutoMLPipeline:
         model_id = self.training_metadata.get('experiment_id', 'unknown')
         version = self.training_metadata.get('version', 1)
 
+        processor_data = {
+            'scaler': self.processor.scaler,
+            'label_encoders': self.processor.label_encoders,
+            'one_hot_encoders': self.processor.one_hot_encoders,
+            'one_hot_columns': self.processor.one_hot_columns,
+            'numeric_imputer': self.processor.numeric_imputer,
+            'categorical_imputer': self.processor.categorical_imputer,
+            'target_encoder': self.processor.target_encoder,
+            'feature_names': self.processor.feature_names,
+        }
+        processor_data['numeric_fill_values'] = {}
+        processor_data['categorical_fill_values'] = {}
+
         manager = ArtifactManager(base_path)
         result = manager.save_bundle(
             model=self.trainer.model,
-            processor_data={
-                'scaler': self.processor.scaler,
-                'label_encoders': self.processor.label_encoders,
-                'one_hot_encoders': self.processor.one_hot_encoders,
-                'one_hot_columns': self.processor.one_hot_columns,
-                'numeric_imputer': self.processor.numeric_imputer,
-                'categorical_imputer': self.processor.categorical_imputer,
-                'target_encoder': self.processor.target_encoder,
-                'feature_names': self.processor.feature_names,
-            },
+            processor_data=processor_data,
             metadata=self.training_metadata,
             model_id=model_id,
             version=version,

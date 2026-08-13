@@ -75,6 +75,17 @@ class DataProcessor:
 
         return categorical_cols, high_cardinality_cols
 
+    def get_processor_data(self) -> Dict[str, Any]:
+        """Return all fitted processor state for serialization."""
+        return {
+            'scaler': self.scaler,
+            'label_encoders': self.label_encoders,
+            'one_hot_encoders': getattr(self, 'one_hot_encoders', {}),
+            'one_hot_columns': getattr(self, 'one_hot_columns', []),
+            'numeric_fill_values': getattr(self, '_numeric_fill_values', {}),
+            'categorical_fill_values': getattr(self, '_categorical_fill_values', {}),
+        }
+
     def _fit_imputation(self, df: pd.DataFrame) -> None:
         """Fit imputation values from training data only."""
         self._numeric_fill_values = {}

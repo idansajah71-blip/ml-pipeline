@@ -86,7 +86,7 @@ def train_model_task(
             )
             if model_obj:
                 model_obj.status = ModelStatus.TRAINED
-                model_obj.file_path = artifacts["model_path"]
+                model_obj.file_path = artifacts.get("bundle_dir", os.path.dirname(artifacts["model_path"]))
                 model_obj.metrics = result.get("metrics", {})
                 model_obj.parameters = result.get("parameters", {})
             if experiment:

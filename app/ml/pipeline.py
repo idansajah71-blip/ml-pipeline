@@ -147,16 +147,10 @@ class MLPipeline:
                 }
                 if probabilities is not None:
                     max_prob = float(probabilities[i].max())
-                    result['probability'] = max_prob
+                    result['predicted_probability'] = max_prob
                     result['probabilities'] = {
                         str(cls): float(prob) for cls, prob in zip(self.trainer.model.classes_, probabilities[i])
                     }
-                    if max_prob >= 0.85:
-                        result['confidence_level'] = 'high'
-                    elif max_prob >= 0.6:
-                        result['confidence_level'] = 'medium'
-                    else:
-                        result['confidence_level'] = 'low'
                 results.append(result)
 
             return {
@@ -182,15 +176,15 @@ class MLPipeline:
         model_id = self.training_metadata.get('experiment_id', 'unknown')
         version = self.training_metadata.get('version', 1)
 
+        processor_data = self.processor.get_processor_data()
+        processor_data['feature_names'] = self.training_metadata.get(
+            'preprocess_metadata', {}
+        ).get('feature_names', [])
+
         manager = ArtifactManager(base_path)
         result = manager.save_bundle(
             model=self.trainer.model,
-            processor_data={
-                'scaler': self.processor.scaler,
-                'label_encoders': self.processor.label_encoders,
-                'one_hot_encoders': getattr(self.processor, 'one_hot_encoders', {}),
-                'one_hot_columns': getattr(self.processor, 'one_hot_columns', []),
-            },
+            processor_data=processor_data,
             metadata=self.training_metadata,
             model_id=model_id,
             version=version,
@@ -216,6 +210,8 @@ class MLPipeline:
         self.processor.label_encoders = proc_data.get('label_encoders', {})
         self.processor.one_hot_encoders = proc_data.get('one_hot_encoders', {})
         self.processor.one_hot_columns = proc_data.get('one_hot_columns', [])
+        self.processor._numeric_fill_values = proc_data.get('numeric_fill_values', {})
+        self.processor._categorical_fill_values = proc_data.get('categorical_fill_values', {})
         self.training_metadata = bundle['metadata']
 
         return self.training_metadata

@@ -48,6 +48,19 @@ class MLModel(Base):
     training_samples = Column(Integer, default=0)
     cv_scores = Column(JSON, default=list)
 
+    # ── Full Model Lineage ────────────────────────────────────────────────
+    artifact_hash = Column(String(64), nullable=True)
+    dataset_hash = Column(String(64), nullable=True)
+    feature_schema_version = Column(String(50), nullable=True)
+    preprocessing_version = Column(String(50), nullable=True)
+    git_commit_sha = Column(String(40), nullable=True)
+    python_version = Column(String(20), nullable=True)
+    sklearn_version = Column(String(20), nullable=True)
+    training_config = Column(JSON, default=dict)
+    random_seed = Column(Integer, nullable=True)
+    evaluation_report = Column(JSON, default=dict)
+    deployment_history = Column(JSON, default=list)
+
     owner = relationship("User", back_populates="models")
     experiments = relationship("Experiment", back_populates="model")
     predictions = relationship("Prediction", back_populates="model")

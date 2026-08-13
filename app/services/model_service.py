@@ -241,10 +241,35 @@ class ModelService:
                 artifacts = pipeline.save_artifacts(model_dir)
 
                 model.status = ModelStatus.TRAINED
-                model.file_path = artifacts["model_path"]
+                model.file_path = artifacts.get("bundle_dir", os.path.dirname(artifacts["model_path"]))
                 model.metrics = result.get("metrics", {})
                 model.parameters = result.get("parameters", {})
                 model.feature_names = result.get("data_info", {}).get("features", [])
+
+                # ── Full lineage ───────────────────────────────────────
+                model.artifact_hash = artifacts.get("artifact_hash")
+                lib_versions = result.get("library_versions", {})
+                model.python_version = lib_versions.get("python")
+                model.sklearn_version = lib_versions.get("sklearn")
+                model.random_seed = 42  # default
+                model.training_config = {
+                    "algorithm": result.get("algorithm"),
+                    "parameters": result.get("parameters", {}),
+                    "mode": train_request.mode.value if train_request.mode else "advanced",
+                }
+                model.dataset_hash = None  # computed if dataset content available
+                model.preprocessing_version = "v1"
+                model.feature_schema_version = "v1"
+                import subprocess
+                try:
+                    model.git_commit_sha = subprocess.check_output(
+                        ["git", "rev-parse", "--short", "HEAD"],
+                        cwd=os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+                        stderr=subprocess.DEVNULL,
+                        timeout=3,
+                    ).decode().strip()
+                except Exception:
+                    model.git_commit_sha = None
 
                 if train_request.mode == TrainingMode.SIMPLE and hasattr(pipeline, 'generate_human_summary'):
                     result['human_summary'] = pipeline.generate_human_summary()
@@ -375,6 +400,7 @@ class ModelService:
         return model
 
     async def rollback_model(self, model_id: UUID, owner_id: UUID) -> MLModel:
+        """Atomic rollback: create a new version pointing to previous artifact bundle."""
         model = await self.get_model(model_id)
         if not model:
             raise HTTPException(status_code=404, detail="Model not found")
@@ -396,12 +422,29 @@ class ModelService:
         if not previous_version:
             raise HTTPException(status_code=400, detail="No previous version to rollback to")
 
-        model.version = previous_version.version + 1
-        model.file_path = previous_version.file_path
+        # Record deployment history
+        history = model.deployment_history or []
+        history.append({
+            "action": "rollback",
+            "from_version": model.version,
+            "to_version": previous_version.version,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "artifact_hash": previous_version.artifact_hash,
+        })
+
+        # Atomic rollback: new version pointing to previous bundle (immutable)
+        model.version = model.version + 1
+        model.file_path = previous_version.file_path  # same bundle dir
+        model.artifact_hash = previous_version.artifact_hash
         model.metrics = previous_version.metrics
         model.parameters = previous_version.parameters
         model.feature_names = previous_version.feature_names
+        model.dataset_hash = previous_version.dataset_hash
+        model.preprocessing_version = previous_version.preprocessing_version
+        model.training_config = previous_version.training_config
+        model.random_seed = previous_version.random_seed
         model.status = ModelStatus.TRAINED
+        model.deployment_history = history
 
         await self.db.flush()
         await self.db.refresh(model)

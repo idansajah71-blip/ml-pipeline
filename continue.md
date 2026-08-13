@@ -1060,3 +1060,5 @@ print(report['recommendation'])
 *Terakhir diupdate: 12 Agustus 2026*  
 *Total: Semua task HIGH priority SELESAI*  
 *GitHub: https://github.com/idansajah71-blip/ml-pipeline*
+
+python -m pytest app/tests/ --tb=short -q 2>&1

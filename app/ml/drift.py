@@ -1,7 +1,13 @@
+"""
+Drift Detection — PSI with reference-only binning + KS test.
+
+PSI bins are computed ONLY from the reference (training) distribution.
+Bin edges are returned so they can be saved and reused across batches.
+"""
+
 import numpy as np
 import pandas as pd
 from typing import Dict, Any, Optional, List
-from io import BytesIO
 from scipy import stats
 
 from app.ml.data_utils import load_dataframe
@@ -16,6 +22,7 @@ class DriftDetector:
         target_column: Optional[str] = None,
         threshold_psi: float = 0.2,
         threshold_ks: float = 0.05,
+        reference_bin_edges: Optional[Dict[str, np.ndarray]] = None,
     ) -> Dict[str, Any]:
         ref_df = self._load(reference_content, filename)
         curr_df = self._load(current_content, filename)
@@ -29,6 +36,7 @@ class DriftDetector:
         psi_results = {}
         ks_results = {}
         distribution_shift = {}
+        saved_bin_edges = {}
 
         for col in numeric_cols:
             ref_data = ref_df[col].dropna()
@@ -37,7 +45,15 @@ class DriftDetector:
             if len(ref_data) == 0 or len(curr_data) == 0:
                 continue
 
-            psi_results[col] = self._calculate_psi(ref_data, curr_data)
+            # Use pre-computed bin edges if available, otherwise compute from reference only
+            if reference_bin_edges and col in reference_bin_edges:
+                breakpoints = reference_bin_edges[col]
+            else:
+                breakpoints = self._compute_reference_bins(ref_data)
+
+            saved_bin_edges[col] = breakpoints
+
+            psi_results[col] = self._calculate_psi_with_edges(ref_data, curr_data, breakpoints)
             ks_results[col] = self._calculate_ks(ref_data, curr_data)
             distribution_shift[col] = {
                 "ref_mean": float(ref_data.mean()),
@@ -77,18 +93,41 @@ class DriftDetector:
                 "psi": threshold_psi,
                 "ks": threshold_ks,
             },
+            "reference_bin_edges": {k: v.tolist() for k, v in saved_bin_edges.items()},
         }
 
     def _load(self, content: bytes, filename: str) -> pd.DataFrame:
         return load_dataframe(content, filename)
 
-    def _calculate_psi(self, ref: pd.Series, curr: pd.Series, bins: int = 10) -> Dict[str, float]:
+    def compute_baseline_bins(
+        self, reference_content: bytes, filename: str, bins: int = 10
+    ) -> Dict[str, np.ndarray]:
+        """
+        Compute bin edges from reference data only.
+        Save these edges and reuse for all future batch evaluations.
+        """
+        ref_df = self._load(reference_content, filename)
+        numeric_cols = ref_df.select_dtypes(include=[np.number]).columns.tolist()
+
+        bin_edges = {}
+        for col in numeric_cols:
+            ref_data = ref_df[col].dropna()
+            if len(ref_data) > 0:
+                bin_edges[col] = self._compute_reference_bins(ref_data, bins)
+        return bin_edges
+
+    def _compute_reference_bins(self, ref_data: pd.Series, bins: int = 10) -> np.ndarray:
+        """Compute percentile-based bin edges from reference data only."""
+        ref_vals = ref_data.values
+        breakpoints = np.percentile(ref_vals, np.linspace(0, 100, bins + 1))
+        return np.unique(breakpoints)
+
+    def _calculate_psi_with_edges(
+        self, ref: pd.Series, curr: pd.Series, breakpoints: np.ndarray
+    ) -> Dict[str, float]:
+        """Calculate PSI using pre-defined bin edges."""
         ref_vals = ref.values
         curr_vals = curr.values
-
-        combined = np.concatenate([ref_vals, curr_vals])
-        breakpoints = np.percentile(combined, np.linspace(0, 100, bins + 1))
-        breakpoints = np.unique(breakpoints)
 
         ref_hist, _ = np.histogram(ref_vals, bins=breakpoints)
         curr_hist, _ = np.histogram(curr_vals, bins=breakpoints)
@@ -104,6 +143,11 @@ class DriftDetector:
             "drifted": psi > 0.2,
         }
 
+    def _calculate_psi(self, ref: pd.Series, curr: pd.Series, bins: int = 10) -> Dict[str, float]:
+        """Legacy PSI calculation (for backward compatibility). Bins from reference only."""
+        breakpoints = self._compute_reference_bins(ref, bins)
+        return self._calculate_psi_with_edges(ref, curr, breakpoints)
+
     def _calculate_ks(self, ref: pd.Series, curr: pd.Series) -> Dict[str, float]:
         statistic, p_value = stats.ks_2samp(ref.values, curr.values)
         return {
@@ -117,6 +161,7 @@ class DriftDetector:
         training_content: bytes,
         prediction_data: List[Dict[str, Any]],
         filename: str,
+        reference_bin_edges: Optional[Dict[str, np.ndarray]] = None,
     ) -> Dict[str, Any]:
         train_df = self._load(training_content, filename)
         pred_df = pd.DataFrame(prediction_data)
@@ -131,9 +176,15 @@ class DriftDetector:
         psi_results = {}
         for col in train_numeric.columns:
             if col in pred_numeric.columns:
-                psi_results[col] = self._calculate_psi(
+                if reference_bin_edges and col in reference_bin_edges:
+                    breakpoints = reference_bin_edges[col]
+                else:
+                    breakpoints = self._compute_reference_bins(train_numeric[col].dropna())
+
+                psi_results[col] = self._calculate_psi_with_edges(
                     train_numeric[col].dropna(),
                     pred_numeric[col].dropna(),
+                    breakpoints,
                 )
 
         drifted = [col for col, r in psi_results.items() if r["drifted"]]

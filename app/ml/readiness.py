@@ -1,9 +1,33 @@
 """
-Readiness scoring for ML models.
-Computes a 0-100 score indicating whether a model is ready to be published
-to the marketplace for others to use.
+Readiness Scoring — multi-dimensional production readiness gate.
+
+A model is NOT "ready" just because it has a high accuracy score.
+Readiness is a set of independent gates; if any critical gate fails,
+status is BLOCKED regardless of other scores.
+
+Dimensions:
+1. Data Quality (missing values, cardinality, imbalance)
+2. Leakage Check (target leakage, train-test overlap)
+3. Validation Integrity (proper split, no leakage in preprocessing)
+4. Primary Metric (accuracy / R² — weighted but not dominant)
+5. Calibration (Brier score, ECE for classifiers)
+6. Robustness (CV stability, confidence intervals)
+7. Reproducibility (random seeds, library versions)
+8. Artifact Integrity (manifest, checksums)
+9. Schema Compatibility (feature count, types match)
+10. Serving Latency (p95 inference time)
+11. Monitoring Readiness (drift baseline exists)
+12. Security (no sensitive features, input validation)
 """
-from typing import Dict, Any, Optional
+
+from typing import Dict, Any, Optional, List
+import statistics
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Gate definitions — critical gates block deployment
+CRITICAL_GATES = {"data_quality", "leakage_check", "artifact_integrity", "validation_integrity"}
 
 
 def compute_readiness_score(
@@ -12,172 +36,237 @@ def compute_readiness_score(
     training_samples: int = 0,
     result_type: str = "classification",
     cv_scores: Optional[list] = None,
+    artifact_valid: bool = False,
+    has_drift_baseline: bool = False,
+    serving_latency_ms: float = 0.0,
+    feature_names: Optional[list] = None,
+    sensitive_features: Optional[list] = None,
+    missing_ratio: float = 0.0,
+    class_imbalance_ratio: float = 1.0,
+    data_quality_issues: Optional[List[str]] = None,
+    has_leakage: bool = False,
+    random_seed: Optional[int] = None,
+    library_versions: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """
-    Compute a readiness score (0-100) for a trained model.
-    
+    Compute multi-dimensional readiness score.
+
     Returns:
         {
-            "score": int,           # 0-100
-            "label": str,           # "Siap Dipublikasikan" | "Perlu Perbaikan" | "Belum Siap"
-            "grade": str,           # "A" | "B" | "C" | "D" | "F"
-            "factors": [...],       # List of scoring factors with impact
-            "recommendations": [...] # Human-readable improvement suggestions
+            "score": int,               # 0-100
+            "status": str,              # "ready" | "needs_improvement" | "blocked"
+            "label": str,               # Human-readable status
+            "grade": str,               # A-F
+            "gates": [...],             # Per-gate results
+            "critical_failures": [...], # List of failed critical gates
+            "recommendations": [...],   # Improvement suggestions
         }
     """
-    score = 0
-    factors = []
+    gates = []
     recommendations = []
+    failed_critical = []
 
-    # ── Factor 1: Primary metric (40 points max) ──────────────────────────
+    # ── Gate 1: Data Quality (0-100) ──────────────────────────────────
+    dq_score = 100
+    if missing_ratio > 0.3:
+        dq_score -= 40
+        recommendations.append(f"Tingkat missing values tinggi ({missing_ratio:.0%}). Pertimbangkan imputasi atau drop kolom.")
+    elif missing_ratio > 0.1:
+        dq_score -= 15
+    if class_imbalance_ratio < 0.1:
+        dq_score -= 30
+        recommendations.append("Kelas sangat tidak seimbang. Gunakan class weights atau oversampling.")
+    elif class_imbalance_ratio < 0.3:
+        dq_score -= 10
+    if data_quality_issues:
+        dq_score -= min(30, len(data_quality_issues) * 10)
+    dq_score = max(0, dq_score)
+    dq_status = "pass" if dq_score >= 70 else ("warning" if dq_score >= 40 else "fail")
+    if dq_status == "fail" and "data_quality" in CRITICAL_GATES:
+        failed_critical.append("data_quality")
+    gates.append({"name": "data_quality", "score": dq_score, "status": dq_status, "weight": 10})
+
+    # ── Gate 2: Leakage Check (0-100) ─────────────────────────────────
+    lk_score = 100 if not has_leakage else 0
+    lk_status = "pass" if not has_leakage else "fail"
+    if lk_status == "fail" and "leakage_check" in CRITICAL_GATES:
+        failed_critical.append("leakage_check")
+        recommendations.append("Kemungkinan target leakage terdeteksi. Periksa fitur yang menggunakan informasi target.")
+    gates.append({"name": "leakage_check", "score": lk_score, "status": lk_status, "weight": 15})
+
+    # ── Gate 3: Validation Integrity (0-100) ──────────────────────────
+    vi_score = 100
+    if training_samples < 100:
+        vi_score -= 40
+        recommendations.append("Data training sangat sedikit (<100 sampel). Model mungkin overfitting.")
+    elif training_samples < 500:
+        vi_score -= 15
+    if feature_count > 200:
+        vi_score -= 20
+        recommendations.append("Jumlah fitur sangat banyak. Pertimbangkan feature selection.")
+    vi_score = max(0, vi_score)
+    vi_status = "pass" if vi_score >= 70 else ("warning" if vi_score >= 40 else "fail")
+    if vi_status == "fail" and "validation_integrity" in CRITICAL_GATES:
+        failed_critical.append("validation_integrity")
+    gates.append({"name": "validation_integrity", "score": vi_score, "status": vi_status, "weight": 10})
+
+    # ── Gate 4: Primary Metric (0-100) ────────────────────────────────
     if result_type == "classification":
         primary = metrics.get("accuracy", metrics.get("f1", 0))
-        metric_name = "Akurasi" if "accuracy" in metrics else "F1 Score"
+        metric_name = "Accuracy"
     else:
         primary = metrics.get("r2", 0)
-        metric_name = "R² Score"
+        metric_name = "R²"
 
     if primary >= 0.90:
-        pts = 40
-        factors.append({"name": metric_name, "value": primary, "points": pts, "max": 40, "status": "excellent"})
+        pm_score = 100
     elif primary >= 0.80:
-        pts = 35
-        factors.append({"name": metric_name, "value": primary, "points": pts, "max": 40, "status": "good"})
+        pm_score = 85
     elif primary >= 0.70:
-        pts = 25
-        factors.append({"name": metric_name, "value": primary, "points": pts, "max": 40, "status": "adequate"})
-        recommendations.append(f"{metric_name} masih {primary:.0%}. Pertimbangkan hyperparameter tuning.")
+        pm_score = 65
+        recommendations.append(f"{metric_name} ({primary:.2%}) cukup baik tapi bisa ditingkatkan.")
     elif primary >= 0.50:
-        pts = 15
-        factors.append({"name": metric_name, "value": primary, "points": pts, "max": 40, "status": "low"})
-        recommendations.append(f"{metric_name} rendah ({primary:.0%}). Model belum cukup akurat untuk dipublikasikan.")
+        pm_score = 40
+        recommendations.append(f"{metric_name} rendah ({primary:.2%}). Pertimbangkan hyperparameter tuning.")
     else:
-        pts = 0
-        factors.append({"name": metric_name, "value": primary, "points": pts, "max": 40, "status": "poor"})
-        recommendations.append(f"{metric_name} sangat rendah ({primary:.0%}). Sebaiknya dilatih ulang dengan data lebih banyak atau algoritma berbeda.")
-    score += pts
+        pm_score = 10
+        recommendations.append(f"{metric_name} sangat rendah ({primary:.2%}). Model perlu dilatih ulang.")
+    pm_status = "pass" if pm_score >= 65 else ("warning" if pm_score >= 40 else "fail")
+    gates.append({"name": "primary_metric", "score": pm_score, "status": pm_status, "weight": 20})
 
-    # ── Factor 2: Secondary metrics (20 points max) ───────────────────────
-    secondary_pts = 0
+    # ── Gate 5: Calibration (0-100) ───────────────────────────────────
+    cal_score = 50  # neutral if not available
     if result_type == "classification":
-        for m_name in ["precision", "recall", "f1"]:
-            val = metrics.get(m_name, 0)
-            if val >= 0.80:
-                secondary_pts += 3
-            elif val >= 0.70:
-                secondary_pts += 2
-            elif val >= 0.60:
-                secondary_pts += 1
+        brier = metrics.get("brier_score")
+        ece = metrics.get("expected_calibration_error")
+        if brier is not None:
+            # Brier: 0 is perfect, 1 is worst
+            cal_score = int(max(0, min(100, (1 - brier * 2) * 100)))
+            if brier > 0.25:
+                recommendations.append("Model kurang terkalibrasi (Brier score tinggi). Pertimbangkan Platt scaling.")
+        elif ece is not None:
+            cal_score = int(max(0, min(100, (1 - ece) * 100)))
     else:
-        mae = metrics.get("mae", 0)
-        rmse = metrics.get("rmse", 0)
-        if mae > 0 and primary > 0:
-            mae_ratio = mae / (primary * 100 + 1)
-            if mae_ratio < 0.1:
-                secondary_pts += 10
-            elif mae_ratio < 0.2:
-                secondary_pts += 7
-            elif mae_ratio < 0.3:
-                secondary_pts += 4
-        if rmse > 0 and mae > 0:
-            rmse_mae_ratio = rmse / mae if mae > 0 else 999
-            if 1.0 <= rmse_mae_ratio <= 1.5:
-                secondary_pts += 10
-            elif rmse_mae_ratio <= 2.0:
-                secondary_pts += 5
-    secondary_pts = min(20, secondary_pts)
-    factors.append({"name": "Metrik Sekunder", "value": secondary_pts, "points": secondary_pts, "max": 20, "status": "good" if secondary_pts >= 15 else "adequate" if secondary_pts >= 8 else "low"})
-    score += secondary_pts
+        # For regression, use MAPE as proxy
+        mape = metrics.get("mape")
+        if mape is not None:
+            cal_score = int(max(0, min(100, 100 - mape)))
+    cal_status = "pass" if cal_score >= 60 else ("warning" if cal_score >= 30 else "fail")
+    gates.append({"name": "calibration", "score": cal_score, "status": cal_status, "weight": 10})
 
-    # ── Factor 3: Training data size (20 points max) ──────────────────────
-    if training_samples >= 10000:
-        data_pts = 20
-        data_status = "excellent"
-    elif training_samples >= 5000:
-        data_pts = 16
-        data_status = "good"
-    elif training_samples >= 1000:
-        data_pts = 12
-        data_status = "adequate"
-    elif training_samples >= 300:
-        data_pts = 6
-        data_status = "low"
-        recommendations.append("Data training kurang dari 1000 baris. Pertimbangkan menambah data untuk hasil lebih robust.")
-    else:
-        data_pts = 2
-        data_status = "poor"
-        recommendations.append("Data training sangat sedikit (<300 baris). Model mungkin overfitting.")
-    factors.append({"name": "Jumlah Data Training", "value": training_samples, "points": data_pts, "max": 20, "status": data_status})
-    score += data_pts
-
-    # ── Factor 4: Feature count & quality (10 points max) ─────────────────
-    if 3 <= feature_count <= 50:
-        feat_pts = 10
-        feat_status = "good"
-    elif feature_count > 50:
-        feat_pts = 6
-        feat_status = "adequate"
-        recommendations.append("Jumlah fitur cukup banyak. Pertimbangkan feature selection untuk mengurangi noise.")
-    elif feature_count >= 2:
-        feat_pts = 5
-        feat_status = "adequate"
-    else:
-        feat_pts = 2
-        feat_status = "low"
-        recommendations.append("Terlalu sedikit fitur. Model mungkin tidak cukup informasi untuk prediksi akurat.")
-    factors.append({"name": "Jumlah Fitur", "value": feature_count, "points": feat_pts, "max": 10, "status": feat_status})
-    score += feat_pts
-
-    # ── Factor 5: Cross-validation stability (10 points max) ──────────────
+    # ── Gate 6: Robustness (0-100) ────────────────────────────────────
+    rob_score = 50
     if cv_scores and len(cv_scores) >= 3:
-        import statistics
         mean_cv = statistics.mean(cv_scores)
         std_cv = statistics.stdev(cv_scores) if len(cv_scores) > 1 else 0
-        cv_range = max(cv_scores) - min(cv_scores)
         if std_cv < 0.03 and mean_cv >= 0.75:
-            cv_pts = 10
-            cv_status = "excellent"
+            rob_score = 100
         elif std_cv < 0.05 and mean_cv >= 0.70:
-            cv_pts = 8
-            cv_status = "good"
+            rob_score = 80
         elif std_cv < 0.10:
-            cv_pts = 5
-            cv_status = "adequate"
-            recommendations.append("Cross-validation menunjukkan variasi yang cukup besar. Model mungkin tidak stabil.")
+            rob_score = 55
+            recommendations.append("Cross-validation menunjukkan variasi yang cukup besar.")
         else:
-            cv_pts = 2
-            cv_status = "poor"
-            recommendations.append("Cross-validation tidak stabil (std tinggi). Pertimbangkan regularization atau lebih banyak data.")
-        factors.append({"name": "Stabilitas Cross-Validation", "value": round(mean_cv, 3), "points": cv_pts, "max": 10, "status": cv_status, "std": round(std_cv, 4)})
-        score += cv_pts
-    else:
-        factors.append({"name": "Stabilitas Cross-Validation", "value": None, "points": 0, "max": 10, "status": "unknown"})
-        recommendations.append("Cross-validation scores tidak tersedia. Pertimbangkan menjalankan CV untuk evaluasi lebih robust.")
+            rob_score = 20
+            recommendations.append("Model tidak stabil (CV std tinggi). Pertimbangkan regularization.")
+    rob_status = "pass" if rob_score >= 60 else ("warning" if rob_score >= 30 else "fail")
+    gates.append({"name": "robustness", "score": rob_score, "status": rob_status, "weight": 10})
 
-    # ── Determine label and grade ──────────────────────────────────────────
-    if score >= 80:
+    # ── Gate 7: Reproducibility (0-100) ───────────────────────────────
+    rp_score = 60  # baseline
+    if random_seed is not None:
+        rp_score += 20
+    if library_versions:
+        rp_score += 20
+    rp_score = min(100, rp_score)
+    rp_status = "pass" if rp_score >= 60 else "warning"
+    gates.append({"name": "reproducibility", "score": rp_score, "status": rp_status, "weight": 5})
+
+    # ── Gate 8: Artifact Integrity (0-100) ────────────────────────────
+    ai_score = 100 if artifact_valid else 0
+    ai_status = "pass" if artifact_valid else "fail"
+    if ai_status == "fail" and "artifact_integrity" in CRITICAL_GATES:
+        failed_critical.append("artifact_integrity")
+        recommendations.append("Artifact integrity check gagal. Model tidak aman untuk deployment.")
+    gates.append({"name": "artifact_integrity", "score": ai_score, "status": ai_status, "weight": 10})
+
+    # ── Gate 9: Schema Compatibility (0-100) ──────────────────────────
+    sc_score = 80 if feature_count > 0 else 40
+    sc_status = "pass" if sc_score >= 60 else "warning"
+    gates.append({"name": "schema_compatibility", "score": sc_score, "status": sc_status, "weight": 3})
+
+    # ── Gate 10: Serving Latency (0-100) ──────────────────────────────
+    if serving_latency_ms > 0:
+        if serving_latency_ms < 50:
+            sl_score = 100
+        elif serving_latency_ms < 200:
+            sl_score = 80
+        elif serving_latency_ms < 1000:
+            sl_score = 50
+            recommendations.append(f"Inference latency {serving_latency_ms:.0f}ms cukup tinggi.")
+        else:
+            sl_score = 20
+            recommendations.append(f"Inference latency {serving_latency_ms:.0f}ms terlalu tinggi untuk production.")
+    else:
+        sl_score = 60  # unknown, neutral
+    sl_status = "pass" if sl_score >= 50 else "warning"
+    gates.append({"name": "serving_latency", "score": sl_score, "status": sl_status, "weight": 3})
+
+    # ── Gate 11: Monitoring Readiness (0-100) ─────────────────────────
+    mr_score = 100 if has_drift_baseline else 30
+    mr_status = "pass" if has_drift_baseline else "warning"
+    if not has_drift_baseline:
+        recommendations.append("Baseline drift belum di-set. Setup monitoring setelah deployment.")
+    gates.append({"name": "monitoring_readiness", "score": mr_score, "status": mr_status, "weight": 2})
+
+    # ── Gate 12: Security (0-100) ─────────────────────────────────────
+    sec_score = 100
+    if sensitive_features:
+        sec_score -= len(sensitive_features) * 15
+        recommendations.append(f"Fitur sensitif terdeteksi: {', '.join(sensitive_features[:3])}. Pertimbangkan fairness audit.")
+    sec_score = max(0, sec_score)
+    sec_status = "pass" if sec_score >= 70 else "warning"
+    gates.append({"name": "security", "score": sec_score, "status": sec_status, "weight": 2})
+
+    # ── Compute weighted total ─────────────────────────────────────────
+    total_weight = sum(g["weight"] for g in gates)
+    weighted_sum = sum(g["score"] * g["weight"] for g in gates)
+    final_score = int(weighted_sum / total_weight) if total_weight > 0 else 0
+
+    # ── Determine status ───────────────────────────────────────────────
+    if failed_critical:
+        status = "blocked"
+        label = "BLOCKED — Critical gate(s) failed"
+    elif final_score >= 75:
+        status = "ready"
         label = "Siap Dipublikasikan"
-        grade = "A"
-    elif score >= 65:
-        label = "Cukup Baik"
-        grade = "B"
-    elif score >= 50:
+    elif final_score >= 50:
+        status = "needs_improvement"
         label = "Perlu Perbaikan"
-        grade = "C"
-    elif score >= 30:
+    else:
+        status = "not_ready"
         label = "Belum Siap"
+
+    if final_score >= 80:
+        grade = "A"
+    elif final_score >= 65:
+        grade = "B"
+    elif final_score >= 50:
+        grade = "C"
+    elif final_score >= 30:
         grade = "D"
     else:
-        label = "Sangat Perlu Perbaikan"
         grade = "F"
 
     if not recommendations:
-        recommendations.append("Model dalam kondisi baik! Siap untuk dipublikasikan ke marketplace.")
+        recommendations.append("Model dalam kondisi baik! Siap untuk dipublikasikan.")
 
     return {
-        "score": min(100, score),
+        "score": final_score,
+        "status": status,
         "label": label,
         "grade": grade,
-        "factors": factors,
+        "gates": gates,
+        "critical_failures": failed_critical,
         "recommendations": recommendations,
     }

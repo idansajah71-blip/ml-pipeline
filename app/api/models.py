@@ -260,10 +260,9 @@ async def predict(
                 "id": str(db_prediction.id),
                 "index": pred.get("index", 0),
                 "prediction": pred.get("prediction", ""),
-                "probability": pred.get("probability"),
+                "probability": pred.get("predicted_probability") or pred.get("probability"),
                 "probabilities": pred.get("probabilities"),
-                "confidence_level": pred.get("confidence_level"),
-                "confidence_interval": pred.get("confidence_interval"),
+                "prediction_interval": pred.get("prediction_interval"),
             })
         result["predictions"] = result_predictions
 
@@ -345,10 +344,9 @@ async def batch_predict(
                 "id": str(db_prediction.id),
                 "index": pred.get("index", 0),
                 "prediction": pred.get("prediction", ""),
-                "probability": pred.get("probability"),
+                "probability": pred.get("predicted_probability") or pred.get("probability"),
                 "probabilities": pred.get("probabilities"),
-                "confidence_level": pred.get("confidence_level"),
-                "confidence_interval": pred.get("confidence_interval"),
+                "prediction_interval": pred.get("prediction_interval"),
             })
 
     return BatchPredictResponse(

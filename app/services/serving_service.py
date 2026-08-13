@@ -3,14 +3,14 @@ import json
 import hashlib
 import threading
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from uuid import UUID
 
 from app.core.safe_joblib import safe_load
 
 
 class ModelServingService:
-    _model_cache: Dict[str, Any] = {}
+    _pipeline_cache: Dict[str, Any] = {}
     _cache_lock = threading.Lock()
 
     def __init__(self, session, redis_client=None):
@@ -23,20 +23,43 @@ class ModelServingService:
     def _hash_input(self, data: dict) -> str:
         return hashlib.md5(json.dumps(data, sort_keys=True, default=str).encode()).hexdigest()
 
-    def _get_cached_model(self, model_id: str, file_path: str) -> Any:
-        with self._cache_lock:
-            if model_id in self._model_cache:
-                return self._model_cache[model_id]
-
-        model_data = safe_load(file_path)
+    def _get_serving_pipeline(self, model_id: str, bundle_dir: str, artifact_hash: str = "") -> Any:
+        """Load or return cached ServingPipeline. Cache key includes artifact_hash."""
+        cache_key = f"{model_id}:{artifact_hash}" if artifact_hash else model_id
 
         with self._cache_lock:
-            self._model_cache[model_id] = model_data
+            if cache_key in self._pipeline_cache:
+                return self._pipeline_cache[cache_key]
 
-        return model_data
+        from app.ml.serving_pipeline import ServingPipeline
+        pipeline = ServingPipeline()
+        pipeline.load(bundle_dir)
+
+        with self._cache_lock:
+            self._pipeline_cache[cache_key] = pipeline
+
+        return pipeline
+
+    def invalidate_cache(self, model_id: str) -> None:
+        """Explicitly invalidate cached pipeline for a model."""
+        with self._cache_lock:
+            keys_to_remove = [k for k in self._pipeline_cache if k.startswith(f"{model_id}:")]
+            for key in keys_to_remove:
+                del self._pipeline_cache[key]
+
+    def _resolve_bundle_dir(self, model) -> Optional[str]:
+        """Resolve the artifact bundle directory from model.file_path."""
+        if not model or not model.file_path:
+            return None
+        if os.path.isdir(model.file_path):
+            return model.file_path
+        parent = os.path.dirname(model.file_path)
+        if os.path.isdir(parent):
+            return parent
+        return None
 
     async def predict(self, endpoint_id: UUID, input_data: dict):
-        from app.models.serving import ServingEndpoint, ServingLog
+        from app.models.serving import ServingEndpoint
         from app.models.model import MLModel
         from sqlalchemy import select
         import time
@@ -67,21 +90,24 @@ class ModelServingService:
         if not model or not model.file_path:
             return {"error": "Model not found"}
 
-        try:
-            model_data = self._get_cached_model(str(model.id), model.file_path)
-            ml_model = model_data.get("model") if isinstance(model_data, dict) else model_data
-            scaler = model_data.get("scaler") if isinstance(model_data, dict) else None
+        bundle_dir = self._resolve_bundle_dir(model)
+        if not bundle_dir:
+            return {"error": f"Artifact bundle not found for model {model.id}"}
 
+        try:
             import pandas as pd
-            df = pd.DataFrame([input_data])
-            if scaler:
-                df = scaler.transform(df)
+
+            pipeline = self._get_serving_pipeline(
+                str(model.id), bundle_dir, artifact_hash=model.artifact_hash or ""
+            )
 
             start = time.perf_counter()
-            prediction = ml_model.predict(df)
+            df = pd.DataFrame([input_data])
+            result = pipeline.predict(df)
             latency = (time.perf_counter() - start) * 1000
 
-            pred_value = prediction[0].tolist() if hasattr(prediction[0], 'tolist') else str(prediction[0])
+            predictions = result.get("predictions", [])
+            pred_value = predictions[0] if predictions else None
 
             if self.redis and endpoint.cache_ttl_seconds > 0:
                 await self.redis.setex(cache_key, endpoint.cache_ttl_seconds, json.dumps(pred_value, default=str))
@@ -90,12 +116,15 @@ class ModelServingService:
 
             return {"prediction": pred_value, "latency_ms": round(latency, 3), "cache_hit": False}
 
+        except ValueError as e:
+            await self._log(endpoint_id, input_data, None, 0, error=str(e))
+            return {"error": f"Schema validation failed: {e}"}
         except Exception as e:
             await self._log(endpoint_id, input_data, None, 0, error=str(e))
             return {"error": str(e)}
 
     async def predict_batch(self, endpoint_id: UUID, inputs: list):
-        from app.models.serving import ServingEndpoint, ServingLog
+        from app.models.serving import ServingEndpoint
         from app.models.model import MLModel
         from sqlalchemy import select
         import time
@@ -115,28 +144,30 @@ class ModelServingService:
         if not model or not model.file_path:
             return [{"error": "Model not found"}] * len(inputs)
 
-        try:
-            model_data = self._get_cached_model(str(model.id), model.file_path)
-            ml_model = model_data.get("model") if isinstance(model_data, dict) else model_data
-            scaler = model_data.get("scaler") if isinstance(model_data, dict) else None
+        bundle_dir = self._resolve_bundle_dir(model)
+        if not bundle_dir:
+            return [{"error": f"Artifact bundle not found for model {model.id}"}] * len(inputs)
 
-            df = pd.DataFrame(inputs)
-            if scaler:
-                numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
-                if numeric_cols:
-                    df[numeric_cols] = scaler.transform(df[numeric_cols])
+        try:
+            pipeline = self._get_serving_pipeline(
+                str(model.id), bundle_dir, artifact_hash=model.artifact_hash or ""
+            )
 
             start = time.perf_counter()
-            predictions = ml_model.predict(df)
+            df = pd.DataFrame(inputs)
+            result = pipeline.predict(df)
             latency = (time.perf_counter() - start) * 1000
 
+            predictions = result.get("predictions", [])
             results = []
             for i, pred in enumerate(predictions):
-                pred_value = pred.tolist() if hasattr(pred, 'tolist') else str(pred)
+                pred_value = pred if isinstance(pred, (str, int, float)) else str(pred)
                 results.append({"prediction": pred_value, "latency_ms": round(latency / len(inputs), 3), "cache_hit": False})
 
             return results
 
+        except ValueError as e:
+            return [{"error": f"Schema validation failed: {e}"}] * len(inputs)
         except Exception as e:
             return [{"error": str(e)}] * len(inputs)
 

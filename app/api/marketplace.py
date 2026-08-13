@@ -524,24 +524,32 @@ async def _predict_platform_model(data, model_meta, current_user):
         meta_metrics = meta_info.get("metrics", {}) if meta_info else {}
         if result_type == "regression":
             pred_value = round(max(0, float(clf.predict(X)[0])), 2)
-            # Derive confidence interval from available metrics
-            cv_std = meta_info.get("cv_std")
-            if cv_std is None:
-                rmse = meta_metrics.get("rmse", 0)
-                r2 = meta_metrics.get("r2", 0)
-                cv_std = rmse * 0.05 if rmse else (0.05 if r2 < 0.8 else 0.03)
-            z_score = 1.96
-            margin = z_score * cv_std * abs(pred_value) if pred_value != 0 else z_score * cv_std
-            confidence_level = "high" if cv_std < 0.05 else ("medium" if cv_std < 0.15 else "low")
+            # Conformal prediction interval using calibration residuals
+            from app.ml.prediction_interval import conformal_prediction_interval
+            cv_residuals = meta_info.get("cv_residuals")
+            if cv_residuals and len(cv_residuals) > 5:
+                cal_residuals = np.array(cv_residuals)
+                cal_predictions = np.zeros_like(cal_residuals)  # placeholder
+                interval = conformal_prediction_interval(
+                    cal_residuals, cal_predictions, pred_value, alpha=0.1
+                )
+            else:
+                # Fallback: conservative interval based on training RMSE
+                rmse = meta_metrics.get("rmse", 0) or 0.1
+                interval = {
+                    "lower": round(pred_value - 1.96 * rmse, 4),
+                    "upper": round(pred_value + 1.96 * rmse, 4),
+                    "coverage_target": 0.95,
+                }
             predictions.append({
                 "index": i,
                 "prediction": pred_value,
                 "prediction_label": f"{pred_value} {model_meta.get('result_unit', '')}".strip(),
                 "result_type": "regression",
-                "confidence_interval": {
-                    "lower": round(pred_value - margin, 4),
-                    "upper": round(pred_value + margin, 4),
-                    "confidence_level": confidence_level,
+                "prediction_interval": {
+                    "lower": round(interval["lower"], 4),
+                    "upper": round(interval["upper"], 4),
+                    "coverage_target": interval.get("coverage_target", 0.9),
                 },
             })
         else:
