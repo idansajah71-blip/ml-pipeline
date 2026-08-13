@@ -59,12 +59,33 @@ class ServingPipeline:
         if not self._loaded:
             raise RuntimeError("Pipeline not loaded. Call load() first.")
 
-        missing = [f for f in self._feature_names if f not in df.columns]
-        if missing:
-            raise ValueError(
-                f"Input missing required features: {missing}. "
-                f"Expected features: {self._feature_names}"
+        # Use comprehensive schema validator if schema is available
+        feature_schema = self.metadata.get("feature_schema") or self.processor_data.get("feature_schema")
+        if feature_schema:
+            from app.ml.schema_validator import validate_schema
+            result = validate_schema(
+                df,
+                feature_schema,
+                strict_order=False,
+                check_types=True,
+                check_ranges=True,
+                check_categories=True,
             )
+            if not result["valid"]:
+                raise ValueError(
+                    f"Schema validation failed: {result['errors']}. "
+                    f"Schema version: {result['schema_version']}"
+                )
+            for w in result.get("warnings", []):
+                logger.warning("Schema warning: %s", w)
+        else:
+            # Fallback: basic missing-feature check
+            missing = [f for f in self._feature_names if f not in df.columns]
+            if missing:
+                raise ValueError(
+                    f"Input missing required features: {missing}. "
+                    f"Expected features: {self._feature_names}"
+                )
 
     def _preprocess(self, df: pd.DataFrame) -> pd.DataFrame:
         """Apply the exact same preprocessing as training."""

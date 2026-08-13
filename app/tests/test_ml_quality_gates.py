@@ -188,6 +188,42 @@ class TestSchemaCompatibility:
             assert bundle["processor"] is not None
             assert bundle["metadata"] is not None
 
+    def test_schema_validates_features_types_ranges(self):
+        from app.ml.schema_validator import build_feature_schema, validate_schema
+
+        schema = build_feature_schema(
+            feature_names=["f1", "f2", "cat_col"],
+            feature_types={"f1": "numeric", "f2": "numeric", "cat_col": "categorical"},
+            column_stats={
+                "f1": {"mean": 0, "std": 1, "min": -3, "max": 3, "q25": -1, "q75": 1},
+                "f2": {"mean": 5, "std": 2, "min": 0, "max": 10, "q25": 3, "q75": 7},
+                "cat_col": {"unique_values": ["A", "B", "C"]},
+            },
+        )
+
+        # Valid input
+        valid_df = pd.DataFrame({"f1": [0.5], "f2": [5.0], "cat_col": ["A"]})
+        result = validate_schema(valid_df, schema)
+        assert result["valid"], f"Valid input rejected: {result['errors']}"
+
+        # Missing feature
+        missing_df = pd.DataFrame({"f1": [0.5]})
+        result = validate_schema(missing_df, schema)
+        assert not result["valid"]
+        assert any("Missing required features" in e for e in result["errors"])
+
+        # Type mismatch
+        type_df = pd.DataFrame({"f1": ["not_a_number"], "f2": [5.0], "cat_col": ["A"]})
+        result = validate_schema(type_df, schema, check_types=True)
+        assert not result["valid"]
+        assert any("expected numeric" in e for e in result["errors"])
+
+        # Unknown category (warning only)
+        cat_df = pd.DataFrame({"f1": [0.5], "f2": [5.0], "cat_col": ["Z"]})
+        result = validate_schema(cat_df, schema, check_categories=True)
+        assert result["valid"]
+        assert any("unknown categories" in w for w in result["warnings"])
+
 
 class TestArtifactIntegrity:
     """Gate: Artifact manifests must be verifiable with Ed25519."""

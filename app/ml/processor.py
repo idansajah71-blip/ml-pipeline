@@ -207,6 +207,20 @@ class DataProcessor:
                 }
         metadata['column_stats'] = column_stats
 
+        # Build feature schema for serving-time validation
+        from app.ml.schema_validator import build_feature_schema
+        feature_types = {}
+        for col in X_train.columns:
+            if col in X_train.select_dtypes(include=[np.number]).columns:
+                feature_types[col] = 'numeric'
+            else:
+                feature_types[col] = 'categorical'
+        metadata['feature_schema'] = build_feature_schema(
+            feature_names=X_train.columns.tolist(),
+            feature_types=feature_types,
+            column_stats=column_stats,
+        )
+
         return X_train, X_test, pd.Series(y_train), pd.Series(y_test), metadata
 
     def preprocess_input(self, data: List[Dict[str, Any]], feature_names: List[str]) -> pd.DataFrame:
