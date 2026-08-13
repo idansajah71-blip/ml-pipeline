@@ -70,12 +70,12 @@ def compute_readiness_score(
     dq_score = 100
     if missing_ratio > 0.3:
         dq_score -= 40
-        recommendations.append(f"Tingkat missing values tinggi ({missing_ratio:.0%}). Pertimbangkan imputasi atau drop kolom.")
+        recommendations.append(f"High missing values ({missing_ratio:.0%}). Consider imputation or column removal.")
     elif missing_ratio > 0.1:
         dq_score -= 15
     if class_imbalance_ratio < 0.1:
         dq_score -= 30
-        recommendations.append("Kelas sangat tidak seimbang. Gunakan class weights atau oversampling.")
+        recommendations.append("Severe class imbalance. Use class weights or oversampling.")
     elif class_imbalance_ratio < 0.3:
         dq_score -= 10
     if data_quality_issues:
@@ -91,19 +91,19 @@ def compute_readiness_score(
     lk_status = "pass" if not has_leakage else "fail"
     if lk_status == "fail" and "leakage_check" in CRITICAL_GATES:
         failed_critical.append("leakage_check")
-        recommendations.append("Kemungkinan target leakage terdeteksi. Periksa fitur yang menggunakan informasi target.")
+        recommendations.append("Potential target leakage detected. Review features that may contain post-event information.")
     gates.append({"name": "leakage_check", "score": lk_score, "status": lk_status, "weight": 15})
 
     # ── Gate 3: Validation Integrity (0-100) ──────────────────────────
     vi_score = 100
     if training_samples < 100:
         vi_score -= 40
-        recommendations.append("Data training sangat sedikit (<100 sampel). Model mungkin overfitting.")
+        recommendations.append("Very small training set (<100 samples). Model may overfit.")
     elif training_samples < 500:
         vi_score -= 15
     if feature_count > 200:
         vi_score -= 20
-        recommendations.append("Jumlah fitur sangat banyak. Pertimbangkan feature selection.")
+        recommendations.append("Very high feature count. Consider feature selection.")
     vi_score = max(0, vi_score)
     vi_status = "pass" if vi_score >= 70 else ("warning" if vi_score >= 40 else "fail")
     if vi_status == "fail" and "validation_integrity" in CRITICAL_GATES:
@@ -124,13 +124,13 @@ def compute_readiness_score(
         pm_score = 85
     elif primary >= 0.70:
         pm_score = 65
-        recommendations.append(f"{metric_name} ({primary:.2%}) cukup baik tapi bisa ditingkatkan.")
+        recommendations.append(f"{metric_name} ({primary:.2%}) is acceptable but could be improved.")
     elif primary >= 0.50:
         pm_score = 40
-        recommendations.append(f"{metric_name} rendah ({primary:.2%}). Pertimbangkan hyperparameter tuning.")
+        recommendations.append(f"{metric_name} is low ({primary:.2%}). Consider hyperparameter tuning.")
     else:
         pm_score = 10
-        recommendations.append(f"{metric_name} sangat rendah ({primary:.2%}). Model perlu dilatih ulang.")
+        recommendations.append(f"{metric_name} is very low ({primary:.2%}). Model needs retraining.")
     pm_status = "pass" if pm_score >= 65 else ("warning" if pm_score >= 40 else "fail")
     gates.append({"name": "primary_metric", "score": pm_score, "status": pm_status, "weight": 20})
 
@@ -142,8 +142,8 @@ def compute_readiness_score(
         if brier is not None:
             # Brier: 0 is perfect, 1 is worst
             cal_score = int(max(0, min(100, (1 - brier * 2) * 100)))
-            if brier > 0.25:
-                recommendations.append("Model kurang terkalibrasi (Brier score tinggi). Pertimbangkan Platt scaling.")
+        if brier > 0.25:
+            recommendations.append("Poor model calibration (high Brier score). Consider Platt scaling.")
         elif ece is not None:
             cal_score = int(max(0, min(100, (1 - ece) * 100)))
     else:
@@ -165,10 +165,10 @@ def compute_readiness_score(
             rob_score = 80
         elif std_cv < 0.10:
             rob_score = 55
-            recommendations.append("Cross-validation menunjukkan variasi yang cukup besar.")
+            recommendations.append("Cross-validation shows high variance.")
         else:
             rob_score = 20
-            recommendations.append("Model tidak stabil (CV std tinggi). Pertimbangkan regularization.")
+            recommendations.append("Model is unstable (high CV std). Consider regularization.")
     rob_status = "pass" if rob_score >= 60 else ("warning" if rob_score >= 30 else "fail")
     gates.append({"name": "robustness", "score": rob_score, "status": rob_status, "weight": 10})
 
@@ -187,7 +187,7 @@ def compute_readiness_score(
     ai_status = "pass" if artifact_valid else "fail"
     if ai_status == "fail" and "artifact_integrity" in CRITICAL_GATES:
         failed_critical.append("artifact_integrity")
-        recommendations.append("Artifact integrity check gagal. Model tidak aman untuk deployment.")
+        recommendations.append("Artifact integrity check failed. Model is not safe for deployment.")
     gates.append({"name": "artifact_integrity", "score": ai_score, "status": ai_status, "weight": 10})
 
     # ── Gate 9: Schema Compatibility (0-100) ──────────────────────────
@@ -203,10 +203,10 @@ def compute_readiness_score(
             sl_score = 80
         elif serving_latency_ms < 1000:
             sl_score = 50
-            recommendations.append(f"Inference latency {serving_latency_ms:.0f}ms cukup tinggi.")
+            recommendations.append(f"Inference latency {serving_latency_ms:.0f}ms is acceptable.")
         else:
             sl_score = 20
-            recommendations.append(f"Inference latency {serving_latency_ms:.0f}ms terlalu tinggi untuk production.")
+            recommendations.append(f"Inference latency {serving_latency_ms:.0f}ms is too high for production.")
     else:
         sl_score = 60  # unknown, neutral
     sl_status = "pass" if sl_score >= 50 else "warning"
@@ -216,14 +216,14 @@ def compute_readiness_score(
     mr_score = 100 if has_drift_baseline else 30
     mr_status = "pass" if has_drift_baseline else "warning"
     if not has_drift_baseline:
-        recommendations.append("Baseline drift belum di-set. Setup monitoring setelah deployment.")
+        recommendations.append("Drift baseline not set. Setup monitoring after deployment.")
     gates.append({"name": "monitoring_readiness", "score": mr_score, "status": mr_status, "weight": 2})
 
     # ── Gate 12: Security (0-100) ─────────────────────────────────────
     sec_score = 100
     if sensitive_features:
         sec_score -= len(sensitive_features) * 15
-        recommendations.append(f"Fitur sensitif terdeteksi: {', '.join(sensitive_features[:3])}. Pertimbangkan fairness audit.")
+        recommendations.append(f"Sensitive features detected: {', '.join(sensitive_features[:3])}. Consider fairness audit.")
     sec_score = max(0, sec_score)
     sec_status = "pass" if sec_score >= 70 else "warning"
     gates.append({"name": "security", "score": sec_score, "status": sec_status, "weight": 2})
@@ -239,13 +239,13 @@ def compute_readiness_score(
         label = "BLOCKED — Critical gate(s) failed"
     elif final_score >= 75:
         status = "ready"
-        label = "Siap Dipublikasikan"
+        label = "Ready for Deployment"
     elif final_score >= 50:
         status = "needs_improvement"
-        label = "Perlu Perbaikan"
+        label = "Needs Improvement"
     else:
         status = "not_ready"
-        label = "Belum Siap"
+        label = "Not Ready"
 
     if final_score >= 80:
         grade = "A"
@@ -259,7 +259,7 @@ def compute_readiness_score(
         grade = "F"
 
     if not recommendations:
-        recommendations.append("Model dalam kondisi baik! Siap untuk dipublikasikan.")
+        recommendations.append("Model is in good condition! Ready for deployment.")
 
     return {
         "score": final_score,
