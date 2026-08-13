@@ -274,7 +274,29 @@ class ModelService:
                 if train_request.mode == TrainingMode.SIMPLE and hasattr(pipeline, 'generate_human_summary'):
                     result['human_summary'] = pipeline.generate_human_summary()
 
-                # ── Stage 1: Compute readiness score ────────────────────────
+                # ── Artifact integrity check ───────────────────────────
+                from app.ml.artifact_manager import ArtifactManager
+                bundle_dir = artifacts.get("bundle_dir", os.path.dirname(artifacts["model_path"]))
+                try:
+                    am = ArtifactManager(os.path.dirname(bundle_dir))
+                    verification = am.verify_bundle(bundle_dir)
+                    artifact_valid = verification["valid"]
+                except Exception:
+                    artifact_valid = False
+
+                # ── Compute missing_ratio from quality gate ────────────
+                quality_result = result.get("quality_gate", {})
+                quality_checks = quality_result.get("checks", [])
+                missing_ratio = 0.0
+                for check in quality_checks:
+                    if check.get("check") == "missing_features" and check.get("status") == "WARNING":
+                        import re
+                        m = re.search(r'(\d+)%', check.get("message", ""))
+                        if m:
+                            missing_ratio = int(m.group(1)) / 100.0
+                        break
+
+                # ── Stage 1: Compute readiness score (all params) ──────
                 data_info = result.get("data_info", {})
                 training_samples = data_info.get("rows", 0) or data_info.get("n_samples", 0)
                 result_type = result.get("problem_type", "classification")
@@ -285,12 +307,40 @@ class ModelService:
                         if isinstance(metric_values, dict) and "scores" in metric_values:
                             cv_scores = metric_values["scores"]
                             break
+
+                # Detect leakage from quality gate
+                has_leakage = False
+                for check in quality_checks:
+                    if check.get("check") == "target_leakage" and check.get("status") == "BLOCKED":
+                        has_leakage = True
+                        break
+
+                # Compute class imbalance
+                class_imbalance_ratio = 1.0
+                data_quality_issues = []
+                for check in quality_checks:
+                    if check.get("status") == "WARNING":
+                        data_quality_issues.append(check.get("message", ""))
+                    if check.get("check") == "single_class_target":
+                        class_imbalance_ratio = 0.0
+
                 readiness = compute_readiness_score(
                     metrics=model.metrics,
                     feature_count=len(model.feature_names or []),
                     training_samples=training_samples,
                     result_type=result_type,
                     cv_scores=cv_scores,
+                    artifact_valid=artifact_valid,
+                    has_drift_baseline=False,
+                    serving_latency_ms=0.0,
+                    feature_names=model.feature_names,
+                    sensitive_features=None,
+                    missing_ratio=missing_ratio,
+                    class_imbalance_ratio=class_imbalance_ratio,
+                    data_quality_issues=data_quality_issues or None,
+                    has_leakage=has_leakage,
+                    random_seed=model.random_seed,
+                    library_versions=lib_versions or None,
                 )
                 model.readiness_score = readiness["score"]
                 model.readiness_label = readiness["label"]
