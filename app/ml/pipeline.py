@@ -171,6 +171,10 @@ class MLPipeline:
             if calibrator is not None:
                 self.training_metadata['calibrator'] = calibrator.to_dict()
 
+            # Lineage metadata
+            self.training_metadata['feature_schema_version'] = 'v1'
+            self.training_metadata['preprocessing_version'] = 'v1'
+
             # Record library versions for compatibility checking
             try:
                 from app.ml.version_compat import record_library_versions

@@ -268,6 +268,13 @@ class ModelService:
                     model.dataset_hash = None
                 model.preprocessing_version = "v1"
                 model.feature_schema_version = "v1"
+                model.evaluation_report = {
+                    "metrics": result.get("metrics", {}),
+                    "benchmark": result.get("benchmark"),
+                    "cross_validation": result.get("metrics", {}).get("cross_validation"),
+                    "calibration": result.get("metrics", {}).get("calibration"),
+                    "data_info": result.get("data_info", {}),
+                }
                 import subprocess
                 try:
                     model.git_commit_sha = subprocess.check_output(
