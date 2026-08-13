@@ -107,3 +107,165 @@ class TestDriftDetector:
             assert "feature" in feat
             assert "metric" in feat
             assert "value" in feat
+
+
+class TestCategoricalDrift:
+    def test_categorical_drift_detected(self):
+        detector = DriftDetector()
+        np.random.seed(42)
+        n = 200
+        ref_df = pd.DataFrame({
+            "cat_col": np.random.choice(["A", "B", "C"], n, p=[0.5, 0.3, 0.2]),
+            "num_col": np.random.randn(n),
+        })
+        curr_df = pd.DataFrame({
+            "cat_col": np.random.choice(["A", "B", "C", "D"], n, p=[0.1, 0.1, 0.1, 0.7]),
+            "num_col": np.random.randn(n),
+        })
+        ref_bytes = ref_df.to_csv(index=False).encode()
+        curr_bytes = curr_df.to_csv(index=False).encode()
+        result = detector.detect(ref_bytes, curr_bytes, "test.csv")
+        assert "categorical_psi" in result
+        assert "cat_col" in result["categorical_psi"]
+        assert result["categorical_psi"]["cat_col"]["psi"] > 0
+
+    def test_categorical_no_drift(self):
+        detector = DriftDetector()
+        np.random.seed(42)
+        n = 200
+        df = pd.DataFrame({
+            "cat_col": np.random.choice(["A", "B", "C"], n),
+            "num_col": np.random.randn(n),
+        })
+        ref_bytes = df.to_csv(index=False).encode()
+        result = detector.detect(ref_bytes, ref_bytes, "test.csv")
+        assert result["categorical_psi"]["cat_col"]["drifted"] == False
+
+
+class TestMissingnessDrift:
+    def test_missingness_drift(self):
+        detector = DriftDetector()
+        np.random.seed(42)
+        n = 200
+        ref_df = pd.DataFrame({
+            "f1": np.random.randn(n),
+            "f2": np.random.randn(n),
+        })
+        curr_df = pd.DataFrame({
+            "f1": np.where(np.random.rand(n) > 0.5, np.nan, np.random.randn(n)),
+            "f2": np.random.randn(n),
+        })
+        ref_bytes = ref_df.to_csv(index=False).encode()
+        curr_bytes = curr_df.to_csv(index=False).encode()
+        result = detector.detect(ref_bytes, curr_bytes, "test.csv")
+        assert "missingness" in result
+        assert result["missingness"]["f1"]["drifted"] is True
+        assert result["missingness"]["f2"]["drifted"] is False
+
+
+class TestSchemaDrift:
+    def test_schema_drift_adds_columns(self):
+        detector = DriftDetector()
+        np.random.seed(42)
+        n = 100
+        ref_df = pd.DataFrame({"f1": np.random.randn(n), "f2": np.random.randn(n)})
+        curr_df = pd.DataFrame({"f1": np.random.randn(n), "f2": np.random.randn(n), "f3": np.random.randn(n)})
+        ref_bytes = ref_df.to_csv(index=False).encode()
+        curr_bytes = curr_df.to_csv(index=False).encode()
+        result = detector.detect(ref_bytes, curr_bytes, "test.csv")
+        assert result["schema_drift"]["drifted"] is True
+        assert "f3" in result["schema_drift"]["added_columns"]
+
+    def test_schema_drift_removes_columns(self):
+        detector = DriftDetector()
+        np.random.seed(42)
+        n = 100
+        ref_df = pd.DataFrame({"f1": np.random.randn(n), "f2": np.random.randn(n)})
+        curr_df = pd.DataFrame({"f1": np.random.randn(n)})
+        ref_bytes = ref_df.to_csv(index=False).encode()
+        curr_bytes = curr_df.to_csv(index=False).encode()
+        result = detector.detect(ref_bytes, curr_bytes, "test.csv")
+        assert result["schema_drift"]["drifted"] is True
+        assert "f2" in result["schema_drift"]["removed_columns"]
+
+
+class TestPredictionDrift:
+    def test_prediction_drift_detected(self):
+        detector = DriftDetector()
+        ref_preds = list(np.random.rand(200) * 0.3 + 0.1)
+        curr_preds = list(np.random.rand(200) * 0.3 + 0.6)
+        result = detector.detect_prediction_drift(ref_preds, curr_preds)
+        assert result["drift_detected"] is True
+
+    def test_prediction_no_drift(self):
+        detector = DriftDetector()
+        np.random.seed(42)
+        preds = list(np.random.rand(200))
+        result = detector.detect_prediction_drift(preds, preds)
+        assert result["drift_detected"] is False
+        assert result["psi"]["psi"] < 0.01
+
+
+class TestImmutableBaseline:
+    def test_freeze_baseline(self):
+        detector = DriftDetector()
+        np.random.seed(42)
+        n = 200
+        df = pd.DataFrame({
+            "f1": np.random.randn(n),
+            "f2": np.random.randn(n),
+            "cat": np.random.choice(["A", "B"], n),
+        })
+        ref_bytes = df.to_csv(index=False).encode()
+        baseline = detector.freeze_baseline(ref_bytes, "test.csv")
+        assert baseline.is_frozen is True
+        assert baseline.get("n_samples") == 200
+        assert "f1" in baseline.get("bin_edges")
+
+    def test_cannot_freeze_twice(self):
+        detector = DriftDetector()
+        np.random.seed(42)
+        df = pd.DataFrame({"f1": np.random.randn(100)})
+        ref_bytes = df.to_csv(index=False).encode()
+        detector.freeze_baseline(ref_bytes, "test.csv")
+        with pytest.raises(RuntimeError, match="already frozen"):
+            detector.freeze_baseline(ref_bytes, "test.csv")
+
+    def test_baseline_serialization(self):
+        detector = DriftDetector()
+        np.random.seed(42)
+        df = pd.DataFrame({"f1": np.random.randn(100), "cat": np.random.choice(["A", "B"], 100)})
+        ref_bytes = df.to_csv(index=False).encode()
+        detector.freeze_baseline(ref_bytes, "test.csv")
+
+        state = detector.baseline.to_dict()
+        restored = detector.baseline.__class__.from_dict(state)
+        assert restored.is_frozen is True
+        assert restored.get("n_samples") == 100
+
+
+class TestDelayedLabelMonitoring:
+    def test_classification_monitoring(self):
+        detector = DriftDetector()
+        y_true = np.array([0, 1, 1, 0, 1, 0, 0, 1, 1, 0])
+        y_pred = np.array([0, 1, 0, 0, 1, 1, 0, 1, 1, 0])
+        result = detector.monitor_delayed_labels(y_true, y_pred, 'classification')
+        assert result['status'] == 'ok'
+        assert 0 <= result['accuracy'] <= 1
+        assert 0 <= result['f1_weighted'] <= 1
+        assert result['n_samples'] == 10
+
+    def test_regression_monitoring(self):
+        detector = DriftDetector()
+        y_true = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+        y_pred = np.array([1.1, 2.2, 2.8, 4.1, 4.9])
+        result = detector.monitor_delayed_labels(y_true, y_pred, 'regression')
+        assert result['status'] == 'ok'
+        assert result['rmse'] < 1.0
+        assert result['r2'] > 0.9
+        assert result['n_samples'] == 5
+
+    def test_empty_data(self):
+        detector = DriftDetector()
+        result = detector.monitor_delayed_labels(np.array([]), np.array([]))
+        assert result['status'] == 'insufficient_data'
