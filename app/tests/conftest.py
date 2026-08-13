@@ -58,9 +58,11 @@ def _bootstrap_test_database():
         cur.close()
         conn.close()
     except psycopg2.OperationalError as e:
-        logger.warning("PostgreSQL not available, some tests may be skipped: %s", e)
+        logger.error("PostgreSQL not available — DB tests will fail: %s", e)
+        raise
     except Exception as e:
-        logger.warning("Database bootstrap failed: %s", e)
+        logger.error("Database bootstrap failed: %s", e)
+        raise
 
 
 _bootstrap_test_database()
@@ -156,9 +158,11 @@ async def setup_database():
 @pytest.fixture(autouse=True)
 async def flush_rate_limits():
     """Flush Redis rate-limit & training-quota keys before each test to avoid 429s."""
+    import redis.asyncio as aioredis
+    from app.core.config import get_settings
+    settings = get_settings()
     try:
-        import redis.asyncio as aioredis
-        r = aioredis.from_url(get_settings().REDIS_URL)
+        r = aioredis.from_url(settings.REDIS_URL)
         keys = await r.keys("rate_limit:*")
         if keys:
             await r.delete(*keys)
@@ -166,8 +170,21 @@ async def flush_rate_limits():
         if quota_keys:
             await r.delete(*quota_keys)
         await r.aclose()
-    except Exception:
-        pass  # Redis not available — skip flushing
+    except Exception as e:
+        logger.warning("Redis not available — rate limit flush skipped: %s", e)
+
+
+@pytest.fixture(autouse=True)
+async def validate_celery():
+    """Log warning if Celery workers are not running (does not hard-fail unit tests)."""
+    from app.core.celery_app import celery_app
+    try:
+        inspect = celery_app.control.inspect(timeout=2.0)
+        active = inspect.active()
+        if active is None:
+            logger.warning("Celery workers not running — some integration tests may fail")
+    except Exception as e:
+        logger.warning("Celery not available: %s", e)
 
 
 @pytest.fixture
