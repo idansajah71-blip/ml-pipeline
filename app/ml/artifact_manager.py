@@ -1,45 +1,103 @@
 """
-Artifact Manager — immutable artifact bundles with integrity verification + signing.
+Artifact Manager — immutable artifact bundles with integrity verification + Ed25519 signing.
 
 Each artifact bundle contains:
 - manifest.json: metadata, hashes, versions, lineage
 - model.joblib: trained model
 - processor.joblib: preprocessing pipeline
-- checksums.sha256: file integrity hashes (NOT a digital signature)
+- checksums.sha256: file integrity hashes (SHA-256)
+- public_key.pem: Ed25519 public key for verification
 
 Integrity: SHA-256 checksums detect accidental corruption.
-Signing: HMAC-SHA256 with a private key detects intentional tampering.
+Signing: Ed25519 digital signature detects intentional tampering.
+  - Private key signs the manifest during save_bundle().
+  - Public key verifies the signature during verify_bundle().
+  - If no signing key is configured and ARTIFACT_SIGNING_KEY env is not set,
+    signing is skipped and signature_algorithm is 'none'.
+  - In production (ARTIFACT_REQUIRE_SIGNATURE=true), bundles without valid
+    signatures are BLOCKED.
 Deployment is blocked if either integrity or signature verification fails.
 """
 
 import os
 import json
 import hashlib
-import hmac
 import joblib
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 import logging
 
 logger = logging.getLogger(__name__)
 
-# Signing key — in production, load from env var / secrets manager
-_SIGNING_KEY: Optional[bytes] = None
+# Ed25519 signing state
+_SIGNING_PRIVATE_KEY = None
+_VERIFYING_PUBLIC_KEY = None
 
 
-def set_signing_key(key: str) -> None:
-    """Set the HMAC signing key (call once at startup from config)."""
-    global _SIGNING_KEY
-    _SIGNING_KEY = key.encode() if key else None
+def set_signing_keys(private_key_pem: Optional[bytes] = None, public_key_pem: Optional[bytes] = None) -> None:
+    """Set Ed25519 signing keys (call once at startup from config)."""
+    global _SIGNING_PRIVATE_KEY, _VERIFYING_PUBLIC_KEY
+    if private_key_pem:
+        from cryptography.hazmat.primitives.serialization import load_pem_private_key
+        _SIGNING_PRIVATE_KEY = load_pem_private_key(private_key_pem, password=None)
+    if public_key_pem:
+        from cryptography.hazmat.primitives.serialization import load_pem_public_key
+        _VERIFYING_PUBLIC_KEY = load_pem_public_key(public_key_pem)
 
 
-def _get_signing_key() -> Optional[bytes]:
-    if _SIGNING_KEY is None:
-        import os
-        key_str = os.environ.get("ARTIFACT_SIGNING_KEY", "")
-        if key_str:
-            return key_str.encode()
-    return _SIGNING_KEY
+def generate_signing_keypair() -> Tuple[bytes, bytes]:
+    """Generate a new Ed25519 key pair. Returns (private_key_pem, public_key_pem)."""
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from cryptography.hazmat.primitives.serialization import (
+        Encoding, PublicFormat, PrivateFormat, NoEncryption
+    )
+    private_key = Ed25519PrivateKey.generate()
+    private_pem = private_key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption())
+    public_pem = private_key.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
+    return private_pem, public_pem
+
+
+def _get_signing_key():
+    """Get the Ed25519 private key for signing. Returns None if not configured."""
+    global _SIGNING_PRIVATE_KEY
+    if _SIGNING_PRIVATE_KEY is not None:
+        return _SIGNING_PRIVATE_KEY
+
+    # Try loading from environment
+    key_pem_str = os.environ.get("ARTIFACT_SIGNING_KEY_PEM", "")
+    if key_pem_str:
+        try:
+            from cryptography.hazmat.primitives.serialization import load_pem_private_key
+            _SIGNING_PRIVATE_KEY = load_pem_private_key(key_pem_str.encode(), password=None)
+            return _SIGNING_PRIVATE_KEY
+        except Exception as e:
+            logger.warning(f"Failed to load signing key from env: {e}")
+
+    return None
+
+
+def _get_verifying_key():
+    """Get the Ed25519 public key for verification. Returns None if not configured."""
+    global _VERIFYING_PUBLIC_KEY
+    if _VERIFYING_PUBLIC_KEY is not None:
+        return _VERIFYING_PUBLIC_KEY
+
+    # Try loading from environment
+    key_pem_str = os.environ.get("ARTIFACT_VERIFY_KEY_PEM", "")
+    if key_pem_str:
+        try:
+            from cryptography.hazmat.primitives.serialization import load_pem_public_key
+            _VERIFYING_PUBLIC_KEY = load_pem_public_key(key_pem_str.encode())
+            return _VERIFYING_PUBLIC_KEY
+        except Exception as e:
+            logger.warning(f"Failed to load verifying key from env: {e}")
+
+    return None
+
+
+def _get_require_signature() -> bool:
+    """Check if signature verification is mandatory in this environment."""
+    return os.environ.get("ARTIFACT_REQUIRE_SIGNATURE", "").lower() in ("true", "1", "yes")
 
 
 def compute_file_hash(filepath: str, algorithm: str = 'sha256') -> str:
@@ -57,26 +115,65 @@ def compute_dict_hash(data: dict) -> str:
     return hashlib.sha256(serialized.encode()).hexdigest()
 
 
+def _manifest_bytes_for_signing(manifest: dict) -> bytes:
+    """Deterministic bytes of manifest for signing (excludes signature and key fields)."""
+    cleaned = {k: v for k, v in manifest.items() if k not in ('signature', 'signature_algorithm', 'public_key', 'public_key_ref')}
+    return json.dumps(cleaned, sort_keys=True, default=str).encode()
+
+
 def sign_manifest(manifest: dict) -> str:
-    """Sign manifest with HMAC-SHA256. Returns hex signature."""
+    """Sign manifest with Ed25519. Returns base64-encoded signature, or '' if no key."""
     key = _get_signing_key()
     if key is None:
         return ""
-    payload = json.dumps(manifest, sort_keys=True, default=str).encode()
-    return hmac.new(key, payload, hashlib.sha256).hexdigest()
+    from cryptography.hazmat.primitives.serialization import Encoding
+    payload = _manifest_bytes_for_signing(manifest)
+    signature = key.sign(payload)
+    import base64
+    return base64.b64encode(signature).decode()
 
 
-def verify_signature(manifest: dict, signature: str) -> bool:
-    """Verify HMAC-SHA256 signature. Returns True if valid."""
-    key = _get_signing_key()
+def verify_signature(manifest: dict, signature_b64: str) -> bool:
+    """Verify Ed25519 signature. Returns True if valid or no key configured."""
+    if not signature_b64:
+        # No signature present — check if verification is required
+        if _get_require_signature():
+            return False  # Required but missing → reject
+        return True  # Not required → allow
+
+    key = _get_verifying_key()
     if key is None:
-        return True  # no key configured → skip verification
-    expected = sign_manifest(manifest)
-    return hmac.compare_digest(expected, signature)
+        # No verification key available
+        if _get_require_signature():
+            return False  # Required but can't verify → reject
+        return True  # Not required → allow (legacy behavior)
+
+    try:
+        import base64
+        payload = _manifest_bytes_for_signing(manifest)
+        signature_bytes = base64.b64decode(signature_b64)
+        key.verify(signature_bytes, payload)
+        return True
+    except Exception:
+        return False
+
+
+def sign_and_save_public_key(private_key_pem: bytes, bundle_dir: str) -> bytes:
+    """Sign manifest and save public key to bundle directory. Returns public_key_pem."""
+    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+    from cryptography.hazmat.primitives.serialization import load_pem_private_key
+    private_key = load_pem_private_key(private_key_pem, password=None)
+    public_key_pem = private_key.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
+
+    public_key_path = os.path.join(bundle_dir, 'public_key.pem')
+    with open(public_key_path, 'wb') as f:
+        f.write(public_key_pem)
+
+    return public_key_pem
 
 
 class ArtifactManager:
-    """Manages immutable artifact bundles with integrity verification + signing."""
+    """Manages immutable artifact bundles with integrity verification + Ed25519 signing."""
 
     def __init__(self, base_path: str):
         self.base_path = base_path
@@ -141,10 +238,21 @@ class ArtifactManager:
             'integrity_verified': True,
         }
 
-        # Sign manifest
+        # Sign manifest with Ed25519
         signature = sign_manifest(manifest)
         manifest['signature'] = signature
-        manifest['signature_algorithm'] = 'hmac-sha256' if signature else 'none'
+        manifest['signature_algorithm'] = 'ed25519' if signature else 'none'
+
+        # Save public key alongside manifest for verification
+        public_key_pem = None
+        signing_key = _get_signing_key()
+        if signing_key:
+            from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
+            public_key_pem = signing_key.public_key().public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
+            public_key_path = os.path.join(bundle_dir, 'public_key.pem')
+            with open(public_key_path, 'wb') as f:
+                f.write(public_key_pem)
+            manifest['public_key_ref'] = 'public_key.pem'
 
         with open(manifest_path, 'w') as f:
             json.dump(manifest, f, indent=2, default=str)
@@ -171,7 +279,7 @@ class ArtifactManager:
 
     def verify_bundle(self, bundle_dir: str, check_signature: bool = True) -> Dict[str, Any]:
         """
-        Verify integrity + signature of an artifact bundle.
+        Verify integrity + Ed25519 signature of an artifact bundle.
 
         Returns:
             Dict with 'valid', 'errors', 'manifest'
@@ -196,14 +304,47 @@ class ArtifactManager:
             if actual_hash != expected_hash:
                 errors.append(f'{filename} hash mismatch: expected {expected_hash[:16]}..., got {actual_hash[:16]}...')
 
-        # 2. Signature verification (HMAC-SHA256)
+        # 2. Ed25519 signature verification
         if check_signature:
             signature = manifest.get('signature', '')
-            if signature:
-                # Verify against manifest without signature field
-                manifest_for_verify = {k: v for k, v in manifest.items() if k not in ('signature', 'signature_algorithm')}
-                if not verify_signature(manifest_for_verify, signature):
-                    errors.append('Manifest signature verification failed — possible tampering')
+            algorithm = manifest.get('signature_algorithm', 'none')
+
+            if algorithm == 'ed25519' and signature:
+                # Try to load public key from bundle first
+                public_key_ref = manifest.get('public_key_ref', '')
+                bundle_public_key_path = os.path.join(bundle_dir, public_key_ref) if public_key_ref else ''
+                saved_public_key = None
+
+                if public_key_ref and os.path.exists(bundle_public_key_path):
+                    with open(bundle_public_key_path, 'rb') as f:
+                        saved_public_key_pem = f.read()
+                    try:
+                        from cryptography.hazmat.primitives.serialization import load_pem_public_key
+                        saved_public_key = load_pem_public_key(saved_public_key_pem)
+                    except Exception:
+                        pass
+
+                # Use saved public key if available, otherwise fall back to env/config key
+                verify_key = saved_public_key or _get_verifying_key()
+                if verify_key is None:
+                    if _get_require_signature():
+                        errors.append('Ed25519 verification key not available — deployment BLOCKED')
+                    else:
+                        logger.warning('Ed25519 verification key not available, skipping signature check')
+                else:
+                    try:
+                        import base64
+                        payload = _manifest_bytes_for_signing(manifest)
+                        signature_bytes = base64.b64decode(signature)
+                        verify_key.verify(signature_bytes, payload)
+                    except Exception:
+                        errors.append('Ed25519 signature verification failed — possible tampering')
+            elif algorithm == 'none' or not signature:
+                if _get_require_signature():
+                    errors.append('No signature present but ARTIFACT_REQUIRE_SIGNATURE=true — deployment BLOCKED')
+            elif algorithm == 'hmac-sha256':
+                # Legacy HMAC — reject in favor of Ed25519
+                errors.append('Legacy hmac-sha256 signature detected — must re-sign with Ed25519')
 
         return {
             'valid': len(errors) == 0,
@@ -213,7 +354,7 @@ class ArtifactManager:
 
     def load_bundle(self, bundle_dir: str) -> Dict[str, Any]:
         """
-        Load an artifact bundle after verifying integrity + signature.
+        Load an artifact bundle after verifying integrity + Ed25519 signature.
 
         Raises ValueError if check fails.
         """

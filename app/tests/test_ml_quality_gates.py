@@ -190,10 +190,13 @@ class TestSchemaCompatibility:
 
 
 class TestArtifactIntegrity:
-    """Gate: Artifact manifests must be verifiable."""
+    """Gate: Artifact manifests must be verifiable with Ed25519."""
 
     def test_signature_verification(self):
-        from app.ml.artifact_manager import ArtifactManager, sign_manifest, verify_signature
+        from app.ml.artifact_manager import (
+            ArtifactManager, sign_manifest, verify_signature,
+            generate_signing_keypair, set_signing_keys
+        )
 
         manifest = {
             "model_id": "test",
@@ -201,8 +204,9 @@ class TestArtifactIntegrity:
             "artifact_hash": "abc123",
         }
 
-        from app.ml.artifact_manager import set_signing_key
-        set_signing_key("test-key-for-ci")
+        # Generate Ed25519 key pair
+        private_pem, public_pem = generate_signing_keypair()
+        set_signing_keys(private_pem, public_pem)
 
         signature = sign_manifest(manifest)
         assert signature != "", "Signature should not be empty when key is set"
@@ -212,7 +216,42 @@ class TestArtifactIntegrity:
         tampered = {**manifest, "artifact_hash": "tampered"}
         assert not verify_signature(tampered, signature), "Tampered manifest should fail verification"
 
-        set_signing_key("")  # cleanup
+        set_signing_keys(None, None)  # cleanup
+
+    def test_public_key_saved_in_bundle(self):
+        from app.ml.artifact_manager import (
+            ArtifactManager, generate_signing_keypair, set_signing_keys
+        )
+        from sklearn.ensemble import RandomForestClassifier
+        import numpy as np
+
+        private_pem, public_pem = generate_signing_keypair()
+        set_signing_keys(private_pem, public_pem)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            manager = ArtifactManager(tmpdir)
+            model = RandomForestClassifier(n_estimators=10, random_state=42)
+            X = np.random.randn(50, 3)
+            y = np.random.choice(["A", "B"], 50)
+            model.fit(X, y)
+
+            result = manager.save_bundle(
+                model=model,
+                processor_data={"scaler": None, "feature_names": ["f1", "f2", "f3"]},
+                metadata={"algorithm": "random_forest", "metrics": {"accuracy": 0.9}},
+                model_id="test-pub",
+                version=1,
+            )
+
+            # Verify public_key.pem exists in bundle
+            public_key_path = os.path.join(result["bundle_dir"], "public_key.pem")
+            assert os.path.exists(public_key_path), "public_key.pem not found in bundle"
+
+            # Verify bundle loads correctly
+            bundle = manager.load_bundle(result["bundle_dir"])
+            assert bundle["model"] is not None
+
+            set_signing_keys(None, None)  # cleanup
 
 
 class TestAPIContract:
