@@ -258,7 +258,14 @@ class ModelService:
                     "parameters": result.get("parameters", {}),
                     "mode": train_request.mode.value if train_request.mode else "advanced",
                 }
-                model.dataset_hash = None  # computed if dataset content available
+                # ── Dataset hash — compute from file content ───────────
+                import hashlib
+                try:
+                    with open(dataset.file_path, 'rb') as f:
+                        dataset_hash = hashlib.sha256(f.read()).hexdigest()
+                    model.dataset_hash = dataset_hash
+                except Exception:
+                    model.dataset_hash = None
                 model.preprocessing_version = "v1"
                 model.feature_schema_version = "v1"
                 import subprocess
