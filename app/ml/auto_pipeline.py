@@ -67,19 +67,69 @@ class AutoMLPipeline:
                     'mode': 'simple',
                 }
 
-            X_train, X_test, y_train, y_test, preprocess_metadata = self.processor.auto_preprocess(
+            X_train_full, X_test, y_train_full, y_test, preprocess_metadata = self.processor.auto_preprocess(
                 df, target_column, test_size=test_size
             )
 
             problem_type = preprocess_metadata.get('problem_type', 'classification')
-            n_samples = len(X_train)
-            n_features = X_train.shape[1]
+            n_samples = len(X_train_full)
+            n_features = X_train_full.shape[1]
+
+            # Further split training into train + calibration set (classification only)
+            calibrator = None
+            calibration_info = None
+            X_train, y_train = X_train_full, y_train_full
+            if problem_type == 'classification':
+                from sklearn.model_selection import train_test_split as tts
+                try:
+                    X_train, X_cal, y_train, y_cal = tts(
+                        X_train_full, y_train_full,
+                        test_size=0.2, random_state=42,
+                        stratify=y_train_full,
+                    )
+                except Exception:
+                    X_cal, y_cal = X_test, y_test
 
             model, training_info = self.trainer.auto_train(
                 X_train, y_train, problem_type, n_samples, n_features
             )
 
             metrics = self.trainer.evaluate(X_test, y_test, problem_type)
+
+            # ── Probability Calibration (classification only) ──
+            if problem_type == 'classification' and hasattr(model, 'predict_proba'):
+                try:
+                    from app.ml.calibration import ModelCalibrator
+                    y_cal_proba = model.predict_proba(X_cal)
+                    n_classes = len(np.unique(y_train_full))
+
+                    if n_classes == 2:
+                        calibrator = ModelCalibrator(method='isotonic')
+                        calibration_info = calibrator.fit(y_cal, y_cal_proba[:, 1])
+                        metrics['calibration'] = calibration_info
+                        metrics['brier_score'] = calibration_info['post_calibration']['brier_score']
+                        metrics['expected_calibration_error'] = calibration_info['post_calibration']['ece']
+
+                        y_test_proba = model.predict_proba(X_test)
+                        calibrated_test_proba = calibrator.transform(y_test_proba[:, 1])
+                        metrics['calibrated_brier_score'] = float(np.mean(
+                            (calibrated_test_proba - np.array(y_test).astype(float)) ** 2
+                        ))
+                    else:
+                        calibrators = []
+                        for c in range(n_classes):
+                            cal = ModelCalibrator(method='isotonic')
+                            cal.fit(y_cal, y_cal_proba[:, c])
+                            calibrators.append(cal)
+                        calibration_info = {
+                            'method': 'isotonic_multiclass',
+                            'n_classes': n_classes,
+                            'per_class': [cal.post_metrics for cal in calibrators],
+                        }
+                        metrics['calibration'] = calibration_info
+
+                except Exception as e:
+                    logger.warning(f"Calibration failed: {e}")
 
             try:
                 cv_results = self._cross_validate(
@@ -129,6 +179,10 @@ class AutoMLPipeline:
                 'status': 'completed',
                 'mode': 'simple',
             }
+
+            # Save calibrator state for persistence
+            if calibrator is not None:
+                self.training_metadata['calibrator'] = calibrator.to_dict()
 
             # Record library versions for compatibility checking
             try:

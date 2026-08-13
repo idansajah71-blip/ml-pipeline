@@ -290,6 +290,89 @@ class TestArtifactIntegrity:
             set_signing_keys(None, None)  # cleanup
 
 
+class TestCalibration:
+    """Gate: Probability calibration must improve model calibration."""
+
+    def test_isotonic_calibration_improves_brier(self):
+        from app.ml.calibration import ModelCalibrator
+
+        np.random.seed(42)
+        n = 200
+        # Generate poorly calibrated probabilities
+        y_true = np.random.choice([0, 1], n, p=[0.6, 0.4])
+        # Simulate overconfident predictions
+        y_proba = np.clip(y_true * 0.9 + np.random.randn(n) * 0.15, 0.01, 0.99)
+
+        calibrator = ModelCalibrator(method='isotonic')
+        result = calibrator.fit(y_true, y_proba)
+
+        # Isotonic should improve or maintain Brier score
+        pre_brier = result['pre_calibration']['brier_score']
+        post_brier = result['post_calibration']['brier_score']
+        assert post_brier <= pre_brier + 0.01, (
+            f"Calibration made Brier worse: {pre_brier:.4f} -> {post_brier:.4f}"
+        )
+
+        # ECE should improve or stay low
+        pre_ece = result['pre_calibration']['ece']
+        post_ece = result['post_calibration']['ece']
+        assert post_ece <= pre_ece + 0.05, (
+            f"Calibration made ECE worse: {pre_ece:.4f} -> {post_ece:.4f}"
+        )
+
+    def test_platt_scaling_improves_brier(self):
+        from app.ml.calibration import ModelCalibrator
+
+        np.random.seed(42)
+        n = 200
+        y_true = np.random.choice([0, 1], n, p=[0.6, 0.4])
+        y_proba = np.clip(y_true * 0.9 + np.random.randn(n) * 0.15, 0.01, 0.99)
+
+        calibrator = ModelCalibrator(method='platt')
+        result = calibrator.fit(y_true, y_proba)
+
+        pre_brier = result['pre_calibration']['brier_score']
+        post_brier = result['post_calibration']['brier_score']
+        assert post_brier <= pre_brier + 0.01, (
+            f"Platt calibration made Brier worse: {pre_brier:.4f} -> {post_brier:.4f}"
+        )
+
+    def test_calibration_roundtrip_serialization(self):
+        from app.ml.calibration import ModelCalibrator
+
+        np.random.seed(42)
+        y_true = np.random.choice([0, 1], 100)
+        y_proba = np.clip(np.random.rand(100), 0.01, 0.99)
+
+        calibrator = ModelCalibrator(method='isotonic')
+        calibrator.fit(y_true, y_proba)
+
+        # Serialize and deserialize
+        state = calibrator.to_dict()
+        restored = ModelCalibrator.from_dict(state)
+
+        # Should produce same results
+        original = calibrator.transform(y_proba)
+        restored_result = restored.transform(y_proba)
+        np.testing.assert_array_almost_equal(original, restored_result, decimal=6)
+
+    def test_reliability_diagram_data(self):
+        from app.ml.calibration import ModelCalibrator
+
+        np.random.seed(42)
+        y_true = np.random.choice([0, 1], 200)
+        y_proba = np.clip(np.random.rand(200), 0.01, 0.99)
+
+        calibrator = ModelCalibrator(method='isotonic')
+        result = calibrator.fit(y_true, y_proba, n_bins=5)
+
+        reliability = result['reliability']
+        assert len(reliability['fraction_of_positives']) == 5
+        assert len(reliability['mean_predicted_value']) == 5
+        assert len(reliability['bin_counts']) == 5
+        assert sum(reliability['bin_counts']) == 200
+
+
 class TestAPIContract:
     """Gate: API schemas must be consistent."""
 

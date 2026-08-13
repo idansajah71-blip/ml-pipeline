@@ -5,6 +5,7 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
 import pandas as pd
 import numpy as np
+from sklearn.model_selection import train_test_split
 
 from app.ml.processor import DataProcessor
 from app.ml.trainer import ModelTrainer
@@ -51,8 +52,18 @@ class MLPipeline:
                     'duration_seconds': round(time.time() - start_time, 2),
                 }
 
-            X_train, X_test, y_train, y_test, preprocess_metadata = self.processor.preprocess(
+            # Split: 60% train, 20% calibration, 20% test
+            X_train_full, X_test, y_train_full, y_test, preprocess_metadata = self.processor.preprocess(
                 df, target_column, test_size=test_size
+            )
+
+            # Further split training into train + calibration set
+            cal_size = 0.2  # 20% of remaining data for calibration
+            X_train, X_cal, y_train, y_cal = train_test_split(
+                X_train_full, y_train_full,
+                test_size=cal_size,
+                random_state=42,
+                stratify=y_train_full if problem_type == 'classification' else None,
             )
 
             model, training_info = self.trainer.train(
@@ -68,6 +79,45 @@ class MLPipeline:
             except Exception as e:
                 metrics['cross_validation'] = {'error': str(e), 'status': 'failed'}
                 logger.warning(f"Cross-validation failed: {e}")
+
+            # ── Probability Calibration (classification only) ──
+            calibration_info = None
+            calibrator = None
+            if problem_type == 'classification' and hasattr(model, 'predict_proba'):
+                try:
+                    from app.ml.calibration import ModelCalibrator
+                    y_cal_proba = model.predict_proba(X_cal)
+                    n_classes = len(np.unique(y_train_full))
+
+                    if n_classes == 2:
+                        calibrator = ModelCalibrator(method='isotonic')
+                        calibration_info = calibrator.fit(y_cal, y_cal_proba[:, 1])
+                        metrics['calibration'] = calibration_info
+                        metrics['brier_score'] = calibration_info['post_calibration']['brier_score']
+                        metrics['expected_calibration_error'] = calibration_info['post_calibration']['ece']
+
+                        # Apply calibrated probabilities to test set for reporting
+                        y_test_proba = model.predict_proba(X_test)
+                        calibrated_test_proba = calibrator.transform(y_test_proba[:, 1])
+                        metrics['calibrated_brier_score'] = float(np.mean(
+                            (calibrated_test_proba - np.array(y_test).astype(float)) ** 2
+                        ))
+                    else:
+                        # Multiclass: calibrate each class independently
+                        calibrators = []
+                        for c in range(n_classes):
+                            cal = ModelCalibrator(method='isotonic')
+                            cal.fit(y_cal, y_cal_proba[:, c])
+                            calibrators.append(cal)
+                        calibration_info = {
+                            'method': 'isotonic_multiclass',
+                            'n_classes': n_classes,
+                            'per_class': [cal.post_metrics for cal in calibrators],
+                        }
+                        metrics['calibration'] = calibration_info
+
+                except Exception as e:
+                    logger.warning(f"Calibration failed: {e}")
 
             # ── Compute calibration residuals for conformal prediction (regression) ──
             if problem_type == 'regression':
@@ -116,6 +166,10 @@ class MLPipeline:
                 'completed_at': datetime.now(timezone.utc).isoformat(),
                 'status': 'completed',
             }
+
+            # Save calibrator state for persistence
+            if calibrator is not None:
+                self.training_metadata['calibrator'] = calibrator.to_dict()
 
             # Record library versions for compatibility checking
             try:
