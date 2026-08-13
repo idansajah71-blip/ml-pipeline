@@ -229,3 +229,122 @@ class TestAPIContract:
         assert item.probability == 0.95
         assert item.prediction_interval is not None
         assert not hasattr(item, "confidence_level") or item.model_fields.get("confidence_level") is None
+
+
+class TestAPIServingConsistency:
+    """Gate: Full HTTP → serving service → ServingPipeline → prediction path."""
+
+    @pytest.mark.asyncio
+    async def test_serving_endpoint_consistency(self, client):
+        from app.tests.conftest import register_and_login
+        import io
+
+        token = await register_and_login(client, email="serving_test@example.com")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        np.random.seed(42)
+        n = 60
+        df = pd.DataFrame({
+            "f1": np.random.randn(n),
+            "f2": np.random.randn(n),
+            "f3": np.random.randn(n),
+            "target": np.random.choice(["A", "B"], n),
+        })
+        csv_bytes = df.to_csv(index=False).encode()
+
+        # 1. Upload dataset
+        files = {"file": ("test.csv", io.BytesIO(csv_bytes), "text/csv")}
+        ds_resp = await client.post(
+            "/api/v1/datasets",
+            files=files,
+            data={"name": "serving-test-dataset"},
+            headers=headers,
+        )
+        assert ds_resp.status_code == 201, f"Dataset upload failed: {ds_resp.text}"
+        dataset_id = ds_resp.json()["id"]
+
+        # 2. Create model
+        model_resp = await client.post(
+            "/api/v1/models",
+            json={
+                "name": "serving-consistency-test",
+                "description": "Test",
+                "algorithm": "random_forest",
+                "target_column": "target",
+            },
+            headers=headers,
+        )
+        assert model_resp.status_code == 201, f"Model create failed: {model_resp.text}"
+        model_id = model_resp.json()["id"]
+
+        # 3. Train model
+        train_resp = await client.post(
+            f"/api/v1/models/{model_id}/train",
+            json={
+                "dataset_id": dataset_id,
+                "target_column": "target",
+                "algorithm": "random_forest",
+                "mode": "advanced",
+                "async_training": False,
+            },
+            headers=headers,
+        )
+        assert train_resp.status_code == 200, f"Training failed: {train_resp.text}"
+        assert train_resp.json()["status"] == "completed"
+
+        # 4. Deploy model
+        deploy_resp = await client.post(
+            f"/api/v1/models/{model_id}/deploy",
+            headers=headers,
+        )
+        assert deploy_resp.status_code == 200, f"Deploy failed: {deploy_resp.text}"
+
+        # 5. Create serving endpoint
+        ep_resp = await client.post(
+            "/api/v1/serving/endpoints",
+            json={
+                "name": "test-endpoint",
+                "model_id": model_id,
+                "cache_ttl_seconds": 0,
+            },
+            headers=headers,
+        )
+        assert ep_resp.status_code == 201, f"Endpoint create failed: {ep_resp.text}"
+        endpoint_id = ep_resp.json()["id"]
+
+        # 6. Predict via API
+        test_input = {"f1": 1.0, "f2": 2.0, "f3": 3.0}
+        pred_resp = await client.post(
+            f"/api/v1/serving/endpoints/{endpoint_id}/predict",
+            json={"data": test_input},
+            headers=headers,
+        )
+        assert pred_resp.status_code == 200, f"Prediction failed: {pred_resp.text}"
+        api_prediction = pred_resp.json()["prediction"]
+
+        # 7. Predict via ServingPipeline directly (reload from disk)
+        from app.ml.serving_pipeline import ServingPipeline
+        from app.core.database import get_db
+        from app.models.model import MLModel
+        from sqlalchemy import select as sa_select
+
+        # Get model file_path
+        from app.tests.conftest import TestSessionLocal
+        async with TestSessionLocal() as session:
+            result = await session.execute(
+                sa_select(MLModel).where(MLModel.id == model_id)
+            )
+            model = result.scalar_one_or_none()
+            bundle_dir = model.file_path
+
+        pipeline = ServingPipeline()
+        pipeline.load(bundle_dir)
+
+        raw_df = pd.DataFrame([test_input])
+        pipeline_result = pipeline.predict(raw_df)
+        pipeline_prediction = pipeline_result["predictions"][0]
+
+        # 8. Compare — they MUST match
+        assert str(api_prediction) == str(pipeline_prediction), (
+            f"API vs ServingPipeline mismatch: API={api_prediction}, Pipeline={pipeline_prediction}"
+        )
