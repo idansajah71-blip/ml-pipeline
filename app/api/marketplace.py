@@ -524,22 +524,25 @@ async def _predict_platform_model(data, model_meta, current_user):
         meta_metrics = meta_info.get("metrics", {}) if meta_info else {}
         if result_type == "regression":
             pred_value = round(max(0, float(clf.predict(X)[0])), 2)
-            # Conformal prediction interval using calibration residuals
+            # Conformal prediction interval using calibration residuals saved at training time
             from app.ml.prediction_interval import conformal_prediction_interval
-            cv_residuals = meta_info.get("cv_residuals")
-            if cv_residuals and len(cv_residuals) > 5:
-                cal_residuals = np.array(cv_residuals)
-                cal_predictions = np.zeros_like(cal_residuals)  # placeholder
+            meta_metrics = meta_info.get("metrics", {}) if meta_info else {}
+            cal_data = meta_metrics.get("calibration_residuals") or {}
+            cal_residuals_list = cal_data.get("residuals")
+            cal_predictions_list = cal_data.get("predictions")
+            if cal_residuals_list and cal_predictions_list and len(cal_residuals_list) > 5:
+                cal_residuals = np.array(cal_residuals_list)
+                cal_predictions = np.array(cal_predictions_list)
                 interval = conformal_prediction_interval(
                     cal_residuals, cal_predictions, pred_value, alpha=0.1
                 )
             else:
-                # Fallback: conservative interval based on training RMSE
-                rmse = meta_metrics.get("rmse", 0) or 0.1
+                # No fallback — flag missing calibration data
                 interval = {
-                    "lower": round(pred_value - 1.96 * rmse, 4),
-                    "upper": round(pred_value + 1.96 * rmse, 4),
-                    "coverage_target": 0.95,
+                    "lower": None,
+                    "upper": None,
+                    "coverage_target": 0.9,
+                    "warning": "No calibration residuals saved at training time. Retrain the model to enable conformal prediction intervals.",
                 }
             predictions.append({
                 "index": i,
@@ -547,9 +550,10 @@ async def _predict_platform_model(data, model_meta, current_user):
                 "prediction_label": f"{pred_value} {model_meta.get('result_unit', '')}".strip(),
                 "result_type": "regression",
                 "prediction_interval": {
-                    "lower": round(interval["lower"], 4),
-                    "upper": round(interval["upper"], 4),
+                    "lower": round(interval["lower"], 4) if interval.get("lower") is not None else None,
+                    "upper": round(interval["upper"], 4) if interval.get("upper") is not None else None,
                     "coverage_target": interval.get("coverage_target", 0.9),
+                    **({"warning": interval["warning"]} if interval.get("warning") else {}),
                 },
             })
         else:
