@@ -3,10 +3,32 @@ Supports CSV, Excel, JSON, Word (.docx), HTML, Parquet, SQL, XML."""
 import io
 import json
 import os
+import re
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 import pandas as pd
+
+
+def _sanitize_identifier(name: str) -> str:
+    """Sanitize a SQL identifier to prevent injection — only allow alphanumeric and underscore."""
+    safe = re.sub(r'[^a-zA-Z0-9_]', '_', name)
+    if not safe or safe[0].isdigit():
+        safe = '_' + safe
+    return safe
+
+
+def _sql_escape_value(val) -> str:
+    """Escape a Python value for safe inclusion in a SQL literal."""
+    if val is None:
+        return 'NULL'
+    if isinstance(val, bool):
+        return 'TRUE' if val else 'FALSE'
+    if isinstance(val, (int, float)):
+        return str(val)
+    s = str(val)
+    s = s.replace('\\', '\\\\').replace("'", "''")
+    return f"'{s}'"
 
 
 class ExportService:
@@ -172,8 +194,9 @@ class ExportService:
         filepath = os.path.join(self.EXPORT_DIR, filename)
         lines = []
         col_defs = []
+        safe_table = _sanitize_identifier(table_name)
         for col in df.columns:
-            safe_col = col.replace(" ", "_").replace("-", "_")
+            safe_col = _sanitize_identifier(col)
             sample = df[col].dropna().head(20)
             if pd.api.types.is_numeric_dtype(df[col]):
                 if pd.api.types.is_integer_dtype(df[col]):
@@ -185,7 +208,7 @@ class ExportService:
                 col_len = max(50, min(int(max_len * 1.5), 4000))
                 col_defs.append(f"  {safe_col} VARCHAR({col_len})")
 
-        lines.append(f"CREATE TABLE IF NOT EXISTS {table_name} (")
+        lines.append(f"CREATE TABLE IF NOT EXISTS {safe_table} (")
         lines.append(",\n".join(col_defs))
         lines.append(");\n")
 
@@ -193,16 +216,10 @@ class ExportService:
             values = []
             for col in df.columns:
                 val = row[col]
-                if pd.isna(val):
-                    values.append("NULL")
-                elif isinstance(val, (int, float)):
-                    values.append(str(val))
-                else:
-                    escaped = str(val).replace("'", "''")
-                    values.append(f"'{escaped}'")
-            safe_cols = [c.replace(" ", "_").replace("-", "_") for c in df.columns]
+                values.append(_sql_escape_value(val))
+            safe_cols = [_sanitize_identifier(c) for c in df.columns]
             lines.append(
-                f"INSERT INTO {table_name} ({', '.join(safe_cols)}) VALUES ({', '.join(values)});"
+                f"INSERT INTO {safe_table} ({', '.join(safe_cols)}) VALUES ({', '.join(values)});"
             )
 
         sql_content = "\n".join(lines)
@@ -432,13 +449,8 @@ class ExportService:
                 vals = []
                 for col in df.columns:
                     v = row[col]
-                    if v is None or (isinstance(v, float) and v != v):
-                        vals.append("NULL")
-                    elif isinstance(v, (int, float)):
-                        vals.append(str(v))
-                    else:
-                        vals.append(f"'{str(v).replace(chr(39), chr(39)*2)}'")
-                safe_cols = [c.replace(" ","_").replace("-","_") for c in df.columns]
+                    vals.append(_sql_escape_value(v))
+                safe_cols = [_sanitize_identifier(c) for c in df.columns]
                 lines.append(f"INSERT INTO scraped_data ({', '.join(safe_cols)}) VALUES ({', '.join(vals)});")
             return "\n".join(lines).encode("utf-8"), "text/plain; charset=utf-8"
 
