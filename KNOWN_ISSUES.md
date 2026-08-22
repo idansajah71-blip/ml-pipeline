@@ -6,7 +6,7 @@
 
 ## Flake8 Lint
 - F401 (unused imports): **0 in app/** (was 415), 38 remaining in app/tests/ only
-- F821 (undefined names): **fixed 3 of 4** — `ModelTrainer` in models.py, `ModelStatus` in tasks.py, `APIQuota` in quota_service.py all had missing imports causing NameError at runtime. Remaining: `evidently` presets in model_monitor.py (safe lazy-import guard)
+- F821 (undefined names): **fixed 5** — `ModelTrainer` in models.py, `ModelStatus` in tasks.py, `APIQuota` in quota_service.py, `select` in notifications.py, `X_sample` in optimizer.py. Remaining: `evidently` presets in model_monitor.py (safe lazy-import guard)
 - 29x F841: unused local variables (dead code, harmless)
 - 17x E712: comparison to `False` instead of `is False` (style, harmless)
 - 4x E741: ambiguous variable name `l` (style, common in ML code)
