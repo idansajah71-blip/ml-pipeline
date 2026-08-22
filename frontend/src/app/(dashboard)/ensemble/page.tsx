@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import { Layers, Plus, Zap } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { ensembleApi, models } from '@/lib/api';
+import { useToast } from '@/components/Toast';
 
 export default function EnsemblePage() {
+  const { toast } = useToast();
   const [ensembles, setEnsembles] = useState<any[]>([]);
   const [modelList, setModelList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +35,7 @@ export default function EnsemblePage() {
       setShowCreate(false);
       setNewEnsemble({ name: '', model_ids: [], strategy: 'voting' });
       loadData();
-    } catch (err) { alert('Failed'); }
+    } catch (err) { toast('error', 'Gagal membuat ensemble'); }
   };
 
   const toggleModel = (id: string) => {
@@ -49,7 +51,7 @@ export default function EnsemblePage() {
       const data = JSON.parse(predictInput);
       const res = await ensembleApi.predict(predictEnsemble, data);
       setPredictResult(res.data);
-    } catch (err) { alert('Invalid JSON'); }
+    } catch (err) { toast('error', 'JSON tidak valid'); }
   };
 
   return (

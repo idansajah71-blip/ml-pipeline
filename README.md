@@ -180,6 +180,12 @@ python scripts/seed.py
 python run.py
 ```
 
+> **Note:** Fitur AutoML/async training membutuhkan Celery worker. Jalankan di terminal terpisah:
+> ```bash
+> celery -A app.core.celery_app worker --loglevel=info
+> ```
+> Tanpa Celery worker, fitur Training Wizard mode biasa tetap berjalan, tapi AutoML tidak akan berjalan.
+
 ### Frontend
 
 ```bash

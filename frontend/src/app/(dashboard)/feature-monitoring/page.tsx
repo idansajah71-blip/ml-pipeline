@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangle, CheckCircle, Bell } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { useToast } from '@/components/Toast';
 import { featureMonitoring } from '@/lib/api';
 
 export default function FeatureMonitoringPage() {
+  const { toast } = useToast();
   const [alerts, setAlerts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('');
@@ -29,7 +31,7 @@ export default function FeatureMonitoringPage() {
     try {
       await featureMonitoring.acknowledgeAlert(id);
       loadAlerts();
-    } catch (err) { alert('Failed'); }
+    } catch (err) { toast('error', 'Gagal mengakui alert'); }
   };
 
   const checkDrift = async () => {
@@ -43,7 +45,7 @@ export default function FeatureMonitoringPage() {
       });
       setDriftResult(res.data);
       loadAlerts();
-    } catch (err) { alert('Failed to check drift'); }
+    } catch (err) { toast('error', 'Gagal memeriksa drift'); }
   };
 
   const severityColors: Record<string, string> = {

@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import { Database, Plus, Upload, Download, Trash2 } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { useToast } from '@/components/Toast';
 import DragDropUpload from '@/components/DragDropUpload';
 import { featureStore } from '@/lib/api';
 
 export default function FeatureStorePage() {
+  const { toast } = useToast();
   const [groups, setGroups] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -48,7 +50,7 @@ export default function FeatureStorePage() {
       setShowCreate(false);
       setNewGroup({ name: '', description: '', tags: '' });
       loadGroups();
-    } catch (err) { alert('Failed to create group'); }
+    } catch (err) { toast('error', 'Gagal membuat grup'); }
   };
 
   const addFeature = async () => {
@@ -57,7 +59,7 @@ export default function FeatureStorePage() {
       await featureStore.addFeature(selectedGroup, newFeature);
       setNewFeature({ name: '', data_type: 'float', description: '' });
       loadFeatures(selectedGroup);
-    } catch (err) { alert('Failed to add feature'); }
+    } catch (err) { toast('error', 'Gagal menambahkan fitur'); }
   };
 
   const ingestFeatures = async () => {
@@ -66,8 +68,8 @@ export default function FeatureStorePage() {
       const featuresObj = JSON.parse(ingestData.features);
       await featureStore.ingest(selectedGroup, { row_key: ingestData.row_key, features: featuresObj });
       setIngestData({ row_key: '', features: '' });
-      alert('Features ingested successfully');
-    } catch (err) { alert('Invalid JSON or failed to ingest'); }
+      toast('success', 'Fitur berhasil diingest');
+    } catch (err) { toast('error', 'JSON tidak valid atau gagal mengingest'); }
   };
 
   const lookupFeatures = async () => {
@@ -75,7 +77,7 @@ export default function FeatureStorePage() {
     try {
       const res = await featureStore.get(selectedGroup, lookupKey);
       setLookupResult(res.data);
-    } catch (err) { setLookupResult(null); alert('Features not found'); }
+    } catch (err) { setLookupResult(null); toast('error', 'Fitur tidak ditemukan'); }
   };
 
   return (

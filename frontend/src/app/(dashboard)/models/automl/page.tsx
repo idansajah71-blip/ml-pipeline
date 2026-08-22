@@ -1,17 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Zap, Trophy, Loader2 } from 'lucide-react';
+import { ArrowLeft, Zap, Trophy, Loader2, XCircle } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { models, datasets as datasetsApi } from '@/lib/api';
 import { useDatasets, useAlgorithms } from '@/lib/hooks';
 import { ALGORITHMS } from '@/lib/algorithms';
 import Tooltip from '@/components/Tooltip';
 import { Dataset } from '@/types';
+import { useToast } from '@/components/Toast';
+
+const MAX_POLL_COUNT = 150;
 
 export default function AutoMLPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const { datasets: datasetList, isLoading: datasetsLoading } = useDatasets();
   const { classificationAlgorithms: algoList, isLoading: algosLoading } = useAlgorithms();
   const [selectedDataset, setSelectedDataset] = useState<string>('');
@@ -22,11 +26,22 @@ export default function AutoMLPage() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<string>('');
   const [result, setResult] = useState<any>(null);
+  const pollCountRef = useRef(0);
 
   useEffect(() => {
     if (!taskId || !running) return;
 
+    pollCountRef.current = 0;
     const interval = setInterval(async () => {
+      pollCountRef.current += 1;
+
+      if (pollCountRef.current > MAX_POLL_COUNT) {
+        clearInterval(interval);
+        setRunning(false);
+        toast('warning', 'AutoML memakan waktu lebih lama dari biasanya. Coba refresh halaman atau gunakan Training Wizard.');
+        return;
+      }
+
       try {
         const res = await models.taskStatus(taskId);
         const data = res.data;
@@ -37,16 +52,25 @@ export default function AutoMLPage() {
           setResult(data.result);
           setRunning(false);
           clearInterval(interval);
+          toast('success', 'AutoML selesai! Hasil terbaik: ' + (data.result?.best_algorithm || '-'));
         } else if (data.status === 'FAILURE') {
           setRunning(false);
           clearInterval(interval);
-          alert('AutoML failed: ' + (data.result?.error || 'Unknown error'));
+          toast('error', 'AutoML gagal: ' + (data.result?.error || 'Unknown error'));
         }
       } catch {}
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [taskId, running]);
+  }, [taskId, running, toast]);
+
+  const handleCancel = () => {
+    setRunning(false);
+    setTaskId(null);
+    setProgress(0);
+    setStatus('');
+    toast('info', 'AutoML dibatalkan oleh user.');
+  };
 
   const handleRunAutoML = async () => {
     if (!selectedDataset || !targetColumn) return;
@@ -61,7 +85,7 @@ export default function AutoMLPage() {
       setTaskId(res.data.task_id);
     } catch (err: any) {
       setRunning(false);
-      alert(err?.response?.data?.detail || 'Failed to start AutoML');
+      toast('error', err?.response?.data?.detail || 'Gagal memulai AutoML');
     }
   };
 
@@ -153,23 +177,26 @@ export default function AutoMLPage() {
               <p className="mt-1 text-xs text-gray-500">Kosongkan untuk menjalankan semua algoritma</p>
             </div>
 
-            <button
-              onClick={handleRunAutoML}
-              disabled={running || !selectedDataset || !targetColumn}
-              className="w-full flex items-center justify-center gap-2 rounded-lg bg-yellow-600 px-4 py-3 text-sm font-medium text-white hover:bg-yellow-700 disabled:opacity-50"
-            >
-              {running ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Running AutoML... {progress}%
-                </>
-              ) : (
-                <>
-                  <Zap className="h-4 w-4" />
-                  Run AutoML
-                </>
-              )}
-            </button>
+            {running ? (
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCancel}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-lg border border-red-300 bg-white px-4 py-3 text-sm font-medium text-red-600 hover:bg-red-50"
+                >
+                  <XCircle className="h-4 w-4" />
+                  Batalkan
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleRunAutoML}
+                disabled={!selectedDataset || !targetColumn}
+                className="w-full flex items-center justify-center gap-2 rounded-lg bg-yellow-600 px-4 py-3 text-sm font-medium text-white hover:bg-yellow-700 disabled:opacity-50"
+              >
+                <Zap className="h-4 w-4" />
+                Run AutoML
+              </button>
+            )}
           </div>
 
           {running && (
@@ -181,6 +208,7 @@ export default function AutoMLPage() {
                 />
               </div>
               <p className="text-sm text-gray-600">{status}</p>
+              <p className="text-xs text-gray-400 mt-1">{progress}% selesai</p>
             </div>
           )}
 

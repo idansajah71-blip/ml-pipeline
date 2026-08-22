@@ -7,8 +7,10 @@ import StatusBadge from '@/components/StatusBadge';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import { models } from '@/lib/api';
 import { useModel, useDatasetProfile } from '@/lib/hooks';
+import { useToast } from '@/components/Toast';
 
 export default function ModelDetailPage() {
+  const { toast } = useToast();
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
@@ -26,7 +28,7 @@ export default function ModelDetailPage() {
       mutate();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Deploy failed';
-      alert(message);
+      toast('error', message);
     }
   };
 
@@ -37,7 +39,7 @@ export default function ModelDetailPage() {
       await models.rollback(model.id);
       mutate();
     } catch (err: any) {
-      alert(err?.response?.data?.detail || 'Rollback failed');
+      toast('error', err?.response?.data?.detail || 'Rollback failed');
     }
   };
 
@@ -48,7 +50,7 @@ export default function ModelDetailPage() {
       await models.stage(model.id, { stage });
       mutate();
     } catch (err: any) {
-      alert(err?.response?.data?.detail || 'Stage update failed');
+      toast('error', err?.response?.data?.detail || 'Stage update failed');
     } finally {
       setStageLoading(false);
     }
@@ -61,7 +63,7 @@ export default function ModelDetailPage() {
       const res = await models.explain(model.id, { data: explainData, top_k: 10 });
       setExplainResult(res.data);
     } catch (err: any) {
-      alert(err?.response?.data?.detail || 'Explanation failed');
+      toast('error', err?.response?.data?.detail || 'Explanation failed');
     } finally {
       setExplainLoading(false);
     }

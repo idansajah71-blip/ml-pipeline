@@ -4,10 +4,12 @@ import { useState } from 'react';
 import { FlaskConical, Plus, Play, Pause, Square } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { useToast } from '@/components/Toast';
 import { abTests } from '@/lib/api';
 import { useABTests, useModels } from '@/lib/hooks';
 
 export default function ABTestsPage() {
+  const { toast } = useToast();
   const { tests, isLoading, mutate } = useABTests();
   const { models: modelsList } = useModels();
   const [showCreate, setShowCreate] = useState(false);
@@ -21,7 +23,7 @@ export default function ABTestsPage() {
       mutate();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Create failed';
-      alert(message);
+      toast('error', message);
     }
   };
 
@@ -31,7 +33,7 @@ export default function ABTestsPage() {
       mutate();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Update failed';
-      alert(message);
+      toast('error', message);
     }
   };
 

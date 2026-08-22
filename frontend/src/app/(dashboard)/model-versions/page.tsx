@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react';
 import { GitBranch, Tag, Upload, ArrowUp } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { useToast } from '@/components/Toast';
 import { modelVersions, models } from '@/lib/api';
 
 export default function ModelVersionsPage() {
+  const { toast } = useToast();
   const [modelList, setModelList] = useState<any[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [versions, setVersions] = useState<any[]>([]);
@@ -40,14 +42,14 @@ export default function ModelVersionsPage() {
       await modelVersions.create({ model_id: selectedModel, changelog: changelog || undefined });
       setChangelog('');
       loadVersions(selectedModel);
-    } catch (err) { alert('Failed to create version'); }
+    } catch (err) { toast('error', 'Gagal membuat versi'); }
   };
 
   const promoteVersion = async (versionId: string) => {
     try {
       await modelVersions.promote(versionId);
       if (selectedModel) loadVersions(selectedModel);
-    } catch (err) { alert('Failed to promote'); }
+    } catch (err) { toast('error', 'Gagal mempromosikan versi'); }
   };
 
   return (

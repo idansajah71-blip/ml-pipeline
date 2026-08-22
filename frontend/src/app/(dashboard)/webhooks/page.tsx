@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react';
 import { Bell, Plus, Trash2, ExternalLink, CheckCircle, XCircle } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { useToast } from '@/components/Toast';
 import { webhooksApi } from '@/lib/api';
 
 export default function WebhooksPage() {
+  const { toast } = useToast();
   const [webhooks, setWebhooks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -47,7 +49,7 @@ export default function WebhooksPage() {
       setShowCreate(false);
       setNewWebhook({ name: '', url: '', events: '', secret: '' });
       loadWebhooks();
-    } catch (err) { alert('Failed to create webhook'); }
+    } catch (err) { toast('error', 'Gagal membuat webhook'); }
   };
 
   const deleteWebhook = async (id: string) => {
@@ -55,7 +57,7 @@ export default function WebhooksPage() {
     try {
       await webhooksApi.delete(id);
       loadWebhooks();
-    } catch (err) { alert('Failed to delete webhook'); }
+    } catch (err) { toast('error', 'Gagal menghapus webhook'); }
   };
 
   return (

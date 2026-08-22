@@ -12,6 +12,7 @@ import { datasets } from '@/lib/api';
 import { useDatasets } from '@/lib/hooks';
 import { useFavorites } from '@/lib/useFavorites';
 import Link from 'next/link';
+import { useToast } from '@/components/Toast';
 
 const DATA_TABS = [
   { label: 'Datasets', href: '/datasets', icon: Database },
@@ -32,6 +33,7 @@ const SAMPLE_DATASETS = [
 ];
 
 export default function DatasetsPage() {
+  const { toast } = useToast();
   const { datasets: datasetsList, isLoading, mutate } = useDatasets();
   const { favoriteIds, isFavorite } = useFavorites('dataset');
   const [uploading, setUploading] = useState(false);
@@ -60,7 +62,7 @@ export default function DatasetsPage() {
       mutate();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Gagal mengunggah file';
-      alert(message);
+      toast('error', message);
     } finally {
       setUploading(false);
     }
@@ -86,7 +88,7 @@ export default function DatasetsPage() {
       await datasets.upload(fd);
       mutate();
     } catch {
-      alert('Gagal memuat dataset contoh');
+      toast('error', 'Gagal memuat dataset contoh');
     }
   };
 

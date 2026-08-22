@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react';
 import { Users, Plus, Trash2, UserPlus, Crown } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { useToast } from '@/components/Toast';
 import { organizations } from '@/lib/api';
 
 export default function OrganizationsPage() {
+  const { toast } = useToast();
   const [orgs, setOrgs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -43,7 +45,7 @@ export default function OrganizationsPage() {
       setShowCreate(false);
       setNewOrg({ name: '', slug: '' });
       loadOrgs();
-    } catch (err) { alert('Failed to create organization'); }
+    } catch (err) { toast('error', 'Gagal membuat organisasi'); }
   };
 
   const addMember = async () => {
@@ -53,7 +55,7 @@ export default function OrganizationsPage() {
       setShowAddMember(false);
       setNewMember({ user_id: '', role: 'member' });
       loadMembers(selectedOrg);
-    } catch (err) { alert('Failed to add member'); }
+    } catch (err) { toast('error', 'Gagal menambahkan anggota'); }
   };
 
   const removeMember = async (userId: string) => {
@@ -61,7 +63,7 @@ export default function OrganizationsPage() {
     try {
       await organizations.removeMember(selectedOrg, userId);
       loadMembers(selectedOrg);
-    } catch (err) { alert('Failed to remove member'); }
+    } catch (err) { toast('error', 'Gagal menghapus anggota'); }
   };
 
   return (

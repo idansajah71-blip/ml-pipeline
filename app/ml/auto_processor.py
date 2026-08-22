@@ -163,6 +163,12 @@ class AutoProcessor:
         X = df.drop(columns=[target_column])
         y = df[target_column]
 
+        datetime_cols = [col for col in X.columns if pd.api.types.is_datetime64_any_dtype(X[col])]
+        if datetime_cols:
+            X = X.drop(columns=datetime_cols)
+            metadata['datetime_columns_dropped'] = datetime_cols
+            warnings_list.append(f"Dropped datetime columns: {datetime_cols}")
+
         constant_cols = [col for col in X.columns if X[col].nunique() <= 1]
         if constant_cols:
             X = X.drop(columns=constant_cols)

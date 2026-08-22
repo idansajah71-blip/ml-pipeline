@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import { Shield, CheckCircle, AlertTriangle, Play } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { useToast } from '@/components/Toast';
 import { mlOps } from '@/lib/api';
 import { useDatasets } from '@/lib/hooks';
 import Link from 'next/link';
 
 export default function DataQualityPage() {
+  const { toast } = useToast();
   const { datasets: datasetsList, isLoading: loadingDatasets } = useDatasets();
   const [selectedDataset, setSelectedDataset] = useState<string>('');
   const [report, setReport] = useState<any>(null);
@@ -20,7 +22,7 @@ export default function DataQualityPage() {
       const res = await mlOps.validateDataset(selectedDataset);
       setReport(res.data);
     } catch (err) {
-      alert('Validation failed');
+      toast('error', 'Validasi gagal');
     } finally {
       setValidating(false);
     }

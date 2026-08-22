@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react';
 import { PieChart, TrendingUp } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { useToast } from '@/components/Toast';
 import { explainDashboard, models } from '@/lib/api';
 
 export default function ExplainDashboardPage() {
+  const { toast } = useToast();
   const [modelList, setModelList] = useState<any[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [globalResult, setGlobalResult] = useState<any>(null);
@@ -25,7 +27,7 @@ export default function ExplainDashboardPage() {
     try {
       const res = await explainDashboard.global(selectedModel);
       setGlobalResult(res.data);
-    } catch (err) { alert('Failed'); }
+    } catch (err) { toast('error', 'Gagal memuat penjelasan'); }
   };
 
   const explainPrediction = async () => {
@@ -34,7 +36,7 @@ export default function ExplainDashboardPage() {
       const data = JSON.parse(predictInput);
       const res = await explainDashboard.prediction(selectedModel, data);
       setPredictionResult(res.data);
-    } catch (err) { alert('Invalid JSON'); }
+    } catch (err) { toast('error', 'JSON tidak valid'); }
   };
 
   return (

@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react';
 import { Trophy, ArrowRight } from 'lucide-react';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import { useToast } from '@/components/Toast';
 import { experimentCompare, experiments } from '@/lib/api';
 
 export default function ExperimentComparePage() {
+  const { toast } = useToast();
   const [experimentList, setExperimentList] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [comparison, setComparison] = useState<any>(null);
@@ -42,7 +44,7 @@ export default function ExperimentComparePage() {
     try {
       const res = await experimentCompare.compare(selectedIds);
       setComparison(res.data);
-    } catch (err) { alert('Failed to compare'); }
+    } catch (err) { toast('error', 'Gagal membandingkan experiment'); }
     setComparing(false);
   };
 
