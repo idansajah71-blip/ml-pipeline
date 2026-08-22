@@ -54,7 +54,7 @@ class ModelOptimizer:
             from skl2onnx import convert_sklearn
             from skl2onnx.common.data_types import FloatTensorType
 
-            n_features = X_sample.shape[1] if hasattr(self, '_n_features') else len(self.feature_names) or 10
+            n_features = self._n_features if hasattr(self, '_n_features') else len(self.feature_names) or 10
             initial_type = [("float_input", FloatTensorType([None, n_features]))]
 
             onnx_model = convert_sklearn(self.model, initial_types=initial_type)
