@@ -65,7 +65,7 @@ class DataProcessor:
         for col in df.columns:
             if col == target_column:
                 continue
-            if df[col].dtype == 'object' or df[col].dtype.name == 'category':
+            if pd.api.types.is_string_dtype(df[col]) or df[col].dtype.name == 'category':
                 n_unique = df[col].nunique()
                 if n_unique <= HIGH_CARDINALITY_THRESHOLD:
                     categorical_cols.append(col)
@@ -137,7 +137,7 @@ class DataProcessor:
 
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, test_size=test_size, random_state=random_state,
-            stratify=y if y.dtype == 'object' or (hasattr(y, 'nunique') and y.nunique() <= 20) else None
+            stratify=y if pd.api.types.is_string_dtype(y) or (hasattr(y, 'nunique') and y.nunique() <= 20) else None
         )
 
         self._fit_imputation(pd.concat([X_train, y_train], axis=1))
@@ -165,7 +165,7 @@ class DataProcessor:
                 metadata['one_hot_encoded_columns'] = available_cat_cols
                 metadata['one_hot_feature_names'] = ohe_feature_names
 
-        if y.dtype == 'object':
+        if pd.api.types.is_string_dtype(y):
             le = LabelEncoder()
             y = le.fit_transform(y)
             self.label_encoders[target_column] = le

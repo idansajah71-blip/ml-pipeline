@@ -74,7 +74,7 @@ class AutoProcessor:
 
     def _detect_problem_type(self, y: pd.Series) -> str:
         """Detect if this is a classification or regression problem."""
-        if y.dtype == 'object' or y.dtype.name == 'category':
+        if pd.api.types.is_string_dtype(y) or y.dtype.name == 'category':
             return 'classification'
 
         n_unique = y.nunique()
@@ -99,7 +99,7 @@ class AutoProcessor:
 
             if df[col].dtype in ['int64', 'float64', 'int32', 'float32']:
                 numeric_cols.append(col)
-            elif df[col].dtype == 'object' or df[col].dtype.name == 'category':
+            elif pd.api.types.is_string_dtype(df[col]) or df[col].dtype.name == 'category':
                 n_unique = df[col].nunique()
                 if n_unique <= HIGH_CARDINALITY_THRESHOLD:
                     categorical_cols.append(col)
@@ -178,7 +178,7 @@ class AutoProcessor:
                 f"{', '.join(high_cardinality_cols[:5])}{'...' if len(high_cardinality_cols) > 5 else ''}"
             )
 
-        if y.dtype == 'object':
+        if pd.api.types.is_string_dtype(y):
             le = LabelEncoder()
             y = le.fit_transform(y)
             self.target_encoder = le

@@ -98,7 +98,7 @@ class DataQualityGate:
         try:
             target = df[target_column]
 
-            if target.dtype == 'object' or target.dtype.name == 'category':
+            if pd.api.types.is_string_dtype(target) or target.dtype.name == 'category':
                 return
 
             numeric_df = df.select_dtypes(include=[np.number])

@@ -216,7 +216,7 @@ class DataValidator:
             if col == target_column:
                 continue
 
-            if df[col].dtype == 'object':
+            if pd.api.types.is_string_dtype(df[col]):
                 n_unique = df[col].nunique()
                 total = len(df[col].dropna())
 
@@ -239,7 +239,7 @@ class DataValidator:
         if len(y) == 0:
             return
 
-        if y.dtype == 'object' or y.dtype.name == 'category' or y.nunique() <= 20:
+        if pd.api.types.is_string_dtype(y) or y.dtype.name == 'category' or y.nunique() <= 20:
             value_counts = y.value_counts()
             min_count = value_counts.min()
             max_count = value_counts.max()

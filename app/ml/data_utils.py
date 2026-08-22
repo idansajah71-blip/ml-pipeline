@@ -120,7 +120,7 @@ def _remove_total_columns(df: pd.DataFrame) -> pd.DataFrame:
             cols_to_drop.append(col)
             continue
 
-        if df[col].dtype == 'object':
+        if pd.api.types.is_string_dtype(df[col]):
             unique_vals = df[col].dropna().unique()
             if len(unique_vals) == 1 and str(unique_vals[0]).strip().lower() in total_keywords:
                 cols_to_drop.append(col)
