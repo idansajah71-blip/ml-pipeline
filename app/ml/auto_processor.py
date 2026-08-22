@@ -40,7 +40,7 @@ class AutoProcessor:
             dtype_str = str(df[col].dtype)
             if dtype_str.startswith('int') or dtype_str.startswith('float'):
                 dtypes[col] = 'numeric'
-            elif dtype_str == 'object':
+            elif pd.api.types.is_string_dtype(df[col]):
                 dtypes[col] = 'categorical'
             else:
                 dtypes[col] = dtype_str

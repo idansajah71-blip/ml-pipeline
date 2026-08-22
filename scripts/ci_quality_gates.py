@@ -51,6 +51,7 @@ def test_leakage():
     df = pd.DataFrame({
         "f1": np.random.randn(n),
         "f2": np.random.randn(n),
+        "city": np.random.choice(["Jakarta", "Bandung", "Surabaya"], n),
         "target": np.random.choice(["A", "B"], n),
     })
 
