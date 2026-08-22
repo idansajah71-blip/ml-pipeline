@@ -92,5 +92,5 @@ async def emit_scrape_progress(job_id: str, event: str, data: dict):
         }
         await client.publish(f"scrape:{job_id}", json.dumps(payload, default=str))
         await client.aclose()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Redis publish failed for scrape %s: %s", job_id, exc)

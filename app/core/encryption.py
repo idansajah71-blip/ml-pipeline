@@ -3,7 +3,6 @@ from typing import Optional
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from cryptography.hazmat.backends import default_backend
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -29,7 +28,6 @@ class EncryptionService:
             length=32,
             salt=b'ml-pipeline-salt',
             iterations=100000,
-            backend=default_backend(),
         )
         key = base64.urlsafe_b64encode(kdf.derive(password.encode()))
         return key

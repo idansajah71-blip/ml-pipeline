@@ -138,7 +138,7 @@ def log_error(error: Exception, context: Optional[str] = None, exc_info: bool = 
         rid = get_request_id()
         if rid:
             extra["request_id"] = rid
-    except Exception:
+    except ImportError:
         pass
 
     if context:
