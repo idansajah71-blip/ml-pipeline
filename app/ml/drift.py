@@ -112,7 +112,7 @@ class DriftDetector:
         curr_df = curr_df[common_cols]
 
         numeric_cols = ref_df.select_dtypes(include=[np.number]).columns.tolist()
-        categorical_cols = ref_df.select_dtypes(include=['object', 'category']).columns.tolist()
+        categorical_cols = ref_df.select_dtypes(include=['object', 'category', 'str']).columns.tolist()
 
         psi_results = {}
         ks_results = {}
@@ -324,7 +324,7 @@ class DriftDetector:
         """
         ref_df = self._load(reference_content, filename)
         numeric_cols = ref_df.select_dtypes(include=[np.number]).columns.tolist()
-        categorical_cols = ref_df.select_dtypes(include=['object', 'category']).columns.tolist()
+        categorical_cols = ref_df.select_dtypes(include=['object', 'category', 'str']).columns.tolist()
 
         bin_edges = {}
         numeric_stats = {}

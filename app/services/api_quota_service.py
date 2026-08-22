@@ -129,8 +129,9 @@ class APIQuotaService:
                 )
             )
             training_month = result.scalar() or 0
-        except Exception:
-            pass
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning("Quota training count failed: %s", exc)
 
         return {
             "tier": quota.tier,

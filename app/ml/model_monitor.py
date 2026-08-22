@@ -169,7 +169,7 @@ class ModelMonitor:
                 cm.categorical_features = custom_mapping['categorical_features']
         else:
             cm.numerical_features = list(data.select_dtypes(include='number').columns)
-            cm.categorical_features = list(data.select_dtypes(include=['object', 'category']).columns)
+            cm.categorical_features = list(data.select_dtypes(include=['object', 'category', 'str']).columns)
 
         return cm
 

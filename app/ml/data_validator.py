@@ -186,7 +186,7 @@ class DataValidator:
         for col in df.columns:
             if col == target_column:
                 continue
-            if df[col].dtype == 'object' or df[col].dtype.name == 'category':
+            if pd.api.types.is_string_dtype(df[col]) or df[col].dtype.name == 'category':
                 n_unique = df[col].nunique()
                 if n_unique > self.HIGH_CARDINALITY_THRESHOLD:
                     high_card_cols.append((col, n_unique))
@@ -264,7 +264,7 @@ class DataValidator:
     ):
         """Provide general data quality suggestions."""
         numeric_cols = df.select_dtypes(include=[np.number]).columns
-        categorical_cols = df.select_dtypes(include=['object', 'category']).columns
+        categorical_cols = df.select_dtypes(include=['object', 'category', 'str']).columns
 
         if len(numeric_cols) > 0:
             for col in numeric_cols:

@@ -96,7 +96,7 @@ class DataProcessor:
             if df[col].isna().any():
                 self._numeric_fill_values[col] = df[col].median()
 
-        categorical_cols = df.select_dtypes(include=['object', 'category']).columns
+        categorical_cols = df.select_dtypes(include=['object', 'category', 'str']).columns
         for col in categorical_cols:
             if df[col].isna().any():
                 mode_val = df[col].mode()

@@ -77,6 +77,39 @@ async def init_db():
         await conn.execute(text(
             "ALTER TABLE models ADD COLUMN IF NOT EXISTS cv_scores JSONB DEFAULT '[]'::jsonb"
         ))
+        await conn.execute(text(
+            "ALTER TABLE models ADD COLUMN IF NOT EXISTS artifact_hash VARCHAR(64)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE models ADD COLUMN IF NOT EXISTS dataset_hash VARCHAR(64)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE models ADD COLUMN IF NOT EXISTS feature_schema_version VARCHAR(20)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE models ADD COLUMN IF NOT EXISTS preprocessing_version VARCHAR(20)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE models ADD COLUMN IF NOT EXISTS git_commit_sha VARCHAR(20)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE models ADD COLUMN IF NOT EXISTS python_version VARCHAR(20)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE models ADD COLUMN IF NOT EXISTS sklearn_version VARCHAR(20)"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE models ADD COLUMN IF NOT EXISTS training_config JSONB DEFAULT '{}'::jsonb"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE models ADD COLUMN IF NOT EXISTS random_seed INTEGER DEFAULT 42"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE models ADD COLUMN IF NOT EXISTS evaluation_report JSONB DEFAULT '{}'::jsonb"
+        ))
+        await conn.execute(text(
+            "ALTER TABLE models ADD COLUMN IF NOT EXISTS deployment_history JSONB DEFAULT '[]'::jsonb"
+        ))
         # Stage 2+3: model_shares table with rich metadata
         await conn.execute(text("""
             CREATE TABLE IF NOT EXISTS model_shares (

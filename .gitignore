@@ -47,8 +47,7 @@ htmlcov/
 logs/
 
 # ML Artifacts
-ml_artifacts/datasets/
-ml_artifacts/model_*/
+ml_artifacts/
 *.joblib
 *.pkl
 *.h5

@@ -159,8 +159,9 @@ def batch_predict_task(
                 job.status = BatchJobStatus.FAILED
                 job.error_message = str(e)
                 session.commit()
-        except Exception:
-            pass
+        except Exception as inner_exc:
+            import logging
+            logging.getLogger(__name__).warning("Failed to mark batch job as failed: %s", inner_exc)
 
         publish_progress(job_id, {"step": "failed", "progress": 0, "status": "failed", "error": str(e)})
         return {

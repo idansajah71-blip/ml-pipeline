@@ -273,6 +273,8 @@ Fitur pencarian data dari BPS, World Bank, dan data.go.id membutuhkan setup tamb
 
 # Default Accounts
 
+> **Warning**: Akun di bawah ini hanya untuk keperluan demo/development. Ganti password sebelum deployment produksi.
+
 | Email | Password | Role |
 |---------|----------|------|
 | admin@mlpipeline.com | admin123 | Admin |

@@ -138,7 +138,7 @@ def _clean_currency_columns(df: pd.DataFrame) -> pd.DataFrame:
     currency_pattern = re.compile(r'^[\s]*[Rp\$€£¥]?\s*[\d.,]+(?:\s*(?:ribu|juta|miliar|rb|jt|k|m|b))?\s*$', re.IGNORECASE)
 
     for col in df.columns:
-        if df[col].dtype != 'object':
+        if not pd.api.types.is_string_dtype(df[col]):
             continue
 
         sample = df[col].dropna().head(20)
@@ -183,7 +183,7 @@ def _parse_currency_value(val):
 def _clean_numeric_strings(df: pd.DataFrame) -> pd.DataFrame:
     """Convert string columns that contain mostly numeric values."""
     for col in df.columns:
-        if df[col].dtype != 'object':
+        if not pd.api.types.is_string_dtype(df[col]):
             continue
 
         sample = df[col].dropna().head(30)

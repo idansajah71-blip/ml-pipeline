@@ -114,8 +114,9 @@ async def _log_audit(
             {"id": str(uuid.uuid4()), "uid": user_id, "action": action, "detail": detail}
         )
         await db.flush()
-    except Exception:
-        pass
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("Audit log insert failed: %s", exc)
 
 
 @router.get("/sources", response_model=List[DataSourceResponse])
@@ -182,8 +183,8 @@ async def search_external_data(
             {"id": str(uuid.uuid4()), "user_id": user_id, "query": q}
         )
         await db.flush()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Search log insert failed: %s", exc)
 
     return [
         SearchResultResponse(
@@ -302,8 +303,8 @@ async def import_external_data(
                  "AND user_id = :uid ORDER BY created_at DESC LIMIT 1"),
             {"result_id": req.result_id, "q": f"%{req.title[:50]}%", "uid": user_id}
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.warning("Import log update failed: %s", exc)
 
     await db.commit()
     logger.info(f"User {user_id} imported {len(df)} rows from {req.source_slug}")
