@@ -128,6 +128,14 @@ export const datasets = {
   upload: (formData: FormData) =>
     api.post<Dataset>('/datasets', formData),
 
+  uploadWithProgress: (formData: FormData, onProgress: (pct: number) => void) =>
+    api.post<Dataset>('/datasets', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (e) => {
+        if (e.total) onProgress(Math.round((e.loaded * 100) / e.total));
+      },
+    }),
+
   update: (id: string, data: Partial<Pick<Dataset, 'name' | 'description' | 'target_column' | 'tags'>>) =>
     api.put<Dataset>(`/datasets/${id}`, data),
 

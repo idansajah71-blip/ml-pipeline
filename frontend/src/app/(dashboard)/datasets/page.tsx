@@ -37,6 +37,7 @@ export default function DatasetsPage() {
   const { datasets: datasetsList, isLoading, mutate } = useDatasets();
   const { favoriteIds, isFavorite } = useFavorites('dataset');
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({ name: '', description: '', target_column: '' });
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
@@ -50,21 +51,24 @@ export default function DatasetsPage() {
   const handleUpload = async () => {
     if (!selectedFile || !formData.name) return;
     setUploading(true);
+    setUploadProgress(0);
     try {
       const fd = new FormData();
       fd.append('file', selectedFile);
       fd.append('name', formData.name);
       fd.append('description', formData.description);
       fd.append('target_column', formData.target_column);
-      await datasets.upload(fd);
+      await datasets.uploadWithProgress(fd, setUploadProgress);
       setSelectedFile(null);
       setFormData({ name: '', description: '', target_column: '' });
       mutate();
+      toast('success', 'Dataset berhasil diunggah');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Gagal mengunggah file';
       toast('error', message);
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -146,13 +150,21 @@ export default function DatasetsPage() {
             className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-4 py-2.5 text-sm text-gray-900 dark:text-white placeholder-gray-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
           />
           <DragDropUpload onFileSelect={setSelectedFile} disabled={uploading} />
+          {uploading && uploadProgress > 0 && (
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+              <div
+                className="bg-primary-500 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+          )}
           <button
             onClick={handleUpload}
             disabled={uploading || !selectedFile || !formData.name}
             className="flex items-center justify-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
           >
             <Upload className="h-4 w-4" />
-            {uploading ? 'Mengunggah...' : 'Unggah'}
+            {uploading ? `Mengunggah... ${uploadProgress}%` : 'Unggah'}
           </button>
         </div>
       </div>
@@ -221,6 +233,9 @@ export default function DatasetsPage() {
               ))}
             </tbody>
           </table>
+          <div className="border-t border-gray-100 dark:border-gray-700 px-6 py-3 text-xs text-gray-500 dark:text-gray-400">
+            Menampilkan {sortedDatasets.length} dataset
+          </div>
         </div>
       )}
 
