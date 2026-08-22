@@ -1,6 +1,5 @@
 import hashlib
 import secrets
-from typing import Optional
 
 from app.core.config import get_settings
 

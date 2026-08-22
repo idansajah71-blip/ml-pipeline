@@ -7,7 +7,7 @@ authentication; it's service-level authorization that prevents
 IDOR (Insecure Direct Object Reference) vulnerabilities.
 """
 
-from typing import Optional, Any
+from typing import Any
 from uuid import UUID
 import logging
 

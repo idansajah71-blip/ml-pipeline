@@ -5,7 +5,7 @@ from sqlalchemy import select
 from fastapi import HTTPException, status
 
 from app.models.user import User, UserRole
-from app.schemas.user import UserCreate, UserUpdate, UserResponse
+from app.schemas.user import UserCreate, UserUpdate
 from app.core.security import get_password_hash, verify_password, generate_api_key
 from app.utils import api_keys
 

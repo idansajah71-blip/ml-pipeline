@@ -3,7 +3,6 @@
 Docs: https://data.go.id
 No API key required for public datasets.
 """
-import os
 from typing import List
 import httpx
 import pandas as pd

@@ -9,7 +9,7 @@ from datetime import datetime
 from app.core.database import get_db
 from app.core.security import get_current_active_user
 from app.models.user import User
-from app.models.feature_store import FeatureGroup, Feature, FeatureSnapshot
+from app.models.feature_store import FeatureGroup, Feature
 from app.services.feature_store_service import FeatureStoreService
 from app.services.audit_service import AuditService
 

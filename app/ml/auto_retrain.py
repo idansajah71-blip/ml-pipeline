@@ -18,11 +18,9 @@ Candidate model is ONLY created when:
 - Candidate MUST pass quality gate before promotion
 """
 
-from celery import chain, group
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
 import logging
-import numpy as np
 
 logger = logging.getLogger(__name__)
 
@@ -111,7 +109,7 @@ def auto_retrain_candidate(
     Create a candidate retrain job. Does NOT auto-promote.
     The candidate model must pass evaluation + quality gates + canary test.
     """
-    from app.models.model import MLModel, ModelStatus
+    from app.models.model import MLModel
     from app.models.experiment import Experiment, ExperimentStatus
 
     session = get_sync_session()

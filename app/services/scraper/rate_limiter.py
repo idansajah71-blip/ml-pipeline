@@ -1,14 +1,11 @@
 """Rate Limiter & Politeness — Per-domain delay, robots.txt respect, crawl delays."""
-import re
 import time
 import asyncio
 import random
 import logging
-from typing import Optional, Dict, Any, Set
+from typing import Optional, Dict
 from dataclasses import dataclass, field
-from datetime import datetime
 from urllib.parse import urlparse
-from collections import defaultdict
 
 import httpx
 

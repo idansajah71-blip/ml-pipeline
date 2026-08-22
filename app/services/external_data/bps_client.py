@@ -3,8 +3,7 @@
 Docs: https://webapi.bps.go.id/documentation
 Requires: BPS_API_KEY environment variable (free registration)
 """
-import hashlib
-from typing import List, Optional
+from typing import List
 import httpx
 import pandas as pd
 

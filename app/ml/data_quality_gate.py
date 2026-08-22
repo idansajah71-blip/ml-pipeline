@@ -12,7 +12,7 @@ Checks performed:
 
 import numpy as np
 import pandas as pd
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List
 import logging
 
 logger = logging.getLogger(__name__)

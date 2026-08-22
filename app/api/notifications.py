@@ -9,8 +9,7 @@ import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user, require_data_scientist
-from app.core.redis import cache_get, cache_set
-from app.core.error_utils import sanitize_error_message, log_error
+from app.core.error_utils import log_error
 from app.models.user import User
 from app.models.model import MLModel
 from app.models.prediction import Prediction
@@ -182,7 +181,7 @@ async def check_concept_drift(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
-    from sqlalchemy import select, func
+    from sqlalchemy import select
     from sqlalchemy import desc
 
     model_result = await db.execute(

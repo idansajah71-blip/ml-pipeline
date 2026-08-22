@@ -1,7 +1,6 @@
 import os
 import traceback
 from datetime import datetime, timezone, timedelta
-from celery import current_task
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
 import logging

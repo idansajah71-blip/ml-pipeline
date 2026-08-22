@@ -2,10 +2,8 @@
 from any webpage using heuristics, patterns, and content analysis."""
 import re
 import json
-import hashlib
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional
 from dataclasses import dataclass, field
-from collections import Counter
 
 from bs4 import BeautifulSoup, Tag
 

@@ -1,7 +1,6 @@
 import hashlib
 import hmac
 import secrets
-from typing import Optional
 
 
 def generate_session_id() -> str:

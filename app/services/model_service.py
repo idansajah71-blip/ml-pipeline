@@ -1,12 +1,11 @@
 import os
 import uuid
-import json
 import asyncio
 from typing import Optional, List
 from uuid import UUID
 from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select
 from fastapi import HTTPException
 import logging
 

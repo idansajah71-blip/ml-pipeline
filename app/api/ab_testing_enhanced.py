@@ -1,17 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import Optional
 from uuid import UUID
 from datetime import datetime, timezone
-import random
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
 from app.models.user import User
-from app.models.model import MLModel
-from app.models.ab_test import ABTest, ABTestStatus
-from app.services.audit_service import AuditService
+from app.models.ab_test import ABTest
 from app.schemas.ml_ops import StatisticalResult, ABTestMetricsResponse
 
 router = APIRouter(prefix="/ab-tests", tags=["A/B Testing"])

@@ -2,9 +2,9 @@
 import asyncio
 import logging
 import uuid
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict
 from datetime import datetime, timezone, timedelta
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.scrape_config import ScrapeSchedule as ScrapeScheduleModel

@@ -1,5 +1,4 @@
-from typing import Dict, Any, Optional, Tuple, List
-import numpy as np
+from typing import Dict, Any, Optional, Tuple
 import logging
 from datetime import datetime, timezone
 

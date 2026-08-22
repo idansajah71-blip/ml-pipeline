@@ -1,8 +1,6 @@
 """Pattern Detector — Detect hidden patterns, anomalies, and structural insights in data."""
 import re
-import hashlib
 from collections import Counter
-from typing import Optional
 from dataclasses import dataclass, field
 
 import numpy as np

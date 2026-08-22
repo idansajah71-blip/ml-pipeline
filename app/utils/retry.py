@@ -1,6 +1,6 @@
 import time
 import functools
-from typing import Type, Tuple, Optional
+from typing import Type, Tuple
 
 
 def retry(

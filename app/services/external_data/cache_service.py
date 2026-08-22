@@ -7,7 +7,6 @@ import hashlib
 import os
 from datetime import datetime, timezone, timedelta
 from typing import Optional, List
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 import pandas as pd
 

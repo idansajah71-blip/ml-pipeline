@@ -1,6 +1,5 @@
 """Scrape Configuration Models — Persistent storage for templates, schedules, webhooks, proxies."""
 import uuid
-from datetime import datetime, timezone
 from sqlalchemy import Column, String, Text, Boolean, Integer, Float, DateTime, JSON, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base

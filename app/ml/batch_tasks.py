@@ -1,10 +1,8 @@
 import os
-import json
 import traceback
 import pandas as pd
 import numpy as np
 from datetime import datetime, timezone
-from celery import current_task
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
 from app.ml.data_utils import load_dataframe_from_path
@@ -23,7 +21,6 @@ def batch_predict_task(
     owner_id: str,
 ):
     from app.models.batch_job import BatchJob, BatchJobStatus
-    from app.ml.pipeline import MLPipeline
     from app.core.safe_joblib import safe_load
 
     session = get_sync_session()

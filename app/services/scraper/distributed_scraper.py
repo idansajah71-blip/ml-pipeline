@@ -1,10 +1,9 @@
 """Distributed Scraper — Celery-based multi-worker parallel scraping with coordination."""
 import asyncio
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict
 from dataclasses import dataclass, field
 from datetime import datetime
-from concurrent.futures import ThreadPoolExecutor
 import hashlib
 
 logger = logging.getLogger(__name__)

@@ -3,7 +3,7 @@
 Clients register themselves here. The API layer queries this registry
 to fan out searches to all active sources in parallel.
 """
-from typing import Dict, List, Type
+from typing import Dict, List
 from app.services.external_data.base_client import BaseExternalDataClient
 
 

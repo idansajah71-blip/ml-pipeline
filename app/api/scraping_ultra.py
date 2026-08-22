@@ -2,7 +2,6 @@
 distributed, validation, AutoML, anomaly, forecast, cluster, dim reduce,
 feature engineering, enrichment, target scrapers."""
 import logging
-import json
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession

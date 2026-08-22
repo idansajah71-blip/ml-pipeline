@@ -1,7 +1,7 @@
 import time
-from typing import Dict, Optional, Callable
+from typing import Dict, Optional
 from contextvars import ContextVar
-from fastapi import Request, Response, HTTPException, status
+from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 import re

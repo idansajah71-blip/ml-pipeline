@@ -1,6 +1,5 @@
 """Service layer for scraping operations — eliminates DB insert duplication."""
 import logging
-from datetime import datetime, timezone
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Any, Dict, List, Optional

@@ -3,10 +3,9 @@ import json
 import hashlib
 import threading
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 from uuid import UUID
 
-from app.core.safe_joblib import safe_load
 
 
 class ModelServingService:

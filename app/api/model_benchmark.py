@@ -6,7 +6,6 @@ import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
-from app.core.safe_joblib import safe_load
 from app.core.error_utils import sanitize_error_message, log_error
 from app.models.user import User
 from app.models.model import MLModel
@@ -30,8 +29,6 @@ async def benchmark_model(
 
     try:
         from app.ml.trainer import ModelTrainer
-        import pandas as pd
-        import numpy as np
 
         trainer = ModelTrainer()
         trainer.load_model(model.file_path)

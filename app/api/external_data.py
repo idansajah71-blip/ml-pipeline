@@ -251,7 +251,6 @@ async def import_external_data(
         )
 
     from app.services.external_data.source_registry import get_source
-    import pandas as pd
     import os
     import hashlib
 

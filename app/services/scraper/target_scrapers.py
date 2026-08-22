@@ -1,8 +1,6 @@
 """Target Scrapers — Specialized scrapers for E-commerce, News, Financial, Academic, Job, Real Estate."""
-import re
-import json
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 

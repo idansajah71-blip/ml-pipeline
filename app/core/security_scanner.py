@@ -1,8 +1,6 @@
 import re
-from typing import List, Dict, Tuple
+from typing import List, Dict
 from datetime import datetime, timezone
-import hashlib
-import json
 
 from app.core.logging import get_logger
 

@@ -11,9 +11,8 @@ Checks performed:
 7. Schema version compatibility
 """
 
-import numpy as np
 import pandas as pd
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List
 import logging
 
 logger = logging.getLogger(__name__)

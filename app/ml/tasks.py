@@ -1,9 +1,7 @@
 import os
-import json
 import logging
 import traceback
 from datetime import datetime, timezone, timedelta
-from celery import current_task
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
 from app.ml.task_utils import publish_progress, get_sync_session
@@ -254,7 +252,6 @@ def automl_task(
 def check_model_performance():
     from app.models.model import MLModel, ModelStatus
     from app.models.prediction import Prediction
-    from sqlalchemy import func
 
     session = get_sync_session()
     try:

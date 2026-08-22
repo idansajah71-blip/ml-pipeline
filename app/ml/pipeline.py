@@ -1,9 +1,8 @@
 import time
 import uuid
 import logging
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from datetime import datetime, timezone
-import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 

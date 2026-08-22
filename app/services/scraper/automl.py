@@ -1,6 +1,5 @@
 """AutoML Recommender — Auto-select best model, hyperparameters, and pipeline."""
 import logging
-from typing import Optional, Dict, Any, List, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 import time
@@ -10,7 +9,7 @@ import pandas as pd
 from sklearn.model_selection import cross_val_score, TimeSeriesSplit
 from sklearn.metrics import (
     accuracy_score, f1_score, mean_squared_error, mean_absolute_error,
-    r2_score, silhouette_score,
+    r2_score,
 )
 from sklearn.ensemble import (
     RandomForestClassifier, RandomForestRegressor,

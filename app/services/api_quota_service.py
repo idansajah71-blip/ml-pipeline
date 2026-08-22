@@ -1,6 +1,5 @@
 from datetime import datetime, timezone, timedelta
-from typing import Optional
-from sqlalchemy import select, func
+from sqlalchemy import select
 
 
 class APIQuotaService:

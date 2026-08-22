@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, desc, and_
-from typing import Dict, Any, Optional, List
+from sqlalchemy import select, func, desc
+from typing import Dict, Optional, List
 from uuid import UUID
 from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel

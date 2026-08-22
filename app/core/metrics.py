@@ -1,5 +1,4 @@
-from prometheus_client import Counter, Histogram, Gauge, Summary
-from typing import Optional
+from prometheus_client import Counter, Histogram, Gauge
 
 # Request metrics
 REQUEST_COUNT = Counter(

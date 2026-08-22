@@ -1,6 +1,5 @@
-from typing import Optional, List
+from typing import List
 from uuid import UUID
-import json
 
 
 class FeatureStoreService:

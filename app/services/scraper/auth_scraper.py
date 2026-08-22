@@ -1,12 +1,11 @@
 """Auth Scraper — Login/session management, cookie persistence, OAuth support."""
-import re
 import json
 import asyncio
 import logging
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass, field
 from datetime import datetime
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urlparse
 
 import httpx
 
@@ -366,4 +365,3 @@ class AuthScraper:
 
 class AuthenticatedScraper(AuthScraper):
     """Extended scraper with auth helpers used by the API."""
-    pass

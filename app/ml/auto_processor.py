@@ -4,7 +4,6 @@ from typing import Tuple, Dict, Any, List, Optional
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder, OneHotEncoder
 from sklearn.impute import SimpleImputer
-import io
 import logging
 
 from app.ml.data_utils import load_dataframe

@@ -1,14 +1,13 @@
 import os
 import shutil
 from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, List
+from typing import Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 import logging
 
 from app.models.dataset import Dataset
 from app.models.model import MLModel, ModelStatus
-from app.models.experiment import Experiment
 from app.core.config import get_settings
 
 settings = get_settings()

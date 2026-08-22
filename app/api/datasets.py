@@ -6,11 +6,11 @@ import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
-from app.core.error_utils import sanitize_error_message, log_error
+from app.core.error_utils import log_error
 from app.models.user import User
 from app.schemas.dataset import DatasetResponse, DatasetCreate, DatasetUpdate, DatasetPreview, DatasetProfileResponse
 from app.services.dataset_service import DatasetService
-from app.ml.data_utils import validate_magic_bytes, SUPPORTED_FORMATS
+from app.ml.data_utils import validate_magic_bytes
 
 router = APIRouter(prefix="/datasets", tags=["Datasets"])
 logger = logging.getLogger(__name__)
@@ -200,8 +200,6 @@ async def import_google_sheet(
 ):
     """Import a dataset from a public Google Sheets URL."""
     from app.ml.data_utils import load_google_sheet
-    import pandas as pd
-    import io
 
     try:
         df = load_google_sheet(url)

@@ -3,14 +3,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
 from pydantic import BaseModel
-from typing import Optional, List, Dict, Any
 import pandas as pd
 import numpy as np
 import logging
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
-from app.core.error_utils import sanitize_error_message, log_error
+from app.core.error_utils import log_error
 from app.core.safe_joblib import safe_load
 from app.models.user import User
 from app.models.model import MLModel

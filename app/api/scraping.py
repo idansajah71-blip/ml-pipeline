@@ -3,17 +3,15 @@ import os
 import json
 import uuid as uuid_lib
 from datetime import datetime, timezone
-from typing import Optional, List, Any
+from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import pandas as pd
 
 from app.core.database import get_db
 from app.core.security import get_current_user
-from app.core.error_utils import sanitize_error_message, log_error
 from app.services.scraper.html_scraper import HtmlScraper
 from app.services.scraper.multi_scraper import MultiScraper
 from app.services.scraper.export_service import ExportService
@@ -28,7 +26,6 @@ from app.schemas.scraping import (
     ScrapeAndProcessRequest,
     BatchScrapeRequest,
     RecursiveScrapeRequest,
-    SitemapScrapeRequest,
     DiscoverScrapeRequest,
     ScrapeJobResponse,
     ScrapePreviewResponse,

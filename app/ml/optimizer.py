@@ -1,7 +1,5 @@
 import os
 import numpy as np
-import pandas as pd
-from typing import Optional
 from datetime import datetime, timezone
 
 
@@ -13,7 +11,6 @@ class ModelOptimizer:
 
     def benchmark(self, X_test, y_test=None, n_samples: int = 100):
         import time
-        import pickle
 
         if hasattr(X_test, 'values'):
             X_test = X_test.values
@@ -54,7 +51,6 @@ class ModelOptimizer:
 
     def quantize(self, method: str = "power_of_two"):
         try:
-            import onnxruntime as ort
             from skl2onnx import convert_sklearn
             from skl2onnx.common.data_types import FloatTensorType
 

@@ -3,7 +3,6 @@ import numpy as np
 from typing import Tuple, Dict, Any, List
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder, OneHotEncoder
-import io
 import warnings
 
 from app.ml.data_utils import load_dataframe

@@ -1,12 +1,10 @@
 """Data Validation Pipeline — Schema/range/format/consistency checks."""
 import re
-import logging
-from typing import Optional, Dict, Any, List, Callable
+from typing import Dict, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 
 import pandas as pd
-import numpy as np
 
 
 @dataclass

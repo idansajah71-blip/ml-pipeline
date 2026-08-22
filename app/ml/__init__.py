@@ -40,7 +40,6 @@ def _make_stub(name: str):
     """Return a dummy callable that raises a friendly error if Celery-less env."""
 
     def _stub(*args, **kwargs):
-        from app.core.config import get_settings
         from app.core.celery_app import celery_app
         if hasattr(celery_app, "_StubCelery__noinstantiate"):
             raise RuntimeError(

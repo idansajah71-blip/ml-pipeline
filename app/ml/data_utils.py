@@ -3,7 +3,6 @@ import io
 import logging
 import re
 from typing import List, Optional
-from urllib.parse import urlparse
 
 import pandas as pd
 

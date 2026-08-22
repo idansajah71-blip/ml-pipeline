@@ -4,7 +4,6 @@ from typing import Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import Column, String, DateTime, JSON, Text
 from sqlalchemy.dialects.postgresql import UUID
-import json
 
 from app.core.database import Base
 from app.core.logging import get_logger

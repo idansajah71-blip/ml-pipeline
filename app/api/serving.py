@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID

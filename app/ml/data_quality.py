@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from typing import Optional
-from io import BytesIO
 
 
 class DataQualityChecker:

@@ -11,8 +11,7 @@ Implements:
 
 import numpy as np
 import logging
-from typing import Dict, Any, Optional, Tuple
-from sklearn.model_selection import train_test_split
+from typing import Dict, Any, Optional
 from sklearn.metrics import brier_score_loss, log_loss
 
 logger = logging.getLogger(__name__)

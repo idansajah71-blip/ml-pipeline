@@ -12,15 +12,14 @@ from app.core.redis import cache_get, cache_set, cache_delete
 from app.core.error_utils import sanitize_error_message, log_error
 from app.models.user import User
 from app.models.prediction import Prediction
-from app.models.experiment import Experiment
 from app.models.model import MLModel, ModelStatus
 from app.schemas.model import (
     ModelCreate, ModelResponse, ModelUpdate, ModelListResponse,
-    TrainRequest, TrainResponse, PredictRequest, PredictResponse,
-    BatchPredictRequest, BatchPredictResponse,
-    PredictionFeedbackRequest, PredictionFeedbackResponse,
-    ModelStageUpdate, ModelCardUpdate, AutoMLRequest, AutoMLResponse,
-    ExplainRequest, ExplainResponse, TaskStatusResponse,
+    TrainRequest, TrainResponse, PredictRequest, BatchPredictRequest,
+    BatchPredictResponse, PredictionFeedbackRequest,
+    PredictionFeedbackResponse, ModelStageUpdate,
+    ModelCardUpdate, AutoMLRequest, AutoMLResponse, ExplainRequest,
+    ExplainResponse, TaskStatusResponse,
 )
 from app.services.model_service import ModelService
 from app.ml.pipeline import MLPipeline
@@ -590,7 +589,6 @@ async def explain_prediction(
         import numpy as np
         import shap
         import os
-        import joblib
 
         pipeline = MLPipeline()
         pipeline.load_artifacts(os.path.dirname(model.file_path))

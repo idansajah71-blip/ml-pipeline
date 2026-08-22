@@ -1,11 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timezone, timedelta
 
-from app.core.database import get_db
 from app.core.security import get_current_active_user
 from app.models.user import User
 

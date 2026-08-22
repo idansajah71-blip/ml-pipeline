@@ -3,10 +3,10 @@ import re
 import hashlib
 import asyncio
 import json
-from typing import Optional, List, Dict, Any, Set
+from typing import Optional, Set
 from bs4 import BeautifulSoup, Tag
 from dataclasses import dataclass, field
-from urllib.parse import urljoin, urlparse, parse_qs
+from urllib.parse import urljoin, urlparse
 from datetime import datetime
 import logging
 

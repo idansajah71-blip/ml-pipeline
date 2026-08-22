@@ -1,12 +1,9 @@
 """Scrape Diff — Compare 2 scrape results, detect changes, track differences."""
 import hashlib
-import json
-from typing import Optional, Dict, Any, List, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 
 import pandas as pd
-import numpy as np
 
 
 @dataclass

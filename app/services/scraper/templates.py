@@ -1,9 +1,8 @@
 """Scrape Template — Save and reuse scrape configurations (DB-backed)."""
 import uuid
-import json
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict
 from datetime import datetime, timezone
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 

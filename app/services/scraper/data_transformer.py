@@ -1,7 +1,5 @@
 """Data Transformer — Custom transformation rules on scraped data."""
-import re
 import hashlib
-from typing import Optional, List, Dict, Any, Callable
 from dataclasses import dataclass, field
 
 import pandas as pd

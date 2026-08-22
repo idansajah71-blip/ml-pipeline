@@ -2,13 +2,9 @@
 Supports static HTML, SPA detection, and dynamic content extraction."""
 import re
 import json
-import hashlib
-import asyncio
 import logging
-from typing import Optional, List, Dict, Any
 from dataclasses import dataclass, field
 from datetime import datetime
-from urllib.parse import urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
@@ -294,9 +290,7 @@ class JsRenderedScraper:
         try:
             from selenium import webdriver
             from selenium.webdriver.chrome.options import Options
-            from selenium.webdriver.common.by import By
             from selenium.webdriver.support.ui import WebDriverWait
-            from selenium.webdriver.support import expected_conditions as EC
 
             options = Options()
             options.add_argument("--headless")

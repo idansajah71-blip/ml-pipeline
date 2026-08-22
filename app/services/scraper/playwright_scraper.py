@@ -6,14 +6,14 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Optional, Dict, Any, List, TYPE_CHECKING
+from typing import Optional, Dict, List, TYPE_CHECKING
 from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     try:
-        from playwright.async_api import Browser, BrowserContext, Page
+        from playwright.async_api import Browser, Page
     except ImportError:
         pass
 

@@ -1,16 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select
 from uuid import UUID
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime, timedelta
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
 from app.models.user import User
 from app.models.experiment import Experiment
-from app.models.model import MLModel
 
 router = APIRouter(prefix="/experiment-compare", tags=["Experiment Comparison"])
 

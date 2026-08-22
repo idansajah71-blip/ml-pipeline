@@ -4,7 +4,6 @@ import io
 import json
 import os
 import re
-from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 import pandas as pd
@@ -89,7 +88,6 @@ class ExportService:
     def export_word(self, df: pd.DataFrame, filename: str = None) -> dict:
         """Export DataFrame to a Word (.docx) file with a formatted table."""
         from docx import Document
-        from docx.shared import Inches
 
         if filename is None:
             filename = f"export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"

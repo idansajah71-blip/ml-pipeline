@@ -3,12 +3,10 @@ Seed script: creates demo users, sample datasets, and pre-trained models.
 Run: python -m app.seed
 """
 import uuid
-import json
 from datetime import datetime, timezone
-from decimal import Decimal
 
 import psycopg2
-from psycopg2.extras import Json, execute_values
+from psycopg2.extras import Json
 
 from app.core.config import get_settings
 from app.core.security import get_password_hash

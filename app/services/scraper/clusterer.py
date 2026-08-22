@@ -1,12 +1,11 @@
 """Auto Clustering — Auto-detect optimal clusters and apply multiple clustering methods."""
 import logging
-from typing import Optional, Dict, Any, List
 from dataclasses import dataclass, field
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering, SpectralClustering
+from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import silhouette_score, calinski_harabasz_score, davies_bouldin_score

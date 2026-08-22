@@ -126,7 +126,6 @@ def sign_manifest(manifest: dict) -> str:
     key = _get_signing_key()
     if key is None:
         return ""
-    from cryptography.hazmat.primitives.serialization import Encoding
     payload = _manifest_bytes_for_signing(manifest)
     signature = key.sign(payload)
     import base64

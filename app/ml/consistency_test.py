@@ -10,7 +10,6 @@ them from scratch, and confirms the ServingPipeline matches the
 training pipeline. It does NOT reuse the same Python objects.
 """
 
-import os
 import tempfile
 import numpy as np
 import pandas as pd

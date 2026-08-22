@@ -1,10 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from uuid import UUID
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
-import uuid
 import os
 import json
 import numpy as np
@@ -1271,7 +1270,6 @@ async def quick_feedback(
     Simplified feedback endpoint: user just says 'benar' or 'salah' on a prediction.
     Creates a ModelFeedback record with rating=5 (correct) or rating=1 (incorrect).
     """
-    from app.models.prediction import Prediction
     from uuid import UUID as _UUID
 
     model_uuid = _UUID(data.model_id)

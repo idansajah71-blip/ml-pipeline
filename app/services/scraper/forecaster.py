@@ -1,8 +1,6 @@
 """Time Series Forecaster — Multiple forecasting methods for scraped time data."""
 import logging
-from typing import Optional, Dict, Any, List
 from dataclasses import dataclass, field
-from datetime import datetime
 
 import numpy as np
 import pandas as pd

@@ -1,11 +1,9 @@
 """Cross-Page Deduplicator — Smart deduplication across multiple scraped pages."""
-import hashlib
 import re
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Tuple
 from dataclasses import dataclass, field
 
 import pandas as pd
-import numpy as np
 from difflib import SequenceMatcher
 
 

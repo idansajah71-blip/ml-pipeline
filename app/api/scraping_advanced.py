@@ -1,8 +1,6 @@
 """Advanced Scraping API — Extended endpoints for JS rendering, smart extraction,
 export, templates, scheduling, dedup, and transformation (DB-backed)."""
 import logging
-import json
-from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text

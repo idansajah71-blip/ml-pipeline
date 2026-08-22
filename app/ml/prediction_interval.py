@@ -8,7 +8,7 @@ constructed by adding/subtracting the (1-alpha) quantile of those scores.
 """
 
 import numpy as np
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any
 import logging
 
 logger = logging.getLogger(__name__)

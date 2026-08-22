@@ -2,7 +2,6 @@
 No external API required, works offline with Indonesian + English dictionaries."""
 import re
 from collections import Counter
-from typing import Optional
 from dataclasses import dataclass, field
 
 

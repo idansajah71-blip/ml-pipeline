@@ -3,7 +3,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from uuid import UUID
 from pydantic import BaseModel
-from typing import Optional
 from datetime import datetime
 
 from app.core.database import get_db

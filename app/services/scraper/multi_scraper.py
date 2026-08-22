@@ -1,12 +1,10 @@
 """MultiScraper — Parallel scraping, multi-URL, proxy rotation, retry logic, batch processing."""
 import asyncio
-import hashlib
 import logging
 import random
 import time
-from typing import Optional, List, Dict, Any, Set
+from typing import Optional
 from dataclasses import dataclass, field
-from datetime import datetime
 
 from app.services.scraper.html_scraper import HtmlScraper, ScrapeResult
 from app.services.scraper.shared import USER_AGENTS

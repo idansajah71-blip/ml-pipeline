@@ -1,11 +1,10 @@
 """CAPTCHA Solver — Basic + Advanced CAPTCHA solving with 2Captcha/Anti-Captcha API."""
 import re
 import time
-import hashlib
 import base64
 import asyncio
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional
 from dataclasses import dataclass
 
 import httpx

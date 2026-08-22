@@ -1,8 +1,6 @@
 """Anomaly Detection — Detect outliers in scraped data using multiple methods."""
 import logging
-from typing import Optional, Dict, Any, List
 from dataclasses import dataclass, field
-from datetime import datetime
 
 import numpy as np
 import pandas as pd

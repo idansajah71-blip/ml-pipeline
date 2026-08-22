@@ -1,11 +1,10 @@
 import secrets
 import hashlib
-from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import Optional
 from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 
 from app.models.user import User
 from app.core.logging import get_logger

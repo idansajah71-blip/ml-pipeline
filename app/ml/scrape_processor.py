@@ -1,17 +1,14 @@
 import re
-import hashlib
-from datetime import datetime
 from typing import Optional
 from dataclasses import dataclass, field
 import pandas as pd
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import DBSCAN
-from sklearn.preprocessing import LabelEncoder, StandardScaler
 
-from app.ml.advanced_analyzer import AdvancedDataAnalyzer, AnalysisResult
-from app.ml.sentiment_analyzer import SentimentAnalyzer, SentimentAnalysis
-from app.ml.pattern_detector import PatternDetector, PatternResult
+from app.ml.advanced_analyzer import AdvancedDataAnalyzer
+from app.ml.sentiment_analyzer import SentimentAnalyzer
+from app.ml.pattern_detector import PatternDetector
 
 
 @dataclass

@@ -1,8 +1,6 @@
 """Browser Fingerprint — Rotate canvas/webgl/audio fingerprint for anti-detect scraping."""
 import random
 import hashlib
-import json
-from typing import Dict, Any, Optional
 from dataclasses import dataclass, field
 
 from app.services.scraper.shared import USER_AGENTS

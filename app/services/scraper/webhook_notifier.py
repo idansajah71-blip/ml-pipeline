@@ -2,7 +2,7 @@
 import json
 import logging
 import uuid
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, List
 from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession

@@ -9,7 +9,7 @@ import json
 import uuid
 from datetime import datetime
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Query, Body
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 from pydantic import BaseModel, Field
@@ -19,7 +19,6 @@ from app.core.database import get_db
 from app.core.security import get_current_user
 from app.services.scraper.html_scraper import HtmlScraper
 from app.services.scraper.multi_scraper import MultiScraper
-from app.services.scraper.smart_extractor import SmartDataExtractor
 from app.services.scraper.export_service import ExportService
 from app.services.scraper.shared import get_user_id, make_json_safe
 from app.ml.scrape_processor import ScrapeDataProcessor
@@ -134,7 +133,6 @@ async def batch_scrape(
             extract_lists=req.extract_lists,
         )
 
-    import asyncio
     batch_result = await _scrape()
 
     return {

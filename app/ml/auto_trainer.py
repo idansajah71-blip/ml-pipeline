@@ -1,14 +1,11 @@
-from typing import Dict, Any, Tuple, List, Optional
+from typing import Dict, Any, Tuple
 from sklearn.ensemble import (
     RandomForestClassifier,
     GradientBoostingClassifier,
     RandomForestRegressor,
     GradientBoostingRegressor,
 )
-from sklearn.linear_model import LogisticRegression, Ridge, Lasso
-from sklearn.svm import SVC, SVR
-from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
-from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
+from sklearn.linear_model import LogisticRegression, Ridge
 from sklearn.dummy import DummyClassifier, DummyRegressor
 from sklearn.model_selection import cross_val_score
 from sklearn.metrics import (

@@ -9,15 +9,12 @@ No silent zero-filling: missing values that were not imputed
 during training are rejected.
 """
 
-import os
-import json
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 import numpy as np
 import pandas as pd
 
-from app.core.safe_joblib import safe_load
 
 logger = logging.getLogger(__name__)
 

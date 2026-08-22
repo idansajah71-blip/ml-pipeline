@@ -1,6 +1,5 @@
 """Dimensionality Reduction — PCA, t-SNE, UMAP for scraped high-dimensional data."""
 import logging
-from typing import Optional, Dict, Any, List
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -9,7 +8,6 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA, IncrementalPCA
 from sklearn.manifold import TSNE
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 
 logger = logging.getLogger(__name__)
 
