@@ -4,8 +4,11 @@ Docs: https://webapi.bps.go.id/documentation
 Requires: BPS_API_KEY environment variable (free registration)
 """
 from typing import List
+import logging
 import httpx
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 from app.services.external_data.base_client import BaseExternalDataClient, SearchResultItem
 
@@ -46,8 +49,7 @@ class BPSClient(BaseExternalDataClient):
             if e.response.status_code not in (403, 406, 429):
                 raise
         except Exception:
-            pass
-        # Fallback: curl_cffi
+            logger.debug("httpx failed for %s, falling back to curl_cffi", url)
         from curl_cffi import requests as curl_requests
         resp = curl_requests.get(url, params=params, impersonate="chrome", timeout=30)
         resp.raise_for_status()
@@ -147,8 +149,8 @@ class BPSClient(BaseExternalDataClient):
                                 ))
                                 if len(results) >= limit:
                                     break
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"BPS variable search failed: {e}")
 
         except EnvironmentError:
             # Configuration errors (e.g. missing BPS_API_KEY) must surface so

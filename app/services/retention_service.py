@@ -127,8 +127,8 @@ class DataRetentionService:
                             ) / (1024 * 1024)
                             shutil.rmtree(model_dir)
                             deleted_items["files_freed_mb"] += size_mb
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            logger.warning(f"Failed to delete model directory {model_dir}: {e}")
 
         await self.db.flush()
 

@@ -290,8 +290,8 @@ class ModelTrainer:
                             'fraction_of_positives': fraction_of_positives.tolist(),
                             'mean_predicted_value': mean_predicted_value.tolist(),
                         }
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Calibration metric skipped: {e}")
             except Exception as e:
                 logger.warning(f"Probability-based metrics failed: {e}")
 
@@ -376,8 +376,8 @@ class ModelTrainer:
                 jl.dump(self.model, f.name)
                 model_size_bytes = os.path.getsize(f.name)
                 os.unlink(f.name)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Model size measurement failed (falling back to sys.getsizeof): {e}")
 
         feature_importance = None
         if feature_names:
