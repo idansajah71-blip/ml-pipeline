@@ -61,9 +61,15 @@ class APIQuotaService:
         if quota.current_monthly >= limits["monthly"]:
             return {"allowed": False, "reason": "Monthly limit exceeded", "retry_after": 86400}
 
-        quota.current_rpm += 1
-        quota.current_daily += 1
-        quota.current_monthly += 1
+        rpm = quota.current_rpm + 1
+        daily = quota.current_daily + 1
+        monthly = quota.current_monthly + 1
+        await self.session.execute(
+            select(APIQuota).where(APIQuota.id == quota.id).with_for_update()
+        )
+        quota.current_rpm = rpm
+        quota.current_daily = daily
+        quota.current_monthly = monthly
         await self.session.flush()
 
         return {

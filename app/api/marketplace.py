@@ -12,7 +12,7 @@ from pathlib import Path
 import asyncio
 
 from app.core.database import get_db
-from app.core.security import get_current_active_user
+from app.core.security import get_current_active_user, require_admin
 from app.models.user import User
 from app.models.model import MLModel, ModelShare, ModelFeedback, ModelReport
 from app.models.prediction import Prediction
@@ -677,7 +677,7 @@ async def _predict_user_model(data, share, ml_model, current_user, db):
     if "predictions" in result:
         for pred in result["predictions"]:
             db_prediction = Prediction(
-                input_data=data.data[pred.get("index", 0) if pred.get("index", 0) < len(data.data) else {}],
+                input_data=data.data[pred["index"]] if pred.get("index", 0) < len(data.data) else None,
                 prediction=str(pred.get("prediction", "")),
                 probability=pred.get("probability"),
                 confidence=pred.get("probability"),
@@ -1078,10 +1078,10 @@ async def report_model(
 @router.get("/reports")
 async def list_reports(
     status: Optional[str] = None,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
-    """List all reports (admin only in production, currently available to all for demo)."""
+    """List all reports (admin only)."""
     stmt = select(ModelReport, ModelShare, MLModel).join(
         ModelShare, ModelReport.share_id == ModelShare.id
     ).join(
@@ -1114,7 +1114,7 @@ async def review_report(
     report_id: str,
     action: str,
     admin_note: Optional[str] = None,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """Review a report: resolve (keep model) or dismiss (reject report). Admin action."""
@@ -1231,7 +1231,7 @@ async def get_model_versions(
 async def moderate_model(
     share_id: str,
     action: str,
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     """Approve or reject a pending model."""

@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Integer, Boolean, Enum, Index
+from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Integer, Boolean, Enum, Index, Float
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
@@ -28,8 +28,8 @@ class ABTest(Base):
     model_b_id = Column(UUID(as_uuid=True), ForeignKey("models.id"), nullable=False)
     model_a_requests = Column(Integer, default=0)
     model_b_requests = Column(Integer, default=0)
-    model_a_accuracy = Column(Integer, default=0)
-    model_b_accuracy = Column(Integer, default=0)
+    model_a_accuracy = Column(Float, default=0.0)
+    model_b_accuracy = Column(Float, default=0.0)
     results = Column(JSON, default=dict)
     started_at = Column(DateTime)
     ended_at = Column(DateTime)

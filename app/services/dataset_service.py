@@ -70,8 +70,11 @@ class DatasetService:
         await self.db.refresh(dataset)
         return dataset
 
-    async def get_dataset(self, dataset_id: UUID) -> Optional[Dataset]:
-        result = await self.db.execute(select(Dataset).where(Dataset.id == dataset_id, Dataset.is_archived == False))
+    async def get_dataset(self, dataset_id: UUID, include_archived: bool = False) -> Optional[Dataset]:
+        if include_archived:
+            result = await self.db.execute(select(Dataset).where(Dataset.id == dataset_id))
+        else:
+            result = await self.db.execute(select(Dataset).where(Dataset.id == dataset_id, Dataset.is_archived == False))
         return result.scalar_one_or_none()
 
     async def get_user_datasets(self, owner_id: UUID, skip: int = 0, limit: int = 100) -> List[Dataset]:
@@ -104,7 +107,7 @@ class DatasetService:
         return True
 
     async def restore_dataset(self, dataset_id: UUID, owner_id: UUID) -> bool:
-        dataset = await self.get_dataset(dataset_id)
+        dataset = await self.get_dataset(dataset_id, include_archived=True)
         if not dataset:
             return False
         if dataset.owner_id != owner_id:

@@ -113,7 +113,7 @@ async def _log_audit(
             """),
             {"id": str(uuid.uuid4()), "uid": user_id, "action": action, "detail": detail}
         )
-        await db.commit()
+        await db.flush()
     except Exception:
         pass
 
@@ -181,7 +181,7 @@ async def search_external_data(
                  "VALUES (:id, :user_id, :query, NOW())"),
             {"id": str(uuid.uuid4()), "user_id": user_id, "query": q}
         )
-        await db.commit()
+        await db.flush()
     except Exception:
         pass
 
@@ -302,9 +302,9 @@ async def import_external_data(
                  "AND user_id = :uid ORDER BY created_at DESC LIMIT 1"),
             {"result_id": req.result_id, "q": f"%{req.title[:50]}%", "uid": user_id}
         )
-        await db.commit()
     except Exception:
         pass
 
+    await db.commit()
     logger.info(f"User {user_id} imported {len(df)} rows from {req.source_slug}")
     return ImportResponse(dataset_id=dataset_id, message="Dataset imported successfully")

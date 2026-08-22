@@ -133,7 +133,8 @@ class ModelService:
         if model.owner_id != owner_id:
             raise HTTPException(status_code=403, detail="Not authorized")
 
-        model.status = ModelStatus.TRAINED
+        if model.status == ModelStatus.ARCHIVED:
+            model.status = ModelStatus.TRAINED
         await self.db.flush()
         return True
 
@@ -391,15 +392,17 @@ class ModelService:
         if model.owner_id != owner_id:
             raise HTTPException(status_code=403, detail="Not authorized")
 
+        ALLOWED_UPDATE_FIELDS = {"name", "description", "tags", "target_column"}
         for field, value in update_data.items():
-            if hasattr(model, field) and value is not None:
+            if field in ALLOWED_UPDATE_FIELDS and value is not None:
                 setattr(model, field, value)
 
         await self.db.flush()
         await self.db.refresh(model)
         return model
 
-    async def delete_model(self, model_id: UUID, owner_id: UUID) -> bool:
+    async def hard_delete_model(self, model_id: UUID, owner_id: UUID) -> bool:
+        """Permanently delete model and its files. Use delete_model for soft delete."""
         model = await self.get_model(model_id)
         if not model:
             return False

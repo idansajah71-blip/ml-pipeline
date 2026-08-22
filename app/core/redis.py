@@ -13,7 +13,7 @@ async def get_redis() -> redis.Redis:
     global redis_client
     if redis_client is None:
         try:
-            redis_client = redis.from_url(
+            client = redis.from_url(
                 settings.REDIS_URL,
                 encoding="utf-8",
                 decode_responses=True,
@@ -21,10 +21,15 @@ async def get_redis() -> redis.Redis:
                 socket_timeout=5,
                 retry_on_timeout=True,
             )
-            await redis_client.ping()
+            await client.ping()
+            redis_client = client
             logger.info("Redis connected successfully")
         except Exception as e:
             logger.warning(f"Redis connection failed: {e}. Running without cache.")
+            try:
+                await client.aclose()
+            except Exception:
+                pass
             redis_client = None
     return redis_client
 

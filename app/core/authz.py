@@ -52,7 +52,9 @@ async def verify_resource_owner(
         raise HTTPException(status_code=404, detail=f"{model_class.__name__} not found")
 
     actual_owner = getattr(resource, owner_field, None)
-    if actual_owner is not None and str(actual_owner) != str(owner_id):
+    if actual_owner is None:
+        raise HTTPException(status_code=403, detail="Resource has no owner assigned")
+    if str(actual_owner) != str(owner_id):
         raise HTTPException(status_code=403, detail="Not authorized to access this resource")
 
     return resource

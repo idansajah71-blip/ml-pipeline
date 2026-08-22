@@ -104,26 +104,32 @@ class DataRetentionService:
                 select(MLModel).where(
                     and_(
                         MLModel.created_at < cutoff_date,
-                        MLModel.status.notin_([ModelStatus.DEPLOYED, ModelStatus.PRODUCTION]),
+                        MLModel.status.notin_([ModelStatus.DEPLOYED]),
                     )
                 )
             )
             old_models = result.scalars().all()
 
             for model in old_models:
+                await self.db.delete(model)
+                deleted_items["models"] += 1
+
+            await self.db.flush()
+
+            for model in old_models:
                 if model.file_path and os.path.exists(model.file_path):
                     model_dir = os.path.dirname(model.file_path)
                     if os.path.exists(model_dir):
-                        size_mb = sum(
-                            os.path.getsize(os.path.join(model_dir, f))
-                            for f in os.listdir(model_dir)
-                            if os.path.isfile(os.path.join(model_dir, f))
-                        ) / (1024 * 1024)
-                        shutil.rmtree(model_dir)
-                        deleted_items["files_freed_mb"] += size_mb
-
-                await self.db.delete(model)
-                deleted_items["models"] += 1
+                        try:
+                            size_mb = sum(
+                                os.path.getsize(os.path.join(model_dir, f))
+                                for f in os.listdir(model_dir)
+                                if os.path.isfile(os.path.join(model_dir, f))
+                            ) / (1024 * 1024)
+                            shutil.rmtree(model_dir)
+                            deleted_items["files_freed_mb"] += size_mb
+                        except Exception:
+                            pass
 
         await self.db.flush()
 

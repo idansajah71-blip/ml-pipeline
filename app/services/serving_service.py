@@ -21,7 +21,7 @@ class ModelServingService:
         return f"serving:{endpoint_id}:{input_hash}"
 
     def _hash_input(self, data: dict) -> str:
-        return hashlib.md5(json.dumps(data, sort_keys=True, default=str).encode()).hexdigest()
+        return hashlib.sha256(json.dumps(data, sort_keys=True, default=str).encode()).hexdigest()
 
     def _get_serving_pipeline(self, model_id: str, bundle_dir: str, artifact_hash: str = "") -> Any:
         """Load or return cached ServingPipeline. Cache key includes artifact_hash."""
@@ -36,9 +36,10 @@ class ModelServingService:
         pipeline.load(bundle_dir)
 
         with self._cache_lock:
-            self._pipeline_cache[cache_key] = pipeline
+            if cache_key not in self._pipeline_cache:
+                self._pipeline_cache[cache_key] = pipeline
 
-        return pipeline
+        return self._pipeline_cache[cache_key]
 
     def invalidate_cache(self, model_id: str) -> None:
         """Explicitly invalidate cached pipeline for a model."""

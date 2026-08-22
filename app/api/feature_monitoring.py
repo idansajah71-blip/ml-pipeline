@@ -1,3 +1,4 @@
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -29,7 +30,6 @@ class DriftAlertResponse(BaseModel):
     details: dict
     acknowledged: int
     created_at: str
-    model_config = {"from_attributes": True}
 
 
 class FeatureStatsResponse(BaseModel):
@@ -140,7 +140,8 @@ async def check_feature_drift(
         await db.flush()
 
         if severity in ("critical", "warning"):
-            send_alert_email(
+            await asyncio.to_thread(
+                send_alert_email,
                 subject=f"Drift Alert: {feature_name}",
                 body=(
                     f"Feature: {feature_name}\n"

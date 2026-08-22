@@ -54,7 +54,6 @@ class MetricResponse(BaseModel):
     model_id: Optional[UUID]
     dashboard_config: dict
     created_at: str
-    model_config = {"from_attributes": True}
 
 
 class MetricDataPointCreate(BaseModel):
@@ -175,6 +174,15 @@ async def record_metric_data(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
+    result = await db.execute(
+        select(CustomMetric).where(
+            CustomMetric.id == metric_id,
+            CustomMetric.owner_id == current_user.id,
+        )
+    )
+    metric = result.scalar_one_or_none()
+    if not metric:
+        raise HTTPException(status_code=404, detail="Metric not found")
     point = MetricDataPoint(
         metric_id=metric_id,
         value=data.value,
@@ -192,6 +200,15 @@ async def get_metric_data(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ):
+    result = await db.execute(
+        select(CustomMetric).where(
+            CustomMetric.id == metric_id,
+            CustomMetric.owner_id == current_user.id,
+        )
+    )
+    metric = result.scalar_one_or_none()
+    if not metric:
+        raise HTTPException(status_code=404, detail="Metric not found")
     result = await db.execute(
         select(MetricDataPoint)
         .where(MetricDataPoint.metric_id == metric_id)

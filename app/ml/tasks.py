@@ -1,10 +1,13 @@
 import os
 import json
+import logging
 import traceback
 from datetime import datetime, timezone, timedelta
 from celery import current_task
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
@@ -155,7 +158,7 @@ def automl_task(
 
         total = len(algorithms)
         for i, algo in enumerate(algorithms):
-            progress = int((i / total) * 90) + 5
+            progress = int((i / max(total, 1)) * 90) + 5
             self.update_state(
                 state="STARTED",
                 meta={
@@ -208,9 +211,6 @@ def automl_task(
             "task_id": task_id,
         }
 
-        # Notify on AutoML completion
-        _notify_training_complete(owner_id, model_id, experiment_id, results[0] if results else {}, duration)
-
         try:
             model_obj = session.query(MLModel).filter(MLModel.id == model_id).first()
             experiment = (
@@ -218,15 +218,30 @@ def automl_task(
                 .filter(Experiment.id == experiment_id)
                 .first()
             )
-            if model_obj:
+            if model_obj and results:
+                best = results[0]
                 model_obj.status = ModelStatus.TRAINED
-                model_obj.metrics = result_data.get("best_metrics", {})
+                model_obj.metrics = best.get("metrics", {})
+                model_obj.parameters = best.get("parameters", {})
+                model_obj.algorithm = best.get("algorithm", model_obj.algorithm)
+                best_dir = os.path.join(settings.ML_ARTIFACTS_DIR, f"model_{model_id}_v1")
+                pipeline = MLPipeline()
+                artifacts = pipeline.save_artifacts(best_dir)
+                model_obj.file_path = artifacts.get("bundle_dir", os.path.dirname(artifacts["model_path"]))
+                result_data["artifacts"] = artifacts
             if experiment:
                 experiment.status = ExperimentStatus.COMPLETED
                 experiment.results = result_data
+                experiment.duration_seconds = str(duration)
             session.commit()
         except Exception as db_err:
             session.rollback()
+            logger.error(f"AutoML DB commit failed: {db_err}")
+            result_data["status"] = "failed"
+            result_data["error"] = f"Database commit failed: {db_err}"
+            return result_data
+
+        _notify_training_complete(owner_id, model_id, experiment_id, results[0] if results else {}, duration)
         return result_data
 
     except Exception as e:

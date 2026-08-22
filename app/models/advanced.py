@@ -52,18 +52,3 @@ class ComputeCost(Base):
     gpu_hours = Column(Float, default=0)
     details = Column(JSON, default=dict)
     recorded_at = Column(DateTime, default=utcnow_naive)
-
-
-class ModelShare(Base):
-    __tablename__ = "model_shares"
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    model_id = Column(UUID(as_uuid=True), nullable=False)
-    shared_by = Column(UUID(as_uuid=True), nullable=False)
-    shared_with_org = Column(String(255))
-    permission = Column(String(50), default="read")
-    is_public = Column(Integer, default=0)
-    downloads = Column(Integer, default=0)
-    rating = Column(Float, default=0)
-    tags = Column(JSON, default=list)
-    created_at = Column(DateTime, default=utcnow_naive)

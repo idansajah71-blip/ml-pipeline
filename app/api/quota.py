@@ -38,14 +38,15 @@ async def get_quota(
     return QuotaResponse(**usage)
 
 
-@router.put("/tier")
-async def set_tier(
+@router.put("/{user_id}/tier")
+async def set_user_tier(
+    user_id: UUID,
     data: TierUpdate,
     current_user: User = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ):
     service = APIQuotaService(db)
-    result = await service.set_tier(current_user.id, data.tier)
+    result = await service.set_tier(user_id, data.tier)
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
     return result

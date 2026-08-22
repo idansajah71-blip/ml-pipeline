@@ -51,7 +51,8 @@ class FeatureStoreService:
         snapshot = existing.scalar_one_or_none()
 
         if snapshot:
-            snapshot.features = {**snapshot.features, **features}
+            existing_features = snapshot.features or {}
+            snapshot.features = {**existing_features, **features}
             snapshot.version += 1
         else:
             snapshot = FeatureSnapshot(

@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Text, Enum, Index
+from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Text, Enum, Index, Float
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import enum
@@ -26,7 +26,7 @@ class Experiment(Base):
     parameters = Column(JSON, default=dict)
     results = Column(JSON, default=dict)
     logs = Column(Text)
-    duration_seconds = Column(String(50))
+    duration_seconds = Column(Float)
     dataset_id = Column(UUID(as_uuid=True), ForeignKey("datasets.id"), nullable=False)
     model_id = Column(UUID(as_uuid=True), ForeignKey("models.id"), nullable=False)
     owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)

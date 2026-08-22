@@ -66,8 +66,7 @@ class ScrapingService:
                 quality_score, quality_issues, clusters,
                 ml_processing_applied,
                 advanced_analysis, sentiment_analysis, pattern_analysis,
-                scrape_metadata,
-                {batch_col_clause}
+                scrape_metadata{batch_col_clause},
                 content_hash, scrape_type,
                 created_at, scraped_at, processed_at
             ) VALUES (
@@ -78,8 +77,7 @@ class ScrapingService:
                 :quality_score, :quality_issues, :clusters,
                 :ml_processing_applied,
                 :advanced_analysis, :sentiment_analysis, :pattern_analysis,
-                :scrape_metadata,
-                {batch_val_clause}
+                :scrape_metadata{batch_val_clause},
                 :content_hash, :scrape_type,
                 NOW(), NOW(), NOW()
             ) RETURNING id

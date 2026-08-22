@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Text, Float
+from sqlalchemy import Column, String, DateTime, ForeignKey, JSON, Text, Float, Integer
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -14,10 +14,10 @@ class DataQualityReport(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     dataset_id = Column(UUID(as_uuid=True), ForeignKey("datasets.id"), nullable=False)
     status = Column(String(20), default="passed")
-    total_rows = Column(Float, default=0)
-    total_checks = Column(Float, default=0)
-    passed_checks = Column(Float, default=0)
-    failed_checks = Column(Float, default=0)
+    total_rows = Column(Integer, default=0)
+    total_checks = Column(Integer, default=0)
+    passed_checks = Column(Integer, default=0)
+    failed_checks = Column(Integer, default=0)
     score = Column(Float, default=100.0)
     checks = Column(JSON, default=list)
     summary = Column(JSON, default=dict)
