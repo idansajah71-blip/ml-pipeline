@@ -198,7 +198,9 @@ class ModelMonitor:
                 'n_drifted_columns': len(drift_details),
                 'method': 'evidently',
             }
-        except Exception:
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning("Drift result parsing failed: %s", exc)
             return {'drift_detected': False, 'error': 'Failed to parse result'}
 
     def _parse_performance_result(self, result: Dict[str, Any], problem_type: str) -> Dict[str, Any]:

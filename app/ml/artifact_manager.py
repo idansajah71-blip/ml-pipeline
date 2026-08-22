@@ -154,7 +154,9 @@ def verify_signature(manifest: dict, signature_b64: str) -> bool:
         signature_bytes = base64.b64decode(signature_b64)
         key.verify(signature_bytes, payload)
         return True
-    except Exception:
+    except Exception as exc:
+        import logging
+        logging.getLogger(__name__).warning("Signature verification failed: %s", exc)
         return False
 
 
@@ -321,8 +323,8 @@ class ArtifactManager:
                     try:
                         from cryptography.hazmat.primitives.serialization import load_pem_public_key
                         saved_public_key = load_pem_public_key(saved_public_key_pem)
-                    except Exception:
-                        pass
+                    except Exception as exc:
+                        logger.warning("Failed to load public key from bundle: %s", exc)
 
                 # Use saved public key if available, otherwise fall back to env/config key
                 verify_key = saved_public_key or _get_verifying_key()
@@ -337,7 +339,8 @@ class ArtifactManager:
                         payload = _manifest_bytes_for_signing(manifest)
                         signature_bytes = base64.b64decode(signature)
                         verify_key.verify(signature_bytes, payload)
-                    except Exception:
+                    except Exception as exc:
+                        logger.warning("Ed25519 verification failed: %s", exc)
                         errors.append('Ed25519 signature verification failed — possible tampering')
             elif algorithm == 'none' or not signature:
                 if _get_require_signature():

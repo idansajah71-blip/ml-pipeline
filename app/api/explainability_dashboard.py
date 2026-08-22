@@ -166,8 +166,9 @@ async def prediction_explain(
                         "contributions": lime_result.get('contributions', []),
                         "method": "lime",
                     }
-            except Exception:
-                pass
+            except Exception as exc:
+                import logging
+                logging.getLogger(__name__).debug("LIME failed, falling back to SHAP: %s", exc)
 
         X_background = np.random.randn(20, X.shape[1]).astype(float)
         explainer = shap.KernelExplainer(ml_model.predict, X_background)
