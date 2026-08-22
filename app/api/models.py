@@ -509,6 +509,7 @@ async def run_automl(
         "svm", "knn", "decision_tree", "adaboost", "bagging", "mlp",
     ]
 
+    from app.ml.trainer import ModelTrainer
     algos = (
         ModelTrainer.ALGORITHMS
         if automl_request.problem_type == "classification"

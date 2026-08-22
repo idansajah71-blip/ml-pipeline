@@ -50,6 +50,7 @@ class APIQuotaService:
         return quota
 
     async def check_and_increment(self, user_id) -> dict:
+        from app.models.api_quota import APIQuota
         quota = await self.get_or_create_quota(user_id)
         limits = self.TIER_LIMITS.get(quota.tier, self.TIER_LIMITS["free"])
 

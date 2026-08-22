@@ -347,7 +347,7 @@ def scheduled_retraining_check():
 
 @celery_app.task(bind=True, name="ml.retrain_model")
 def retrain_model_task(self, model_id: str, owner_id: str):
-    from app.models.model import MLModel
+    from app.models.model import MLModel, ModelStatus
     from app.models.dataset import Dataset
     from app.models.experiment import Experiment, ExperimentStatus
     from app.ml.pipeline import MLPipeline
