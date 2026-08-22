@@ -212,7 +212,7 @@ class DataTransformer:
     def auto_clean(self, df: pd.DataFrame) -> tuple[pd.DataFrame, TransformResult]:
         rules = []
         for col in df.columns:
-            if df[col].dtype == object:
+            if pd.api.types.is_string_dtype(df[col]):
                 rules.append(TransformRule(col, "strip"))
                 rules.append(TransformRule(col, "remove_spaces"))
                 if df[col].str.contains(r'<[^>]+>', regex=True, na=False).sum() > len(df) * 0.3:

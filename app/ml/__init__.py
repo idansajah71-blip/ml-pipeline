@@ -1,11 +1,11 @@
-"""Machine learning module.
+"""
+Machine learning module.
 
 This package exposes public, celery-agnostic helpers first. Tasks that depend
 on Celery (tasks.py, cleanup_tasks.py, auto_retrain.py, batch_tasks.py) are
 imported inside a try/except so the web server can still start even when
 Celery / Redis Python packages are not installed.
 """
-from __future__ import annotations
 
 import logging as _logging
 import importlib as _importlib

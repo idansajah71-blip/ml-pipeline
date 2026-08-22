@@ -46,7 +46,7 @@ async def record_funnel_event(
 ):
     """Record a single funnel step event. Fire-and-forget from the frontend."""
     _events.append({
-        **event.dict(),
+        **event.model_dump(),
         "user_id": str(current_user.id),
         "ts": datetime.now(timezone.utc).isoformat(),
     })

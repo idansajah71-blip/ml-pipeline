@@ -410,7 +410,7 @@ class AdvancedDataAnalyzer:
     def _analyze_text_columns(self, df: pd.DataFrame) -> dict:
         text_cols = []
         for col in df.columns:
-            if df[col].dtype == object:
+            if pd.api.types.is_string_dtype(df[col]):
                 sample = df[col].dropna().head(100)
                 avg_len = sample.astype(str).str.len().mean() if len(sample) > 0 else 0
                 if avg_len and avg_len > 20:
@@ -439,7 +439,7 @@ class AdvancedDataAnalyzer:
     def _analyze_categorical(self, df: pd.DataFrame) -> dict:
         cat_cols = []
         for col in df.columns:
-            if df[col].dtype == object:
+            if pd.api.types.is_string_dtype(df[col]):
                 nunique = df[col].nunique()
                 if 2 <= nunique <= 50:
                     cat_cols.append(col)

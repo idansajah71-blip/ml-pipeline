@@ -5,6 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel
 from typing import List, Optional
 import os
+import pandas as pd
 
 from app.core.database import get_db
 from app.core.security import get_current_active_user
@@ -80,7 +81,7 @@ def suggest_problem_type(series):
     if total == 0:
         return "classification", "Kolom target kosong, default ke klasifikasi"
 
-    if dtype == "object" or dtype == "bool":
+    if pd.api.types.is_string_dtype(series) or dtype == "bool":
         return "classification", f"Kolom bertipe '{dtype}' → klasifikasi"
 
     if nunique <= 10 and nunique / total < 0.05:

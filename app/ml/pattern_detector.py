@@ -240,7 +240,7 @@ class PatternDetector:
                 pass
 
     def _detect_text_patterns(self, df: pd.DataFrame, result: PatternResult):
-        text_cols = [col for col in df.columns if df[col].dtype == object]
+        text_cols = [col for col in df.columns if pd.api.types.is_string_dtype(df[col])]
         for col in text_cols[:5]:
             series = df[col].dropna().astype(str).head(200)
             if len(series) == 0:
@@ -271,7 +271,7 @@ class PatternDetector:
 
     def _detect_encoding_patterns(self, df: pd.DataFrame, result: PatternResult):
         for col in df.columns:
-            if df[col].dtype != object:
+            if not pd.api.types.is_string_dtype(df[col]):
                 continue
             series = df[col].dropna().astype(str).head(100)
             if len(series) == 0:

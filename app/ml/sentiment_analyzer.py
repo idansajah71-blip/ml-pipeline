@@ -202,7 +202,7 @@ class SentimentAnalyzer:
         if text_columns is None:
             text_columns = []
             for col in df.columns:
-                if df[col].dtype == object:
+                if pd.api.types.is_string_dtype(df[col]):
                     sample = df[col].dropna().head(50)
                     if len(sample) > 0 and sample.astype(str).str.len().mean() > 15:
                         text_columns.append(col)

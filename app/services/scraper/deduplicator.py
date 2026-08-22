@@ -62,7 +62,7 @@ class CrossPageDeduplicator:
         result.original_rows = len(df)
 
         if columns is None:
-            columns = [c for c in df.columns if df[c].dtype == object][:5]
+            columns = [c for c in df.columns if pd.api.types.is_string_dtype(df[c])][:5]
         if not columns:
             return df, result
 
@@ -122,7 +122,7 @@ class CrossPageDeduplicator:
             else:
                 all_df = all_df.drop_duplicates()
         else:
-            str_cols = [c for c in all_df.columns if c != "_source" and all_df[c].dtype == object]
+            str_cols = [c for c in all_df.columns if c != "_source" and pd.api.types.is_string_dtype(all_df[c])]
             if str_cols:
                 all_df = all_df.sort_values("_source").drop_duplicates(subset=str_cols, keep="first")
             else:
@@ -140,7 +140,7 @@ class CrossPageDeduplicator:
         result.original_rows = len(df)
 
         if columns is None:
-            columns = [c for c in df.columns if df[c].dtype == object][:3]
+            columns = [c for c in df.columns if pd.api.types.is_string_dtype(df[c])][:3]
         if not columns:
             return df, result
 
@@ -189,7 +189,7 @@ class CrossPageDeduplicator:
     def find_duplicates(self, df: pd.DataFrame, columns: list[str] = None,
                        threshold: float = 0.85) -> list[dict]:
         if columns is None:
-            columns = [c for c in df.columns if df[c].dtype == object][:3]
+            columns = [c for c in df.columns if pd.api.types.is_string_dtype(df[c])][:3]
         if not columns:
             return []
 
