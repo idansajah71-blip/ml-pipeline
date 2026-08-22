@@ -65,6 +65,8 @@ class DataProcessor:
         for col in df.columns:
             if col == target_column:
                 continue
+            if pd.api.types.is_datetime64_any_dtype(df[col]):
+                continue
             if pd.api.types.is_string_dtype(df[col]) or df[col].dtype.name == 'category':
                 n_unique = df[col].nunique()
                 if n_unique <= HIGH_CARDINALITY_THRESHOLD:
@@ -95,7 +97,8 @@ class DataProcessor:
             if df[col].isna().any():
                 self._numeric_fill_values[col] = df[col].median()
 
-        categorical_cols = df.select_dtypes(include=['object', 'category', 'str']).columns
+        categorical_cols = [c for c in df.select_dtypes(include=['object', 'category', 'str']).columns
+                           if not pd.api.types.is_datetime64_any_dtype(df[c])]
         for col in categorical_cols:
             if df[col].isna().any():
                 mode_val = df[col].mode()
@@ -126,6 +129,12 @@ class DataProcessor:
 
         X = df.drop(columns=[target_column])
         y = df[target_column]
+
+        datetime_cols = [col for col in X.columns if pd.api.types.is_datetime64_any_dtype(X[col])]
+        if datetime_cols:
+            warnings.warn(f"Dropping datetime columns: {datetime_cols}")
+            X = X.drop(columns=datetime_cols)
+            metadata['datetime_columns_dropped'] = datetime_cols
 
         categorical_cols, high_cardinality_cols = self._identify_column_types(X, target_column)
         metadata['categorical_columns'] = categorical_cols

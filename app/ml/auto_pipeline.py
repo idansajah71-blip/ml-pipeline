@@ -196,12 +196,13 @@ class AutoMLPipeline:
             return self.training_metadata
 
         except Exception as e:
+            from app.core.error_utils import sanitize_error_message
             duration = time.time() - start_time
             logger.error(f"Training failed: {e}", exc_info=True)
             return {
                 'experiment_id': self.experiment_id,
                 'status': 'failed',
-                'error': str(e),
+                'error': sanitize_error_message(e),
                 'duration_seconds': round(duration, 2),
                 'mode': 'simple',
             }
@@ -269,8 +270,9 @@ class AutoMLPipeline:
             }
 
         except Exception as e:
+            from app.core.error_utils import sanitize_error_message
             return {
-                'error': str(e),
+                'error': sanitize_error_message(e),
                 'latency_ms': int((time.time() - start_time) * 1000),
             }
 

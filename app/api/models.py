@@ -201,13 +201,15 @@ async def train_model(
     current_user: User = Depends(require_data_scientist),
     db: AsyncSession = Depends(get_db),
 ):
+    from app.models.experiment import ExperimentStatus
     service = ModelService(db)
     experiment = await service.train_model(model_id, train_request, current_user.id)
     await cache_delete(f"model:{model_id}")
     await cache_delete(f"user_models:{current_user.id}")
     return TrainResponse(
         experiment_id=experiment.id,
-        message="Training completed successfully",
+        message="Training completed successfully" if experiment.status == ExperimentStatus.COMPLETED
+                 else f"Training {experiment.status.value}",
         status=experiment.status.value,
     )
 

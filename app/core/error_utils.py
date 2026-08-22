@@ -72,6 +72,12 @@ TECHNICAL_ERROR_TRANSLATIONS = [
      'File tidak dapat dibaca. Periksa kembali format dan isi file yang diunggah.'),
     (re.compile(r'permission denied', re.IGNORECASE),
      'Akses ditolak oleh sistem. Silakan hubungi admin.'),
+    (re.compile(r'least populated classes|too few.*member', re.IGNORECASE),
+     'Salah satu kategori pada kolom target jumlah datanya terlalu sedikit untuk dilatih. '
+     'Pastikan tiap kategori punya minimal beberapa puluh baris data.'),
+    (re.compile(r'DTypePromotionError|could not be promoted', re.IGNORECASE),
+     'Ada kolom bertipe tanggal/waktu yang belum bisa diproses otomatis. '
+     'Coba hapus atau ubah kolom tanggal menjadi teks sebelum upload.'),
 ]
 
 
