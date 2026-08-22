@@ -111,7 +111,9 @@ async def global_explainability(
                     )
                 else:
                     feature_importance = _get_shap_explanation(ml_model, X_background, X_background[:20], feature_names)
-            except Exception:
+            except Exception as exc:
+                import logging
+                logging.getLogger(__name__).debug("LIME global explanation failed, falling back to SHAP: %s", exc)
                 feature_importance = _get_shap_explanation(ml_model, X_background, X_background[:20], feature_names)
         else:
             feature_importance = _get_shap_explanation(ml_model, X_background, X_background[:20], feature_names)
