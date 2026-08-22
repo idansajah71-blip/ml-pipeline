@@ -6,7 +6,7 @@
 
 ## Flake8 Lint
 - F401 (unused imports): **0 in app/** (was 415), 38 remaining in app/tests/ only
-- 21x F821: undefined names — `evidently` presets lazily imported in `model_monitor.py`, `ModelTrainer` in `models.py`, `ModelStatus` in `tasks.py`, `APIQuota` in `quota_service.py` (runtime-safe via try/except guards)
+- F821 (undefined names): **fixed 3 of 4** — `ModelTrainer` in models.py, `ModelStatus` in tasks.py, `APIQuota` in quota_service.py all had missing imports causing NameError at runtime. Remaining: `evidently` presets in model_monitor.py (safe lazy-import guard)
 - 29x F841: unused local variables (dead code, harmless)
 - 17x E712: comparison to `False` instead of `is False` (style, harmless)
 - 4x E741: ambiguous variable name `l` (style, common in ML code)
@@ -25,6 +25,9 @@
 ## Deprecated Patterns Fixed
 - Removed `cryptography.hazmat.backends.default_backend()` (deprecated since cryptography 37.0)
 - Narrowed broad `except Exception` to `except ImportError` in error_utils.py circular import guard
+
+## Known Runtime Issues
+- GET `/api/v1/quota` returns 500 — pre-existing FK violation (admin user UUID exists in users table but FK constraint fails on api_quotas insert). Needs DB migration or re-seed to fix.
 
 ## Default Accounts
 - Default admin/user accounts are seeded with weak passwords (admin123/password123)
