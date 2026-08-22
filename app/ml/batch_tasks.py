@@ -8,25 +8,9 @@ from celery import current_task
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
 from app.ml.data_utils import load_dataframe_from_path
+from app.ml.task_utils import publish_progress, get_sync_session
 
 settings = get_settings()
-
-
-def publish_progress(job_id: str, data: dict):
-    try:
-        import redis as sync_redis
-        r = sync_redis.from_url(settings.REDIS_URL, decode_responses=True)
-        r.publish(f"batch:{job_id}", json.dumps(data, default=str))
-        r.close()
-    except Exception:
-        pass
-
-
-def get_sync_session():
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-    engine = create_engine(settings.SYNC_DATABASE_URL)
-    return sessionmaker(bind=engine)()
 
 
 @celery_app.task(bind=True, name="ml.batch_predict")

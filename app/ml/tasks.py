@@ -6,27 +6,11 @@ from datetime import datetime, timezone, timedelta
 from celery import current_task
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
+from app.ml.task_utils import publish_progress, get_sync_session
 
 logger = logging.getLogger(__name__)
 
 settings = get_settings()
-
-
-def publish_progress(experiment_id: str, data: dict):
-    try:
-        import redis as sync_redis
-        r = sync_redis.from_url(settings.REDIS_URL, decode_responses=True)
-        r.publish(f"training:{experiment_id}", json.dumps(data, default=str))
-        r.close()
-    except Exception:
-        pass
-
-
-def get_sync_session():
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-    engine = create_engine(settings.SYNC_DATABASE_URL)
-    return sessionmaker(bind=engine)()
 
 
 @celery_app.task(bind=True, name="ml.train_model")
