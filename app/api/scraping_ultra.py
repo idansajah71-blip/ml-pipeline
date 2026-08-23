@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 import pandas as pd
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, require_data_scientist
 from app.services.scraper.auth_scraper import AuthenticatedScraper, AuthConfig
 from app.services.scraper.captcha_solver import CaptchaSolver
 from app.services.scraper.rate_limiter import RateLimiter, CrawlDelayConfig
@@ -166,7 +166,7 @@ class TargetScrapeRequest(BaseModel):
 # ─── Auth Scraping ──────────────────────────────────────────────────────
 
 @router.post("/auth-scrape")
-async def auth_scrape(req: AuthScrapeRequest, user=Depends(get_current_user)):
+async def auth_scrape(req: AuthScrapeRequest, user=Depends(require_data_scientist)):
     try:
         auth_config = AuthConfig(
             login_url=req.login_url, username=req.username, password=req.password,
@@ -192,7 +192,7 @@ async def auth_scrape(req: AuthScrapeRequest, user=Depends(get_current_user)):
 # ─── Fingerprint Rotation ───────────────────────────────────────────────
 
 @router.post("/fingerprint-scrape")
-async def fingerprint_scrape(req: FingerprintScrapeRequest, user=Depends(get_current_user)):
+async def fingerprint_scrape(req: FingerprintScrapeRequest, user=Depends(require_data_scientist)):
     try:
         fp = fingerprint_gen.generate()
         if req.use_selenium:
@@ -313,7 +313,7 @@ async def delete_webhook(
 # ─── Distributed Scraping ───────────────────────────────────────────────
 
 @router.post("/distributed/create")
-async def create_distributed_job(req: DistributedRequest, user=Depends(get_current_user)):
+async def create_distributed_job(req: DistributedRequest, user=Depends(require_data_scientist)):
     distributed.set_proxies(req.proxies)
     job_id = distributed.create_job(req.urls, strategy=req.strategy,
                                      max_per_worker=req.max_per_worker)
@@ -546,7 +546,7 @@ class ProxyConfigRequest(BaseModel):
 async def create_proxy(
     req: ProxyConfigRequest,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_data_scientist),
 ):
     user_id = get_user_id(user)
     from app.models.scrape_config import ScrapeProxyConfig

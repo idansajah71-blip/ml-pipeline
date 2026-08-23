@@ -301,11 +301,27 @@ function getInitialCollapsedgroups(pathname: string): Record<string, boolean> {
 
 // ── Sidebar Component ────────────────────────────────────────────────────────
 
+const ADVANCED_GROUPS = ['Integrations', 'Explore', 'Organization', 'System'];
+
 export default function Sidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+  const [showAdvanced, setShowAdvanced] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sidebar_advanced') === 'true';
+    }
+    return false;
+  });
+
+  const toggleAdvanced = useCallback(() => {
+    setShowAdvanced((prev) => {
+      const next = !prev;
+      localStorage.setItem('sidebar_advanced', String(next));
+      return next;
+    });
+  }, []);
 
   // Auto-expand groups when route changes
   useEffect(() => {
@@ -350,7 +366,13 @@ export default function Sidebar() {
 
       {/* ── Navigation ── */}
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1" aria-label="Navigasi utama">
-        {navigation.map((entry) => {
+        {navigation
+          .filter((entry) => {
+            if (!isGroup(entry)) return true;
+            if (ADVANCED_GROUPS.includes(entry.name) && !showAdvanced) return false;
+            return true;
+          })
+          .map((entry) => {
           // ── Single item (Dashboard) ──
           if (!isGroup(entry)) {
             const active = isActive(entry.href);
@@ -454,6 +476,17 @@ export default function Sidebar() {
           );
         })}
       </nav>
+
+      {/* ── Advanced Mode Toggle ── */}
+      <div className="px-3 pb-2">
+        <button
+          onClick={toggleAdvanced}
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+        >
+          <ChevronDown className={clsx('h-3.5 w-3.5 transition-transform', !showAdvanced && '-rotate-90')} />
+          {showAdvanced ? 'Sembunyikan fitur lanjutan' : 'Tampilkan fitur lanjutan'}
+        </button>
+      </div>
 
       {/* ── User & Logout ── */}
       <div className="border-t border-gray-200 dark:border-gray-700 p-4">

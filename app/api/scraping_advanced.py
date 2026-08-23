@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 import pandas as pd
 
 from app.core.database import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, require_data_scientist
 from app.services.scraper.js_scraper import JsRenderedScraper
 from app.services.scraper.smart_extractor import SmartDataExtractor
 from app.services.scraper.export_service import ExportService
@@ -76,7 +76,7 @@ class ScheduleCreateRequest(BaseModel):
 async def js_scrape(
     req: JsScrapeRequest,
     db: AsyncSession = Depends(get_db),
-    user=Depends(get_current_user),
+    user=Depends(require_data_scientist),
 ):
     try:
         page = await js_scraper.smart_scrape(req.url)
