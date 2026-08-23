@@ -1301,6 +1301,15 @@ export default function TrainingWizard() {
                             <p className="text-lg font-semibold text-gray-900">
                               {(state.trainingResult.results.metrics.accuracy * 100).toFixed(1)}%
                             </p>
+                            <p className="mt-1 text-xs text-gray-500">
+                              {state.trainingResult.results.metrics.accuracy >= 0.9
+                                ? 'Luar biasa! Model sangat akurat.'
+                                : state.trainingResult.results.metrics.accuracy >= 0.8
+                                ? 'Bagus! Model cukup andal.'
+                                : state.trainingResult.results.metrics.accuracy >= 0.7
+                                ? 'Lumayan. Model perlu perbaikan.'
+                                : 'Model kurang akurat. Coba tambah data atau algoritma lain.'}
+                            </p>
                           </div>
                         )}
                         {state.trainingResult.results?.metrics?.f1_macro !== undefined && (
@@ -1308,6 +1317,13 @@ export default function TrainingWizard() {
                             <p className="text-xs text-gray-500">Skor F1</p>
                             <p className="text-lg font-semibold text-gray-900">
                               {(state.trainingResult.results.metrics.f1_macro * 100).toFixed(1)}%
+                            </p>
+                            <p className="mt-1 text-xs text-gray-500">
+                              {state.trainingResult.results.metrics.f1_macro >= 0.9
+                                ? 'Seimbang — presisi dan recall tinggi.'
+                                : state.trainingResult.results.metrics.f1_macro >= 0.8
+                                ? 'Cukup seimbang.'
+                                : 'Model mungkin miss banyak data positif atau negatif.'}
                             </p>
                           </div>
                         )}
@@ -1359,6 +1375,34 @@ export default function TrainingWizard() {
                 </div>
               </>
             )}
+
+            {/* ── Langkah Selanjutnya ── */}
+            <div className="rounded-xl border border-primary-200 bg-primary-50 p-5">
+              <p className="text-sm font-semibold text-primary-900 mb-3">Langkah selanjutnya</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <button
+                  onClick={() => router.push(`/try-predict?modelId=${state.trainingResult?.model_id || ''}`)}
+                  className="rounded-lg bg-white border border-primary-200 p-3 text-left hover:bg-primary-100 transition-colors"
+                >
+                  <p className="text-sm font-medium text-primary-900">Coba Prediksi</p>
+                  <p className="text-xs text-primary-600">Masukkan data baru dan lihat hasilnya</p>
+                </button>
+                <button
+                  onClick={() => router.push('/training-wizard')}
+                  className="rounded-lg bg-white border border-primary-200 p-3 text-left hover:bg-primary-100 transition-colors"
+                >
+                  <p className="text-sm font-medium text-primary-900">Bandung Model</p>
+                  <p className="text-xs text-primary-600">Latih dengan algoritma lain dan bandingkan</p>
+                </button>
+                <button
+                  onClick={() => router.push(`/models`)}
+                  className="rounded-lg bg-white border border-primary-200 p-3 text-left hover:bg-primary-100 transition-colors"
+                >
+                  <p className="text-sm font-medium text-primary-900">Lihat Models</p>
+                  <p className="text-xs text-primary-600">Deploy model agar bisa dipakai dari luar</p>
+                </button>
+              </div>
+            </div>
 
             <div className="flex justify-center gap-4">
               <button
