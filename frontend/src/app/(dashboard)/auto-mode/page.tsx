@@ -160,40 +160,63 @@ export default function AutoModePage() {
       const trainData = trainRes.data || trainRes;
       const taskId = trainData.task_id;
 
-      if (!taskId) {
-        throw new Error('Tidak ada task ID dari pelatihan');
-      }
+      setTrainingProgress(50);
+      setTrainingStep('Memproses hasil...');
 
-      setTrainingProgress(20);
-      setTrainingStep('Melatih model...');
+      if (taskId) {
+        setTrainingStep('Melatih model...');
+        pollRef.current = setInterval(async () => {
+          try {
+            const statusRes = await models.taskStatus(taskId);
+            const status = statusRes.data || statusRes;
 
-      // Poll for completion
-      pollRef.current = setInterval(async () => {
-        try {
-          const statusRes = await models.taskStatus(taskId);
-          const status = statusRes.data || statusRes;
+            if (status.progress) {
+              setTrainingProgress(Math.max(20, Math.min(90, status.progress)));
+            }
 
-          if (status.progress) {
-            setTrainingProgress(Math.max(20, Math.min(90, status.progress)));
-          }
-
-          if (status.status === 'SUCCESS' || status.status === 'completed') {
+            if (status.status === 'SUCCESS' || status.status === 'completed') {
+              if (pollRef.current) clearInterval(pollRef.current);
+              setTrainingProgress(100);
+              setTrainingStep('Selesai!');
+              setState((s) => ({ ...s, trainingResult: status.result || status }));
+              setTimeout(() => setStep('results'), 500);
+            } else if (status.status === 'FAILURE' || status.status === 'failed') {
+              if (pollRef.current) clearInterval(pollRef.current);
+              throw new Error(status.result?.error || 'Pelatihan gagal');
+            }
+          } catch (pollErr: any) {
             if (pollRef.current) clearInterval(pollRef.current);
+            toast('error', 'Error polling: ' + formatApiError(pollErr));
+            setStep('review');
+            setTraining(false);
+          }
+        }, 2000);
+      } else {
+        const experimentId = trainData.experiment_id;
+        try {
+          const expRes = await fetch(`/api/v1/experiments/${experimentId}`, {
+            headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+          });
+          if (expRes.ok) {
+            const expData = await expRes.json();
+            const resultData = { ...(expData.results || {}), experiment_id: experimentId, status: trainData.status };
             setTrainingProgress(100);
             setTrainingStep('Selesai!');
-            setState((s) => ({ ...s, trainingResult: status.result || status }));
+            setState((s) => ({ ...s, trainingResult: resultData }));
             setTimeout(() => setStep('results'), 500);
-          } else if (status.status === 'FAILURE' || status.status === 'failed') {
-            if (pollRef.current) clearInterval(pollRef.current);
-            throw new Error(status.result?.error || 'Pelatihan gagal');
+          } else {
+            setTrainingProgress(100);
+            setTrainingStep('Selesai!');
+            setState((s) => ({ ...s, trainingResult: trainData }));
+            setTimeout(() => setStep('results'), 500);
           }
-        } catch (pollErr: any) {
-          if (pollRef.current) clearInterval(pollRef.current);
-          toast('error', 'Error polling: ' + formatApiError(pollErr));
-          setStep('review');
-          setTraining(false);
+        } catch {
+          setTrainingProgress(100);
+          setTrainingStep('Selesai!');
+          setState((s) => ({ ...s, trainingResult: trainData }));
+          setTimeout(() => setStep('results'), 500);
         }
-      }, 2000);
+      }
     } catch (err: any) {
       toast('error', 'Gagal melatih: ' + formatApiError(err));
       setStep('review');
