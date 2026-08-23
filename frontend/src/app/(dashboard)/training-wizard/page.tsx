@@ -824,7 +824,7 @@ export default function TrainingWizard() {
                 Kembali
               </button>
               <button
-                onClick={() => goToStep('mode')}
+                onClick={() => goToStep(state.mode === 'simple' ? 'review' : 'mode')}
                 className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
               >
                 Selanjutnya
@@ -1086,7 +1086,7 @@ export default function TrainingWizard() {
 
             <div className="flex justify-between">
               <button
-                onClick={() => goToStep('mode')}
+                onClick={() => goToStep(state.mode === 'simple' ? 'preview' : 'mode')}
                 className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
               >
                 <ArrowLeft className="h-4 w-4" />

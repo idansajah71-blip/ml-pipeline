@@ -438,7 +438,7 @@ export default function ScrapingPage() {
           <ToggleChip label="Hapus Duplikat" active={deduplicate} onClick={() => setDeduplicate(!deduplicate)} />
           <ToggleChip label="Deteksi Tipe" active={detectTypes} onClick={() => setDetectTypes(!detectTypes)} />
           <ToggleChip label="Text Clustering" active={clusterText} onClick={() => setClusterText(!clusterText)} />
-          <ToggleChip label="Advanced" active={runAdvanced} onClick={() => setRunAdvanced(!runAdvanced)} icon={Brain} />
+          <ToggleChip label="Lanjutan" active={runAdvanced} onClick={() => setRunAdvanced(!runAdvanced)} icon={Brain} />
           <ToggleChip label="Sentimen" active={runSentiment} onClick={() => setRunSentiment(!runSentiment)} icon={MessageSquare} />
           <ToggleChip label="Pola" active={runPatterns} onClick={() => setRunPatterns(!runPatterns)} icon={Fingerprint} />
           <ToggleChip label="JS Render" active={useSelenium} onClick={() => setUseSelenium(!useSelenium)} icon={Zap} />
