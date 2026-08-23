@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 import time
 import logging
@@ -572,6 +573,251 @@ async def run_automl(
                 "yang berjalan langsung tanpa antrean."
             ),
         )
+
+
+# ── Auto Mode: Analyze dataset and suggest everything ────────────────────────
+
+class AutoAnalyzeRequest(BaseModel):
+    dataset_id: UUID
+    target_column: Optional[str] = None  # user can override
+
+
+class AutoAnalyzeResponse(BaseModel):
+    dataset_id: str
+    dataset_name: str
+    rows: int
+    columns: int
+    suggested_target: str
+    target_reason: str
+    problem_type: str
+    problem_reason: str
+    suggested_algorithm: str
+    algorithm_reason: str
+    column_summaries: List[dict]
+    warnings: List[str]
+    quality_score: float  # 0-100
+    ready_to_train: bool
+
+
+def _auto_detect_target(df) -> tuple:
+    """Auto-detect the best target column. Returns (column_name, reason)."""
+    import pandas as pd
+
+    candidates = []
+    for col in df.columns:
+        series = df[col]
+        dtype = str(series.dtype)
+        nunique = series.nunique()
+        total = len(series.dropna())
+        if total == 0:
+            continue
+        unique_ratio = nunique / total
+
+        # Skip ID-like columns
+        if unique_ratio > 0.9 and dtype in ("int64", "float64"):
+            continue
+        # Skip datetime columns
+        if "datetime" in dtype or "time" in dtype:
+            continue
+
+        score = 0
+        reason_parts = []
+
+        # Classification-like target
+        if pd.api.types.is_string_dtype(series) or dtype == "bool":
+            if nunique <= 20:
+                score += 80
+                reason_parts.append(f"kolom bertipe '{dtype}' dengan {nunique} kategori")
+        elif nunique <= 20 and unique_ratio < 0.1:
+            score += 70
+            reason_parts.append(f"kolom numerik dengan {nunique} nilai unik (< 10%)")
+
+        # Regression-like target
+        elif pd.api.types.is_numeric_dtype(series) and nunique > 20:
+            score += 50
+            reason_parts.append(f"kolom numerik kontinu ({nunique} nilai unik)")
+
+        # Check if column name suggests it's a target
+        target_hints = [
+            "target", "label", "output", "y", "class", "category",
+            "churn", "price", "harga", "klasifikasi", "prediksi",
+            "kemiskinan", "status", "hasil", "outcome", "value",
+        ]
+        col_lower = col.lower()
+        for hint in target_hints:
+            if hint in col_lower:
+                score += 30
+                reason_parts.append(f"nama kolom mengandung '{hint}'")
+                break
+
+        # Prefer columns with fewer missing values
+        missing_pct = series.isna().sum() / len(series) * 100
+        if missing_pct < 5:
+            score += 10
+        elif missing_pct > 30:
+            score -= 20
+
+        if score > 0:
+            candidates.append((col, score, "; ".join(reason_parts) if reason_parts else "kandidat potensial"))
+
+    if not candidates:
+        # Fallback: last column
+        last_col = df.columns[-1]
+        return last_col, "Kolom terakhir dipilih sebagai target (fallback)"
+
+    candidates.sort(key=lambda x: x[1], reverse=True)
+    best = candidates[0]
+    return best[0], best[2]
+
+
+def _auto_detect_problem_type(series) -> tuple:
+    """Auto-detect classification vs regression. Returns (type, reason)."""
+    import pandas as pd
+
+    dtype = str(series.dtype)
+    nunique = series.nunique()
+    total = len(series.dropna())
+
+    if total == 0:
+        return "classification", "Default ke klasifikasi (kolom kosong)"
+
+    if pd.api.types.is_string_dtype(series) or dtype == "bool":
+        return "classification", f"Tipe data '{dtype}' → klasifikasi"
+
+    if nunique <= 10 and nunique / total < 0.05:
+        return "classification", f"{nunique} nilai unik (< 5% dari total) → klasifikasi"
+
+    if nunique <= 20 and nunique / total < 0.1:
+        return "classification", f"{nunique} nilai unik dengan rasio rendah → klasifikasi"
+
+    return "regression", f"{nunique} nilai unik kontinu → regresi"
+
+
+def _auto_select_algorithm(problem_type: str, n_samples: int, n_features: int, missing_pct: float) -> tuple:
+    """Auto-select the best algorithm. Returns (algorithm, reason)."""
+    if problem_type == "classification":
+        if n_samples < 1000:
+            return "random_forest", "Dataset kecil → Random Forest (stabil & cepat)"
+        elif n_samples < 10000:
+            return "random_forest", "Dataset sedang → Random Forest (akurasi baik)"
+        else:
+            return "gradient_boosting", "Dataset besar → Gradient Boosting (performa maksimal)"
+    else:
+        if n_samples < 1000:
+            return "random_forest", "Dataset kecil → Random Forest (anti overfitting)"
+        elif n_samples < 10000:
+            return "gradient_boosting", "Dataset sedang → Gradient Boosting (akurasi tinggi)"
+        else:
+            return "gradient_boosting", "Dataset besar → Gradient Boosting (performa optimal)"
+
+
+@router.post("/auto-analyze", response_model=AutoAnalyzeResponse)
+async def auto_analyze_dataset(
+    request: AutoAnalyzeRequest,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Auto-analyze a dataset: detect target, problem type, and suggest algorithm."""
+    from app.models.dataset import Dataset
+    import pandas as pd
+
+    result = await db.execute(select(Dataset).where(Dataset.id == request.dataset_id))
+    dataset = result.scalar_one_or_none()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset tidak ditemukan")
+    if dataset.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Tidak punya akses")
+
+    import os
+    if not os.path.exists(dataset.file_path):
+        raise HTTPException(status_code=404, detail="File dataset tidak ditemukan")
+
+    from app.ml.data_utils import load_dataframe
+    with open(dataset.file_path, "rb") as f:
+        file_content = f.read()
+    filename = os.path.basename(dataset.file_path)
+    df = load_dataframe(file_content, filename)
+
+    rows, columns = df.shape
+
+    # Auto-detect target
+    if request.target_column and request.target_column in df.columns:
+        target_col = request.target_column
+        target_reason = "Kolom yang kamu pilih"
+    else:
+        target_col, target_reason = _auto_detect_target(df)
+
+    # Auto-detect problem type
+    problem_type, problem_reason = _auto_detect_problem_type(df[target_col])
+
+    # Auto-select algorithm
+    total_cells = rows * columns
+    total_missing = df.isna().sum().sum()
+    missing_pct = round(total_missing / total_cells * 100, 1) if total_cells > 0 else 0
+    algorithm, algorithm_reason = _auto_select_algorithm(problem_type, rows, columns, missing_pct)
+
+    # Column summaries
+    column_summaries = []
+    for col in df.columns:
+        series = df[col]
+        dtype = str(series.dtype)
+        null_count = int(series.isna().sum())
+        null_pct = round(null_count / len(series) * 100, 1) if len(series) > 0 else 0
+        nunique = int(series.nunique())
+        col_type = "target" if col == target_col else "feature"
+        if "datetime" in dtype or "time" in dtype:
+            col_type = "datetime"
+        elif nunique / max(len(series), 1) > 0.9 and dtype in ("int64", "float64"):
+            col_type = "id"
+
+        summary = {
+            "name": col,
+            "dtype": dtype,
+            "null_pct": null_pct,
+            "unique_count": nunique,
+            "role": col_type,
+        }
+        if pd.api.types.is_numeric_dtype(series):
+            summary["min"] = float(series.min()) if not series.isna().all() else None
+            summary["max"] = float(series.max()) if not series.isna().all() else None
+            summary["mean"] = round(float(series.mean()), 2) if not series.isna().all() else None
+        column_summaries.append(summary)
+
+    # Warnings
+    warnings = []
+    if rows < 50:
+        warnings.append("Dataset sangat kecil (< 50 baris). Model mungkin kurang akurat.")
+    elif rows < 200:
+        warnings.append("Dataset relatif kecil. Pertimbangkan menambah data.")
+    if missing_pct > 30:
+        warnings.append(f"Tingkat missing values tinggi ({missing_pct}%).")
+    target_missing = df[target_col].isna().sum() / len(df) * 100
+    if target_missing > 1:
+        warnings.append(f"Target '{target_col}' memiliki {target_missing:.1f}% missing values.")
+
+    # Quality score
+    quality_score = 100.0
+    quality_score -= min(30, rows / 100)  # penalty for small datasets
+    quality_score -= missing_pct * 0.5
+    quality_score -= len(warnings) * 5
+    quality_score = max(0, min(100, quality_score))
+
+    return AutoAnalyzeResponse(
+        dataset_id=str(dataset.id),
+        dataset_name=dataset.name,
+        rows=rows,
+        columns=columns,
+        suggested_target=target_col,
+        target_reason=target_reason,
+        problem_type=problem_type,
+        problem_reason=problem_reason,
+        suggested_algorithm=algorithm,
+        algorithm_reason=algorithm_reason,
+        column_summaries=column_summaries,
+        warnings=warnings,
+        quality_score=round(quality_score, 1),
+        ready_to_train=quality_score > 30 and target_missing < 50,
+    )
 
 
 @router.post("/{model_id}/explain", response_model=ExplainResponse)

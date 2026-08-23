@@ -167,6 +167,7 @@ const navigation: NavEntry[] = [
   {
     name: 'ML Tools',
     items: [
+      { name: 'Auto Mode', href: '/auto-mode', icon: Zap, tooltip: 'Mode otomatis: upload data, sistem pandu semua' },
       { name: 'Train Model', href: '/training-wizard', icon: Wand2, tour: 'wizard' },
       { name: 'Algorithm Guide', href: '/panduan-algoritma', icon: FileCheck, tooltip: 'Panduan memilih algoritma ML yang tepat untuk data Anda' },
     ],

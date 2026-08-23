@@ -42,6 +42,7 @@ const ROUTE_LABELS: Record<string, string> = {
   'system-health':      'System Health',
 
   // ML Tools
+  'auto-mode':           'Auto Mode',
   'training-wizard':    'Train Model',
   'panduan-algoritma':  'Algorithm Guide',
 

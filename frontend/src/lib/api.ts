@@ -157,7 +157,7 @@ export const models = {
   get: (id: string) => api.get<MLModel>(`/models/${id}`),
   create: (data: { name: string; algorithm: string; target_column: string; description?: string }) =>
     api.post<MLModel>('/models', data),
-  train: (id: string, data: { dataset_id: string; algorithm: string; target_column?: string; parameters?: Record<string, any>; async_training?: boolean }) =>
+  train: (id: string, data: { dataset_id: string; algorithm: string; target_column?: string; parameters?: Record<string, any>; async_training?: boolean; mode?: string; problem_type?: string }) =>
     api.post(`/models/${id}/train`, data),
   predict: (id: string, data: { data: Record<string, any>[] }) =>
     api.post(`/models/${id}/predict`, data),
@@ -180,6 +180,8 @@ export const models = {
   taskStatus: (taskId: string) => api.get(`/models/tasks/${taskId}`),
   automl: (data: { dataset_id: string; target_column: string; algorithms?: string[] }) =>
     api.post('/models/automl', data),
+  autoAnalyze: (data: { dataset_id: string; target_column?: string }) =>
+    api.post('/models/auto-analyze', data),
   compare: (modelAId: string, modelBId: string) =>
     api.get(`/models/compare/${modelAId}/${modelBId}`),
 };
