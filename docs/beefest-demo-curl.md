@@ -26,7 +26,7 @@ curl -X POST http://localhost:8000/api/v1/datasets \
   -H "Authorization: Bearer <TOKEN>" \
   -F "file=@indonesia_economy.csv" \
   -F "name=Ekonomi Indonesia" \
-  -F "description=34 provinsi, 7 fitur" \
+  -F "description=34 provinsi, 7 indikator ekonomi" \
   -F "target_column=kemiskinan_persen"
 ```
 
@@ -66,18 +66,15 @@ curl -X POST http://localhost:8000/api/v1/models/<MODEL_ID>/predict \
   -d '{
     "data": [
       {
-        "GDP_per_kapita": 45000000,
-        "inflasi": 3.2,
-        "pengangguran": 5.8,
-        "indeks_harga": 102.5,
-        "investasi": 3200000,
-        "ekspor": 1500000,
-        "tingkat_pendidikan": 12.5
+        "populasi": 3500000,
+        "gdp": 95.2,
+        "sektor": "Pertanian",
+        "pengangguran": 6.8,
+        "tingkat_pendidikan": 88.3
       }
     ],
     "feature_names": [
-      "GDP_per_kapita", "inflasi", "pengangguran",
-      "indeks_harga", "investasi", "ekspor", "tingkat_pendidikan"
+      "populasi", "gdp", "sektor", "pengangguran", "tingkat_pendidikan"
     ]
   }'
 ```
@@ -99,13 +96,11 @@ curl -X POST http://localhost:8000/api/v1/models/<MODEL_ID>/explain \
   -H "Content-Type: application/json" \
   -d '{
     "data": {
-      "GDP_per_kapita": 45000000,
-      "inflasi": 3.2,
-      "pengangguran": 5.8,
-      "indeks_harga": 102.5,
-      "investasi": 3200000,
-      "ekspor": 1500000,
-      "tingkat_pendidikan": 12.5
+      "populasi": 3500000,
+      "gdp": 95.2,
+      "sektor": "Pertanian",
+      "pengangguran": 6.8,
+      "tingkat_pendidikan": 88.3
     },
     "top_k": 5
   }'

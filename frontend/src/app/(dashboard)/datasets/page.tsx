@@ -25,7 +25,7 @@ const SAMPLE_DATASETS = [
   { name: 'Iris (Klasifikasi)', file: '/samples/iris.csv', desc: '150 baris, 4 fitur, 3 kelas' },
   { name: 'Housing (Regresi)', file: '/samples/housing.csv', desc: '506 baris, 13 fitur, harga rumah' },
   { name: 'Titanic (Klasifikasi)', file: '/samples/titanic.csv', desc: '891 baris, 12 fitur, survive/tidak' },
-  { name: 'Ekonomi Indonesia (Regresi)', file: '/samples/indonesia_economy.csv', desc: '34 provinsi, 7 fitur, GDP & kemiskinan' },
+  { name: 'Ekonomi Indonesia (Regresi)', file: '/samples/indonesia_economy.csv', desc: '34 provinsi, 5 fitur, prediksi kemiskinan' },
   { name: 'Cuaca Indonesia (Klasifikasi)', file: '/samples/indonesia_weather.csv', desc: '36 kota, 7 fitur, suhu & curah hujan' },
   { name: 'E-Commerce Indonesia (Regresi)', file: '/samples/indonesia_ecommerce.csv', desc: '27 produk, 11 fitur, harga & penjualan' },
   { name: 'UMKM Penjualan Indonesia (Regresi)', file: '/samples/indonesia_umkm_penjualan.csv', desc: '30 usaha, 14 fitur, laba & pendapatan' },

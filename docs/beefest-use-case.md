@@ -40,9 +40,8 @@ pemerintah untuk:
 **Nama:** Ekonomi Indonesia (Regresi) — sudah tersedia sebagai sample dataset
 
 - **Sumber:** BPS Open Data
-- **Fitur:** 34 provinsi × 7 indikator (GDP per kapita, inflasi, pengangguran,
-  indeks harga, investasi, ekspor, tingkat pendidikan)
-- **Target:** Persentase penduduk miskin per provinsi
+- **Fitur:** 34 provinsi × 5 indikator (populasi, GDP, sektor ekonomi, pengangguran, tingkat pendidikan)
+- **Target:** Persentase penduduk miskin per provinsi (`kemiskinan_persen`)
 - **Jenis:** Regresi (prediksi angka kontinu)
 
 ## Metrik Keberhasilan
@@ -79,7 +78,7 @@ pemerintah untuk:
 ### Langkah 4: Deploy & Prediksi
 - Deploy model ke serving endpoint
 - Kirim data provinsi baru → dapatkan prediksi kemiskinan
-- Contoh: {"GDP_per_kapita": 45000000, "inflasi": 3.2, ...} → prediksi: 8.5%
+- Contoh: {"populasi": 3500000, "gdp": 95.2, "sektor": "Pertanian", "pengangguran": 6.8, "tingkat_pendidikan": 88.3} → prediksi: 14.2%
 
 ### Langkah 5: Monitoring
 - Set up drift detection untuk memantau apakah data baru masih konsisten dengan

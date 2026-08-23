@@ -1,0 +1,11 @@
+{
+  "data": [
+    {
+      "populasi": 3500000,
+      "gdp": 95.2,
+      "sektor": "Pertanian",
+      "pengangguran": 6.8,
+      "tingkat_pendidikan": 88.3
+    }
+  ]
+}

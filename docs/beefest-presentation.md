@@ -56,13 +56,14 @@
    - Tampilkan progress real-time
 
 3. **Evaluasi Model** (2 menit)
-   - Tampilkan metrics: R², MAE, accuracy
+   - Tampilkan metrics: R², MAE
    - Tampilkan feature importance → indikator mana paling berpengaruh
    - Tampilkan calibration curve
 
 4. **Deploy & Prediksi** (2 menit)
    - Deploy model
-   - Kirim prediksi via API → tampilkan hasil
+   - Kirim prediksi provinsi fiktif via API → tampilkan hasil
+   - Contoh input: {"populasi": 3500000, "gdp": 95.2, "sektor": "Pertanian", "pengangguran": 6.8, "tingkat_pendidikan": 88.3}
    - Tampilkan confidence interval
 
 5. **Monitoring** (2 menit)
