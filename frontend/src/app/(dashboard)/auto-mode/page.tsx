@@ -153,7 +153,7 @@ export default function AutoModePage() {
         dataset_id: datasetId,
         algorithm: analysis.suggested_algorithm,
         target_column: selectedTarget,
-        async_training: true,
+        async_training: false,
         mode: 'simple',
         problem_type: analysis.problem_type,
       });

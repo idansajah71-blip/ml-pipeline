@@ -206,6 +206,7 @@ async def train_model(
     from app.models.experiment import ExperimentStatus
     service = ModelService(db)
     experiment = await service.train_model(model_id, train_request, current_user.id)
+    await db.commit()
     await cache_delete(f"model:{model_id}")
     await cache_delete(f"user_models:{current_user.id}")
     return TrainResponse(

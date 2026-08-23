@@ -108,6 +108,15 @@ export default function TryPredictPage() {
   const { datasets: datasetsList } = useDatasets();
   const { transition } = useFunnelTracker('try-predict');
 
+  const [platformModels, setPlatformModels] = useState<MLModel[]>([]);
+
+  useEffect(() => {
+    models.systemList().then((res) => {
+      const items = (res.data as any).items || [];
+      setPlatformModels(items.filter((m: MLModel) => m.status === 'trained'));
+    }).catch(() => {});
+  }, []);
+
   const [phase, setPhase] = useState<Phase>('select');
   const [selectedModel, setSelectedModel] = useState<MLModel | null>(null);
   const [predicting, setPredicting] = useState(false);
@@ -120,12 +129,13 @@ export default function TryPredictPage() {
     setPhase(next);
   };
 
-  const deployableModels = modelsList.filter(
-    (m) => m.status === 'deployed' || m.status === 'trained'
-  );
+  const deployableModels = useMemo(() => {
+    const user = modelsList.filter((m) => m.status === 'deployed' || m.status === 'trained');
+    return [...platformModels, ...user];
+  }, [modelsList, platformModels]);
 
-  const systemModels = useMemo(() => deployableModels.filter((m) => m.is_default === 1), [deployableModels]);
-  const userModels = useMemo(() => deployableModels.filter((m) => m.is_default !== 1), [deployableModels]);
+  const systemModels = useMemo(() => deployableModels.filter((m) => m.is_default === 1 || platformModels.some((pm) => pm.id === m.id)), [deployableModels, platformModels]);
+  const userModels = useMemo(() => deployableModels.filter((m) => m.is_default !== 1 && !platformModels.some((pm) => pm.id === m.id)), [deployableModels, platformModels]);
 
   const loadPreviousExperiments = useCallback(async () => {
     if (!selectedModel) return;
