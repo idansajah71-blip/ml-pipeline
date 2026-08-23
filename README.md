@@ -144,72 +144,45 @@ Supported algorithms:
 
 # Quick Start
 
-## Docker
+## Jalur A — Coba cepat (Docker, 3 menit)
 
 ```bash
 cp .env.example .env
-
+# isi JWT_SECRET_KEY di .env dulu
 docker-compose up -d
-
 docker-compose exec app python scripts/seed.py
+# Buka http://localhost:3000
 ```
 
-Application
+## Jalur B — Development lokal (tanpa Docker penuh)
 
+```bash
+pip install -r requirements.txt
+docker-compose up -d postgres redis
+python scripts/seed.py
+python run.py
+# Di terminal lain:
+cd frontend && npm install && npm run dev
 ```
-Dashboard
-http://localhost:3000
 
-API Documentation
-http://localhost:8000/docs
+**[OPSIONAL] Jalur C — AutoML & Celery:**
+```bash
+celery -A app.core.celery_app worker --loglevel=info
+```
+
+**[OPSIONAL] Jalur D — Data eksternal BPS/World Bank:**
+```bash
+# Daftar API key di https://webapi.bps.go.id/developer/register
+# Tambahkan BPS_API_KEY=xxx di .env
+python -m alembic upgrade head
 ```
 
 ---
 
-## Local Development
+## Dashboard
 
-### Backend
-
-```bash
-pip install -r requirements.txt
-
-docker-compose up -d postgres redis
-
-python scripts/seed.py
-
-python run.py
-```
-
-> **Note:** Fitur AutoML/async training membutuhkan Celery worker. Jalankan di terminal terpisah:
-> ```bash
-> celery -A app.core.celery_app worker --loglevel=info
-> ```
-> Tanpa Celery worker, fitur Training Wizard mode biasa tetap berjalan, tapi AutoML tidak akan berjalan.
-
-### Frontend
-
-```bash
-cd frontend
-
-npm install
-
-npm run dev
-```
-
-### External Data (Cari Data Online)
-
-Fitur pencarian data dari BPS, World Bank, dan data.go.id membutuhkan setup tambahan:
-
-1. **Daftar API key BPS** (gratis): https://webapi.bps.go.id/developer/register
-2. Tambahkan di `.env`:
-   ```
-   BPS_API_KEY=your_key_here
-   ```
-3. Jalankan migration:
-   ```bash
-   python -m alembic upgrade head
-   ```
-4. World Bank dan data.go.id tidak butuh API key, langsung bisa dipakai.
+- Dashboard: http://localhost:3000
+- API Docs: http://localhost:8000/docs
 
 ---
 
@@ -224,6 +197,8 @@ Fitur pencarian data dari BPS, World Bank, dan data.go.id membutuhkan setup tamb
 | Predictions | Real-time inference |
 | A/B Testing | Compare deployed models |
 | Monitoring | CPU, RAM, Disk metrics |
+
+> **[OPSIONAL]**: MLflow, Feature Store, Web Scraping, Webhooks, Marketplace — fitur lanjutan, tidak diperlukan untuk penggunaan dasar.
 
 ---
 
@@ -277,9 +252,15 @@ Fitur pencarian data dari BPS, World Bank, dan data.go.id membutuhkan setup tamb
 
 ---
 
-# Default Accounts
+# Setup Akun Admin Pertama
 
-> **Warning**: Akun di bawah ini hanya untuk keperluan demo/development. Ganti password sebelum deployment produksi.
+Setelah database siap, buat akun admin pertama dengan menjalankan seed script:
+
+```bash
+python scripts/seed.py
+```
+
+Akun default untuk development:
 
 | Email | Password | Role |
 |---------|----------|------|
@@ -287,26 +268,33 @@ Fitur pencarian data dari BPS, World Bank, dan data.go.id membutuhkan setup tamb
 | datascientist@mlpipeline.com | ds123456 | Data Scientist |
 | user@mlpipeline.com | user1234 | User |
 
+> **Warning**: Ganti password sebelum deployment produksi. Jangan commit password ke repository.
+
 ---
 
 # Project Structure
 
 ```text
-backend/
-├── api/
-├── core/
-├── models/
-├── services/
-├── ml/
-├── scripts/
+app/
+├── api/         # 39+ endpoint modules
+├── core/        # config, database, auth
+├── models/      # SQLAlchemy models
+├── services/    # business logic
+├── ml/          # training pipeline
+└── tests/
 
 frontend/
-├── app/
-├── components/
-├── lib/
+├── src/app/     # Next.js pages (41+ halaman)
+├── src/components/
 
-docker-compose.yml
-README.md
+docs/
+├── beefest-use-case.md
+├── beefest-presentation.md
+└── beefest-demo-curl.md
+
+scripts/
+├── seed.py      # Database seeder (idempotent)
+└── ci_quality_gates.py
 ```
 
 ---

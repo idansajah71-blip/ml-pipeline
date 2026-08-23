@@ -13,21 +13,43 @@ class APIQuotaService:
         "enterprise": {"rpm": 5000, "daily": 5000000, "monthly": 150000000, "training_daily": 500, "training_monthly": 15000},
     }
 
+    def _fallback_quota(self):
+        """Return a free-tier usage dict when DB table is missing."""
+        limits = self.TIER_LIMITS["free"]
+        return {
+            "tier": "free",
+            "rpm": {"current": 0, "limit": limits["rpm"]},
+            "daily": {"current": 0, "limit": limits["daily"]},
+            "monthly": {"current": 0, "limit": limits["monthly"]},
+            "training": {
+                "daily": {"current": 0, "limit": limits["training_daily"]},
+                "monthly": {"current": 0, "limit": limits["training_monthly"]},
+            },
+        }
+
     async def get_or_create_quota(self, user_id):
         from app.models.api_quota import APIQuota
         from sqlalchemy import select
 
-        result = await self.session.execute(
-            select(APIQuota).where(APIQuota.user_id == user_id)
-        )
-        quota = result.scalar_one_or_none()
+        try:
+            result = await self.session.execute(
+                select(APIQuota).where(APIQuota.user_id == user_id)
+            )
+            quota = result.scalar_one_or_none()
+        except Exception:
+            await self.session.rollback()
+            return self._fallback_quota()
 
         if not quota:
-            quota = APIQuota(user_id=user_id, tier="free")
-            self.session.add(quota)
-            await self.session.flush()
+            try:
+                quota = APIQuota(user_id=user_id, tier="free")
+                self.session.add(quota)
+                await self.session.flush()
+            except Exception:
+                await self.session.rollback()
+                return self._fallback_quota()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         if quota.rpm_reset_at and quota.rpm_reset_at < now:
             quota.current_rpm = 0
             quota.rpm_reset_at = now + timedelta(minutes=1)
@@ -105,9 +127,14 @@ class APIQuotaService:
         from sqlalchemy import func
 
         quota = await self.get_or_create_quota(user_id)
+
+        # Fallback when DB table is missing
+        if isinstance(quota, dict):
+            return quota
+
         limits = self.TIER_LIMITS.get(quota.tier, self.TIER_LIMITS["free"])
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         month_start = today_start.replace(day=1)
 

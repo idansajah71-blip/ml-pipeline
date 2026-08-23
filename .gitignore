@@ -74,3 +74,5 @@ frontend/next-env.d.ts
 frontend/frontend_err.log
 frontend/frontend_out.log
 .aider*
+continue.md
+.kilo/
