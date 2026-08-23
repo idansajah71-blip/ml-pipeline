@@ -163,6 +163,11 @@ class AutoProcessor:
         X = df.drop(columns=[target_column])
         y = df[target_column]
 
+        internal_cols = [col for col in X.columns if col.startswith("_")]
+        if internal_cols:
+            X = X.drop(columns=internal_cols)
+            metadata['internal_columns_dropped'] = internal_cols
+
         datetime_cols = [col for col in X.columns if pd.api.types.is_datetime64_any_dtype(X[col])]
         if datetime_cols:
             X = X.drop(columns=datetime_cols)

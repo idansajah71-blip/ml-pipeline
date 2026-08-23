@@ -606,6 +606,9 @@ def _auto_detect_target(df) -> tuple:
 
     candidates = []
     for col in df.columns:
+        # Skip internal pandas columns (e.g. _sheet_name from multi-sheet Excel)
+        if col.startswith("_"):
+            continue
         series = df[col]
         dtype = str(series.dtype)
         nunique = series.nunique()
@@ -760,6 +763,8 @@ async def auto_analyze_dataset(
     # Column summaries
     column_summaries = []
     for col in df.columns:
+        if col.startswith("_"):
+            continue
         series = df[col]
         dtype = str(series.dtype)
         null_count = int(series.isna().sum())
