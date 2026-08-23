@@ -1,4 +1,5 @@
 """Service layer for scraping operations — eliminates DB insert duplication."""
+import json
 import logging
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -110,24 +111,24 @@ class ScrapingService:
             "clean_row_count": processed.clean_row_count,
             "column_count": processed.column_count,
             "duplicates_removed": processed.duplicates_removed,
-            "tables_data": make_json_safe(tables_data) if tables_data is not None else [],
-            "lists_data": make_json_safe(lists_data) if lists_data is not None else [],
-            "metadata": make_json_safe(metadata) if metadata is not None else {},
-            "processed_data": make_json_safe(processor.to_dict_list(processed)),
-            "columns_typed": make_json_safe(processed.columns_typed),
-            "columns_renamed": make_json_safe(processed.columns_renamed),
+            "tables_data": json.dumps(make_json_safe(tables_data) if tables_data is not None else [], default=str),
+            "lists_data": json.dumps(make_json_safe(lists_data) if lists_data is not None else [], default=str),
+            "metadata": json.dumps(make_json_safe(metadata) if metadata is not None else {}, default=str),
+            "processed_data": json.dumps(make_json_safe(processor.to_dict_list(processed)), default=str),
+            "columns_typed": json.dumps(make_json_safe(processed.columns_typed), default=str),
+            "columns_renamed": json.dumps(make_json_safe(processed.columns_renamed), default=str),
             "quality_score": float(processed.quality_score),
-            "quality_issues": make_json_safe(processed.quality_issues),
-            "clusters": make_json_safe(processed.clusters),
-            "ml_processing_applied": ml_applied or [],
-            "advanced_analysis": make_json_safe(processed.advanced_analysis),
-            "sentiment_analysis": make_json_safe(processed.sentiment_analysis),
-            "pattern_analysis": make_json_safe(processed.pattern_analysis),
-            "scrape_metadata": make_json_safe(scrape_metadata) if scrape_metadata is not None else {},
+            "quality_issues": json.dumps(make_json_safe(processed.quality_issues), default=str),
+            "clusters": json.dumps(make_json_safe(processed.clusters), default=str),
+            "ml_processing_applied": json.dumps(ml_applied or [], default=str),
+            "advanced_analysis": json.dumps(make_json_safe(processed.advanced_analysis), default=str),
+            "sentiment_analysis": json.dumps(make_json_safe(processed.sentiment_analysis), default=str),
+            "pattern_analysis": json.dumps(make_json_safe(processed.pattern_analysis), default=str),
+            "scrape_metadata": json.dumps(make_json_safe(scrape_metadata) if scrape_metadata is not None else {}, default=str),
             "content_hash": content_hash,
         }
         if scrape_type in ("batch", "recursive"):
-            params["batch_results"] = make_json_safe(batch_results) if batch_results is not None else []
+            params["batch_results"] = json.dumps(make_json_safe(batch_results) if batch_results is not None else [], default=str)
 
         try:
             result = await self.db.execute(text(insert_sql), params)
