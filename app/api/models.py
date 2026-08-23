@@ -37,6 +37,7 @@ async def create_model(
 ):
     service = ModelService(db)
     model = await service.create_model(model_data, current_user.id)
+    await db.commit()
     await cache_delete(f"user_models:{current_user.id}")
     return ModelResponse.model_validate(model)
 

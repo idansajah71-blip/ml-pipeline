@@ -200,6 +200,9 @@ async def init_db():
             "CREATE INDEX IF NOT EXISTS ix_model_shares_is_public ON model_shares (is_public)"
         ))
         await conn.execute(text(
+            "ALTER TABLE experiments ALTER COLUMN duration_seconds TYPE DOUBLE PRECISION USING duration_seconds::DOUBLE PRECISION"
+        ))
+        await conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_datasets_owner_id ON datasets (owner_id)"))
         await conn.execute(text(
             "CREATE INDEX IF NOT EXISTS ix_datasets_created_at ON datasets (created_at)"))

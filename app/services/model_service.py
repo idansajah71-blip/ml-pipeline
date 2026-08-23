@@ -366,7 +366,7 @@ class ModelService:
 
                 experiment.status = ExperimentStatus.COMPLETED
                 experiment.results = result
-                experiment.duration_seconds = str(result.get("duration_seconds", 0))
+                experiment.duration_seconds = float(result.get("duration_seconds", 0) or 0)
             else:
                 experiment.status = ExperimentStatus.FAILED
                 experiment.results = result
