@@ -601,16 +601,46 @@ class AutoAnalyzeResponse(BaseModel):
     ready_to_train: bool
 
 
+def _is_id_column_auto(series, col_name: str) -> bool:
+    """Detect ID-like columns for auto-analyze."""
+    import pandas as pd
+    import numpy as np
+    col_lower = col_name.lower().strip().rstrip('.')
+    id_name_patterns = ['no', 'id', 'num', 'nomor', 'indeks', 'index', 'idx', 'urut', 'row']
+    is_id_name = col_lower in id_name_patterns
+
+    nunique = series.nunique()
+    total = len(series.dropna())
+    if total == 0:
+        return False
+    unique_ratio = nunique / total
+
+    if pd.api.types.is_numeric_dtype(series.dtype):
+        if is_id_name and nunique > 10:
+            return True
+        if unique_ratio > 0.9 and nunique > total * 0.8:
+            vals = series.dropna().sort_values().values
+            if len(vals) >= 2:
+                diffs = np.diff(vals)
+                if np.all(diffs == 1) or (len(diffs) > 1 and np.all(diffs == diffs[0])):
+                    return True
+    elif pd.api.types.is_string_dtype(series.dtype) or series.dtype.name == 'category':
+        if is_id_name and nunique > 10:
+            return True
+        if unique_ratio > 0.95 and nunique > total * 0.8:
+            return True
+
+    return False
+
+
 def _auto_detect_target(df) -> tuple:
     """Auto-detect the best target column. Returns (column_name, reason)."""
     import pandas as pd
 
     candidates = []
     for col in df.columns:
-        # Skip internal pandas columns (e.g. _sheet_name from multi-sheet Excel)
         if col.startswith("_"):
             continue
-        # Skip sheet name columns that were renamed during header detection
         if col.lower().startswith("sheet") or col.lower().startswith("sheetname"):
             continue
         series = df[col]
@@ -619,23 +649,16 @@ def _auto_detect_target(df) -> tuple:
         total = len(series.dropna())
         if total == 0:
             continue
-        unique_ratio = nunique / total
 
-        # Skip ID-like columns (high unique ratio or name contains 'id/no/num/nomor')
-        col_lower = col.lower().strip()
-        is_id_name = any(kw in col_lower for kw in ['id', 'no', 'num', 'nomor', 'indeks', 'index', 'idx', 'urut', '序号'])
-        if unique_ratio > 0.9 and dtype in ("int64", "float64"):
+        if _is_id_column_auto(series, col):
             continue
-        if is_id_name and nunique > 10:
-            continue
-        # Skip datetime columns
         if "datetime" in dtype or "time" in dtype:
             continue
 
         score = 0
         reason_parts = []
 
-        # Check if column name suggests it's a target (highest priority)
+        col_lower = col.lower().strip()
         target_hints = [
             "target", "label", "output", "y", "class", "category",
             "churn", "price", "harga", "klasifikasi", "prediksi",
@@ -648,7 +671,8 @@ def _auto_detect_target(df) -> tuple:
                 reason_parts.append(f"nama kolom mengandung '{hint}'")
                 break
 
-        # Classification-like target
+        unique_ratio = nunique / total
+
         if pd.api.types.is_string_dtype(series) or dtype == "bool":
             if nunique <= 20:
                 score += 80
@@ -656,20 +680,16 @@ def _auto_detect_target(df) -> tuple:
         elif nunique <= 20 and unique_ratio < 0.1:
             score += 70
             reason_parts.append(f"kolom numerik dengan {nunique} nilai unik (< 10%)")
-
-        # Regression-like target
         elif pd.api.types.is_numeric_dtype(series) and nunique > 20:
             score += 50
             reason_parts.append(f"kolom numerik kontinu ({nunique} nilai unik)")
 
-        # Prefer columns with fewer missing values
         missing_pct = series.isna().sum() / len(series) * 100
         if missing_pct < 5:
             score += 10
         elif missing_pct > 30:
             score -= 20
 
-        # Penalize columns that are the last column but have too many unique values (likely not target)
         if col == df.columns[-1] and unique_ratio > 0.5:
             score -= 10
 
@@ -677,7 +697,6 @@ def _auto_detect_target(df) -> tuple:
             candidates.append((col, score, "; ".join(reason_parts) if reason_parts else "kandidat potensial"))
 
     if not candidates:
-        # Fallback: last non-ID, non-internal column
         for col in reversed(df.columns):
             if col.startswith("_"):
                 continue
@@ -791,7 +810,7 @@ async def auto_analyze_dataset(
         col_type = "target" if col == target_col else "feature"
         if "datetime" in dtype or "time" in dtype:
             col_type = "datetime"
-        elif nunique / max(len(series), 1) > 0.9 and dtype in ("int64", "float64"):
+        elif _is_id_column_auto(series, col):
             col_type = "id"
 
         summary = {

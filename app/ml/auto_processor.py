@@ -94,17 +94,46 @@ class AutoProcessor:
 
         return 'regression'
 
+    @staticmethod
+    def _is_id_column(col: str, series: pd.Series, total_rows: int) -> bool:
+        """Detect if a column is an ID/identifier that should be excluded from features."""
+        col_lower = col.lower().strip().rstrip('.')
+        id_name_patterns = ['no', 'id', 'num', 'nomor', 'indeks', 'index', 'idx',
+                            'urut', 'row', 'no_', 'id_', '编号', '序号']
+        if col_lower in id_name_patterns:
+            return True
+
+        n_unique = series.nunique()
+        if n_unique == 0:
+            return False
+        unique_ratio = n_unique / max(total_rows, 1)
+
+        if pd.api.types.is_numeric_dtype(series.dtype):
+            if unique_ratio > 0.9 and n_unique > total_rows * 0.8:
+                vals = series.dropna().sort_values().values
+                if len(vals) >= 2:
+                    diffs = np.diff(vals)
+                    if np.all(diffs == 1) or np.all(diffs == diffs[0]):
+                        return True
+        elif pd.api.types.is_string_dtype(series.dtype) or series.dtype.name == 'category':
+            if unique_ratio > 0.95 and n_unique > total_rows * 0.8:
+                return True
+
+        return False
+
     def _identify_columns(
         self, df: pd.DataFrame, target_column: str
     ) -> Tuple[List[str], List[str], List[str]]:
         """Identify numeric, categorical, and high-cardinality columns.
         
-        Handles: bool, int8/16/32/64, float16/32/64, category, string/object.
-        Columns that don't fit any category are attempted to be coerced.
+        Skips ID-like columns (sequential integers, unique names, known patterns).
+        Tries numeric coercion on string columns before classifying as categorical.
         """
         numeric_cols = []
         categorical_cols = []
         high_cardinality_cols = []
+        id_cols = []
+        total_rows = len(df)
 
         for col in df.columns:
             if col == target_column:
@@ -112,19 +141,28 @@ class AutoProcessor:
 
             dtype = df[col].dtype
 
-            # Numeric types (all numpy numeric types including bool-as-int)
+            if self._is_id_column(col, df[col], total_rows):
+                id_cols.append(col)
+                continue
+
             if pd.api.types.is_numeric_dtype(dtype):
                 numeric_cols.append(col)
             elif pd.api.types.is_bool_dtype(dtype):
                 categorical_cols.append(col)
             elif pd.api.types.is_string_dtype(dtype) or dtype.name == 'category':
+                coerced = pd.to_numeric(df[col], errors='coerce')
+                non_null_count = coerced.notna().sum()
+                if non_null_count > len(df) * 0.8:
+                    df[col] = coerced
+                    numeric_cols.append(col)
+                    continue
+
                 n_unique = df[col].nunique()
                 if n_unique <= HIGH_CARDINALITY_THRESHOLD:
                     categorical_cols.append(col)
                 else:
                     high_cardinality_cols.append(col)
             else:
-                # Try to coerce unknown types
                 try:
                     coerced = pd.to_numeric(df[col], errors='coerce')
                     if coerced.notna().sum() > len(df) * 0.5:
@@ -133,7 +171,6 @@ class AutoProcessor:
                         continue
                 except Exception:
                     pass
-                # Fallback: treat as categorical
                 categorical_cols.append(col)
 
         return numeric_cols, categorical_cols, high_cardinality_cols
@@ -215,6 +252,17 @@ class AutoProcessor:
         if constant_cols:
             X = X.drop(columns=constant_cols)
             metadata['dropped_constant_columns'] = constant_cols
+
+        id_cols = []
+        for col in list(X.columns):
+            if self._is_id_column(col, X[col], len(X)):
+                id_cols.append(col)
+        if id_cols:
+            X = X.drop(columns=id_cols)
+            metadata['dropped_id_columns'] = id_cols
+            warnings_list.append(
+                f"Dropped {len(id_cols)} ID-like column(s): {', '.join(id_cols)}"
+            )
 
         numeric_cols, categorical_cols, high_cardinality_cols = self._identify_columns(X, target_column)
 

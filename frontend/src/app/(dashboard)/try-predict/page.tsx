@@ -101,6 +101,15 @@ function getSampleForField(name: string): string | undefined {
   return undefined;
 }
 
+const ID_NAME_PATTERNS = /^(no|id|num|nomor|indeks|index|idx|urut|row|no\.|no_)$/i;
+const OHE_PATTERN = /^(.+)_\d+$/;
+
+function isHiddenFeature(name: string): boolean {
+  if (ID_NAME_PATTERNS.test(name.trim().replace(/\.$/, '').toLowerCase())) return true;
+  if (OHE_PATTERN.test(name)) return true;
+  return false;
+}
+
 export default function TryPredictPage() {
   const router = useRouter();
   const { toast } = useToast();
@@ -163,10 +172,21 @@ export default function TryPredictPage() {
 
   const handlePredict = async (rows: Record<string, any>[]) => {
     if (!selectedModel) return;
+    const allFeatures = selectedModel.feature_names || [];
+    const hiddenFeatures = allFeatures.filter(isHiddenFeature);
+    const enrichedRows = rows.map((row) => {
+      const full = { ...row };
+      hiddenFeatures.forEach((f) => {
+        if (!(f in full) || full[f] === '' || full[f] === undefined) {
+          full[f] = 0;
+        }
+      });
+      return full;
+    });
     setPredicting(true);
     setPredictionResults(null);
     try {
-      const res = await models.predict(selectedModel.id, { data: rows });
+      const res = await models.predict(selectedModel.id, { data: enrichedRows });
       setPredictionResults(res.data);
       goToPhase('result');
       toast('success', 'Prediksi berhasil!');
@@ -370,7 +390,12 @@ export default function TryPredictPage() {
               </div>
               <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-700">
                 <p className="text-xs text-gray-500 dark:text-gray-400">Fitur</p>
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">{selectedModel.feature_names?.length ?? 0}</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {(selectedModel.feature_names?.filter((f) => !isHiddenFeature(f)).length ?? 0)}
+                  {(selectedModel.feature_names?.length ?? 0) > (selectedModel.feature_names?.filter((f) => !isHiddenFeature(f)).length ?? 0) && (
+                    <span className="text-xs font-normal text-gray-400"> / {selectedModel.feature_names?.length}</span>
+                  )}
+                </p>
               </div>
             </div>
 
@@ -380,19 +405,38 @@ export default function TryPredictPage() {
                 <div className="text-sm text-blue-700 dark:text-blue-300">
                   <p className="font-medium">Cara mengisi</p>
                   <p className="mt-1">
-                    Masukkan nilai untuk setiap kolom di bawah ini. Klik <strong>Isi Contoh</strong> untuk mengisi dengan data sampel secara otomatis, lalu tekan <strong>Jalankan Prediksi</strong>.
+                    Masukkan nilai untuk kolom yang tersedia. Kolom identitas dan encoding tersembunyi diisi otomatis. Klik <strong>Isi Contoh</strong> untuk mengisi dengan data sampel, lalu tekan <strong>Jalankan Prediksi</strong>.
                   </p>
                 </div>
               </div>
             </div>
 
             <div className="mt-5">
-              <SmartInputForm
-                model={{ feature_names: selectedModel.feature_names || [], target_column: selectedModel.target_column }}
-                onSubmit={handlePredict}
-                loading={predicting}
-                sampleData={Object.fromEntries((selectedModel.feature_names || []).map((f) => [f, getSampleForField(f) ?? '']))}
-              />
+              {(() => {
+                const allFeatures = selectedModel.feature_names || [];
+                const visibleFeatures = allFeatures.filter((f) => !isHiddenFeature(f));
+                const hasHidden = visibleFeatures.length < allFeatures.length;
+                const visibleSample = Object.fromEntries(
+                  visibleFeatures.map((f) => [f, getSampleForField(f) ?? ''])
+                );
+                return (
+                  <>
+                    {hasHidden && (
+                      <div className="mb-3 rounded-lg bg-gray-50 p-3 dark:bg-gray-700/50">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {allFeatures.length - visibleFeatures.length} kolom identitas/encoding tersembunyi (diisi otomatis oleh sistem).
+                        </p>
+                      </div>
+                    )}
+                    <SmartInputForm
+                      model={{ feature_names: visibleFeatures, target_column: selectedModel.target_column }}
+                      onSubmit={handlePredict}
+                      loading={predicting}
+                      sampleData={visibleSample}
+                    />
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>
