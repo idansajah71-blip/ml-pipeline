@@ -604,7 +604,6 @@ class AutoAnalyzeResponse(BaseModel):
 def _is_id_column_auto(series, col_name: str) -> bool:
     """Detect ID-like columns for auto-analyze."""
     import pandas as pd
-    import numpy as np
     col_lower = col_name.lower().strip().rstrip('.')
     id_name_patterns = ['no', 'id', 'num', 'nomor', 'indeks', 'index', 'idx', 'urut', 'row']
     is_id_name = col_lower in id_name_patterns
@@ -618,17 +617,21 @@ def _is_id_column_auto(series, col_name: str) -> bool:
     if pd.api.types.is_numeric_dtype(series.dtype):
         if is_id_name and nunique > 10:
             return True
-        if unique_ratio > 0.9 and nunique > total * 0.8:
-            vals = series.dropna().sort_values().values
-            if len(vals) >= 2:
-                diffs = np.diff(vals)
-                if np.all(diffs == 1) or (len(diffs) > 1 and np.all(diffs == diffs[0])):
-                    return True
+        if is_id_name and unique_ratio > 0.9 and nunique > total * 0.8:
+            return True
     elif pd.api.types.is_string_dtype(series.dtype) or series.dtype.name == 'category':
         if is_id_name and nunique > 10:
             return True
         if unique_ratio > 0.95 and nunique > total * 0.8:
-            return True
+            sample = series.dropna().head(20)
+            non_numeric = 0
+            for v in sample:
+                try:
+                    float(str(v).replace(',', '.').strip())
+                except (ValueError, TypeError):
+                    non_numeric += 1
+            if non_numeric > len(sample) * 0.5:
+                return True
 
     return False
 
