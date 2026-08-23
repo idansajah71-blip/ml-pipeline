@@ -26,6 +26,7 @@ class AutoProcessor:
         self.label_encoders: Dict[str, LabelEncoder] = {}
         self.one_hot_encoders: Dict[str, OneHotEncoder] = {}
         self.one_hot_columns: List[str] = []
+        self.frequency_encoders: Dict[str, Dict] = {}
         self.numeric_imputer: Optional[SimpleImputer] = None
         self.categorical_imputer: Optional[SimpleImputer] = None
         self.feature_names: List[str] = []
@@ -77,10 +78,18 @@ class AutoProcessor:
         if pd.api.types.is_string_dtype(y) or y.dtype.name == 'category':
             return 'classification'
 
+        if pd.api.types.is_bool_dtype(y):
+            return 'classification'
+
         n_unique = y.nunique()
         total_samples = len(y)
 
-        if n_unique <= 20 and n_unique / total_samples < 0.05:
+        # Clear classification: few unique values relative to sample size
+        if n_unique <= 20 and n_unique / max(total_samples, 1) < 0.1:
+            return 'classification'
+
+        # Integer target with small number of unique values → likely classification
+        if pd.api.types.is_integer_dtype(y) and n_unique <= 50 and n_unique / max(total_samples, 1) < 0.05:
             return 'classification'
 
         return 'regression'
@@ -88,7 +97,11 @@ class AutoProcessor:
     def _identify_columns(
         self, df: pd.DataFrame, target_column: str
     ) -> Tuple[List[str], List[str], List[str]]:
-        """Identify numeric, categorical, and high-cardinality columns."""
+        """Identify numeric, categorical, and high-cardinality columns.
+        
+        Handles: bool, int8/16/32/64, float16/32/64, category, string/object.
+        Columns that don't fit any category are attempted to be coerced.
+        """
         numeric_cols = []
         categorical_cols = []
         high_cardinality_cols = []
@@ -97,14 +110,31 @@ class AutoProcessor:
             if col == target_column:
                 continue
 
-            if df[col].dtype in ['int64', 'float64', 'int32', 'float32']:
+            dtype = df[col].dtype
+
+            # Numeric types (all numpy numeric types including bool-as-int)
+            if pd.api.types.is_numeric_dtype(dtype):
                 numeric_cols.append(col)
-            elif pd.api.types.is_string_dtype(df[col]) or df[col].dtype.name == 'category':
+            elif pd.api.types.is_bool_dtype(dtype):
+                categorical_cols.append(col)
+            elif pd.api.types.is_string_dtype(dtype) or dtype.name == 'category':
                 n_unique = df[col].nunique()
                 if n_unique <= HIGH_CARDINALITY_THRESHOLD:
                     categorical_cols.append(col)
                 else:
                     high_cardinality_cols.append(col)
+            else:
+                # Try to coerce unknown types
+                try:
+                    coerced = pd.to_numeric(df[col], errors='coerce')
+                    if coerced.notna().sum() > len(df) * 0.5:
+                        df[col] = coerced
+                        numeric_cols.append(col)
+                        continue
+                except Exception:
+                    pass
+                # Fallback: treat as categorical
+                categorical_cols.append(col)
 
         return numeric_cols, categorical_cols, high_cardinality_cols
 
@@ -163,16 +193,23 @@ class AutoProcessor:
         X = df.drop(columns=[target_column])
         y = df[target_column]
 
-        internal_cols = [col for col in X.columns if col.startswith("_")]
+        internal_cols = [col for col in X.columns if col.startswith("_") or col.lower().startswith("sheet")]
         if internal_cols:
             X = X.drop(columns=internal_cols)
             metadata['internal_columns_dropped'] = internal_cols
 
         datetime_cols = [col for col in X.columns if pd.api.types.is_datetime64_any_dtype(X[col])]
         if datetime_cols:
+            for col in datetime_cols:
+                dt = X[col]
+                X[f'{col}_year'] = dt.dt.year
+                X[f'{col}_month'] = dt.dt.month
+                X[f'{col}_day'] = dt.dt.day
+                X[f'{col}_dayofweek'] = dt.dt.dayofweek
+                X[f'{col}_is_weekend'] = (dt.dt.dayofweek >= 5).astype(int)
             X = X.drop(columns=datetime_cols)
-            metadata['datetime_columns_dropped'] = datetime_cols
-            warnings_list.append(f"Dropped datetime columns: {datetime_cols}")
+            metadata['datetime_features_extracted'] = datetime_cols
+            warnings_list.append(f"Extracted date features from: {datetime_cols}")
 
         constant_cols = [col for col in X.columns if X[col].nunique() <= 1]
         if constant_cols:
@@ -182,11 +219,23 @@ class AutoProcessor:
         numeric_cols, categorical_cols, high_cardinality_cols = self._identify_columns(X, target_column)
 
         if high_cardinality_cols:
-            X = X.drop(columns=high_cardinality_cols)
-            metadata['dropped_high_cardinality'] = high_cardinality_cols
+            # Frequency encode high-cardinality columns instead of dropping them
+            for col in high_cardinality_cols:
+                freq_map = X[col].value_counts(normalize=True).to_dict()
+                X[col] = X[col].map(freq_map).fillna(0)
+                self.frequency_encoders[col] = freq_map
+            metadata['frequency_encoded_columns'] = high_cardinality_cols
             warnings_list.append(
-                f"Dropped {len(high_cardinality_cols)} high-cardinality columns: "
+                f"Frequency-encoded {len(high_cardinality_cols)} high-cardinality columns: "
                 f"{', '.join(high_cardinality_cols[:5])}{'...' if len(high_cardinality_cols) > 5 else ''}"
+            )
+
+        # Zero features guard
+        if X.shape[1] == 0:
+            raise ValueError(
+                "Tidak ada fitur yang tersisa setelah preprocessing. "
+                "Dataset mungkin hanya berisi kolom target, kolom ID, atau kolom kosong. "
+                "Silakan unggah dataset dengan kolom fitur yang bermakna."
             )
 
         if pd.api.types.is_string_dtype(y):

@@ -610,6 +610,9 @@ def _auto_detect_target(df) -> tuple:
         # Skip internal pandas columns (e.g. _sheet_name from multi-sheet Excel)
         if col.startswith("_"):
             continue
+        # Skip sheet name columns that were renamed during header detection
+        if col.lower().startswith("sheet") or col.lower().startswith("sheetname"):
+            continue
         series = df[col]
         dtype = str(series.dtype)
         nunique = series.nunique()
@@ -618,8 +621,12 @@ def _auto_detect_target(df) -> tuple:
             continue
         unique_ratio = nunique / total
 
-        # Skip ID-like columns
+        # Skip ID-like columns (high unique ratio or name contains 'id/no/num/nomor')
+        col_lower = col.lower().strip()
+        is_id_name = any(kw in col_lower for kw in ['id', 'no', 'num', 'nomor', 'indeks', 'index', 'idx', 'urut', '序号'])
         if unique_ratio > 0.9 and dtype in ("int64", "float64"):
+            continue
+        if is_id_name and nunique > 10:
             continue
         # Skip datetime columns
         if "datetime" in dtype or "time" in dtype:
@@ -627,6 +634,19 @@ def _auto_detect_target(df) -> tuple:
 
         score = 0
         reason_parts = []
+
+        # Check if column name suggests it's a target (highest priority)
+        target_hints = [
+            "target", "label", "output", "y", "class", "category",
+            "churn", "price", "harga", "klasifikasi", "prediksi",
+            "kemiskinan", "status", "hasil", "outcome", "value",
+            "score", "tingkat", "persentase", "jumlah", "total",
+        ]
+        for hint in target_hints:
+            if hint in col_lower:
+                score += 40
+                reason_parts.append(f"nama kolom mengandung '{hint}'")
+                break
 
         # Classification-like target
         if pd.api.types.is_string_dtype(series) or dtype == "bool":
@@ -642,19 +662,6 @@ def _auto_detect_target(df) -> tuple:
             score += 50
             reason_parts.append(f"kolom numerik kontinu ({nunique} nilai unik)")
 
-        # Check if column name suggests it's a target
-        target_hints = [
-            "target", "label", "output", "y", "class", "category",
-            "churn", "price", "harga", "klasifikasi", "prediksi",
-            "kemiskinan", "status", "hasil", "outcome", "value",
-        ]
-        col_lower = col.lower()
-        for hint in target_hints:
-            if hint in col_lower:
-                score += 30
-                reason_parts.append(f"nama kolom mengandung '{hint}'")
-                break
-
         # Prefer columns with fewer missing values
         missing_pct = series.isna().sum() / len(series) * 100
         if missing_pct < 5:
@@ -662,11 +669,19 @@ def _auto_detect_target(df) -> tuple:
         elif missing_pct > 30:
             score -= 20
 
+        # Penalize columns that are the last column but have too many unique values (likely not target)
+        if col == df.columns[-1] and unique_ratio > 0.5:
+            score -= 10
+
         if score > 0:
             candidates.append((col, score, "; ".join(reason_parts) if reason_parts else "kandidat potensial"))
 
     if not candidates:
-        # Fallback: last column
+        # Fallback: last non-ID, non-internal column
+        for col in reversed(df.columns):
+            if col.startswith("_"):
+                continue
+            return col, "Kolom terakhir dipilih sebagai target (fallback)"
         last_col = df.columns[-1]
         return last_col, "Kolom terakhir dipilih sebagai target (fallback)"
 
@@ -765,6 +780,8 @@ async def auto_analyze_dataset(
     column_summaries = []
     for col in df.columns:
         if col.startswith("_"):
+            continue
+        if col.lower().startswith("sheet") or col.lower().startswith("sheetname"):
             continue
         series = df[col]
         dtype = str(series.dtype)

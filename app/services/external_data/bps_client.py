@@ -105,7 +105,8 @@ class BPSClient(BaseExternalDataClient):
                                 source_url=f"https://webapi.bps.go.id/v1/api/list?model=data&domain=0000&var={var_id}",
                                 extra={"subject_id": str(subj_id), "var_id": str(var_id)},
                             ))
-                    except Exception:
+                    except Exception as e:
+                        logger.warning(f"BPS variable fetch failed for subject {subj_id}: {e}")
                         # If variable fetch fails, still add the subject
                         results.append(SearchResultItem(
                             id=f"bps:subj:{subj_id}",
@@ -157,7 +158,7 @@ class BPSClient(BaseExternalDataClient):
             # users get an actionable message instead of empty results.
             raise
         except Exception as e:
-            # Return empty on error — don't crash the search
+            logger.error(f"BPS search failed for query '{query}': {e}", exc_info=True)
             return []
 
         return results[:limit]

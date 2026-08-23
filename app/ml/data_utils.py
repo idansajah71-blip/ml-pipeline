@@ -70,6 +70,8 @@ def _clean_dirty_data(df: pd.DataFrame) -> pd.DataFrame:
 
     original_cols = len(df.columns)
 
+    df = _detect_and_fix_headers(df)
+    df = _drop_empty_columns(df)
     df = _remove_title_rows(df)
     df = _remove_total_columns(df)
     df = _clean_currency_columns(df)
@@ -81,31 +83,123 @@ def _clean_dirty_data(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _detect_and_fix_headers(df: pd.DataFrame) -> pd.DataFrame:
+    """Detect if first row(s) are empty/title rows and actual headers are in data.
+    
+    Common in Excel files: row 1 is a title/merged cell, row 2 has the real headers.
+    pandas assigns 'Unnamed: 0', 'Unnamed: 1' etc. in this case.
+    """
+    unnamed_count = sum(1 for c in df.columns if str(c).startswith("Unnamed"))
+    total_cols = len(df.columns)
+
+    if total_cols == 0:
+        return df
+
+    # If most columns are "Unnamed", try to find real headers in data rows
+    if unnamed_count / total_cols > 0.5 and len(df) > 0:
+        for row_idx in range(min(8, len(df))):
+            candidate = df.iloc[row_idx]
+            non_null = candidate.dropna()
+            null_fraction = 1 - len(non_null) / total_cols
+
+            # Skip rows that are mostly empty (title/blank rows)
+            if len(non_null) < 2:
+                continue
+
+            str_vals = [str(v).strip() for v in non_null if isinstance(v, str)]
+            if not str_vals or len(str_vals) < 2:
+                continue
+
+            # Skip rows where most values are NaN and strings are long (merged title)
+            # Real headers have short labels AND most columns filled
+            null_fraction = 1 - len(non_null) / total_cols
+            max_len = max(len(s) for s in str_vals)
+            if null_fraction > 0.5 and max_len > 12:
+                continue
+
+            # Headers are typically short strings (< 30 chars)
+            avg_len = sum(len(s) for s in str_vals) / len(str_vals)
+            if avg_len > 30:
+                continue
+
+            # Check uniqueness (headers are usually unique)
+            if len(set(str_vals)) < len(str_vals) * 0.5:
+                continue
+
+            # Found a good header row — rename columns and drop rows before it
+            new_columns = list(df.columns)
+            for i, val in enumerate(candidate):
+                if pd.notna(val) and str(val).strip():
+                    new_columns[i] = str(val).strip()
+
+            df = df.iloc[row_idx + 1:].reset_index(drop=True)
+            df.columns = new_columns
+            logger.info(f"Detected header row at index {row_idx}, renamed columns: {new_columns}")
+            break
+
+    return df
+
+
+def _drop_empty_columns(df: pd.DataFrame, threshold: float = 0.9) -> pd.DataFrame:
+    """Drop columns that are mostly empty (>threshold fraction NaN)."""
+    if df.empty:
+        return df
+
+    null_fractions = df.isna().mean()
+    cols_to_drop = [col for col in df.columns if null_fractions[col] >= threshold]
+
+    if cols_to_drop:
+        df = df.drop(columns=cols_to_drop)
+        logger.info(f"Dropped {len(cols_to_drop)} empty columns (>={threshold*100:.0f}% NaN): {cols_to_drop}")
+
+    return df
+
+
 def _remove_title_rows(df: pd.DataFrame) -> pd.DataFrame:
-    """Remove non-tabular header/title rows that appear before the actual data."""
+    """Remove non-tabular header/title rows that appear before the actual data.
+    
+    Handles: empty rows, title rows with single text, merged cell remnants.
+    """
     if len(df) < 3:
         return df
 
-    first_row = df.iloc[0]
-    non_null_count = first_row.notna().sum()
+    removed = 0
+    max_removals = min(5, len(df) // 3)  # Safety limit
 
-    if non_null_count <= 1 and len(df.columns) > 3:
-        df = df.iloc[1:].reset_index(drop=True)
-        return _remove_title_rows(df)
+    while removed < max_removals and len(df) >= 3:
+        first_row = df.iloc[0]
+        non_null_count = first_row.notna().sum()
+        total_cols = len(df.columns)
 
-    numeric_count = sum(
-        1 for val in first_row if isinstance(val, (int, float))
-    )
-    total_cols = len(df.columns)
+        # Case 1: Row is mostly empty (title/blank row)
+        if non_null_count <= 1 and total_cols > 2:
+            df = df.iloc[1:].reset_index(drop=True)
+            removed += 1
+            continue
 
-    if total_cols > 3 and numeric_count / total_cols < 0.3:
-        second_row = df.iloc[1] if len(df) > 1 else None
-        if second_row is not None:
-            second_numeric = sum(
-                1 for val in second_row if isinstance(val, (int, float))
-            )
-            if second_numeric / total_cols > 0.5:
+        # Case 2: Row has text but next row looks like actual column headers or data
+        numeric_count = sum(1 for val in first_row if isinstance(val, (int, float)))
+        if total_cols > 3 and numeric_count / total_cols < 0.3:
+            second_row = df.iloc[1] if len(df) > 1 else None
+            if second_row is not None:
+                second_numeric = sum(1 for val in second_row if isinstance(val, (int, float)))
+                second_non_null = second_row.notna().sum()
+                # Second row has more data → first row is a title
+                if second_numeric / total_cols > 0.5 or second_non_null > non_null_count + 1:
+                    df = df.iloc[1:].reset_index(drop=True)
+                    removed += 1
+                    continue
+
+        # Case 3: Row is a single text value across all columns (merged title)
+        str_vals = [str(v).strip() for v in first_row if pd.notna(v) and str(v).strip()]
+        if len(str_vals) == 1 and total_cols > 3:
+            # Single value in a wide row = likely a title
+            if non_null_count <= total_cols * 0.2:
                 df = df.iloc[1:].reset_index(drop=True)
+                removed += 1
+                continue
+
+        break  # No more title rows detected
 
     return df
 

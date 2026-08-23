@@ -171,6 +171,13 @@ async def search_external_data(
         try:
             results = await client.search(q, limit=limit)
             all_results.extend(results)
+        except EnvironmentError as e:
+            # API key missing — return clear error to user
+            raise HTTPException(
+                status_code=400,
+                detail=f"Konfigurasi {client.display_name} belum lengkap: {e}. "
+                       f"Silakan set environment variable yang diperlukan."
+            )
         except Exception as e:
             logger.warning(f"Search failed for source {client.slug}: {e}")
             continue

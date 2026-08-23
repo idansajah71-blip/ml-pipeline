@@ -143,8 +143,8 @@ def compute_readiness_score(
         if brier is not None:
             # Brier: 0 is perfect, 1 is worst
             cal_score = int(max(0, min(100, (1 - brier * 2) * 100)))
-        if brier > 0.25:
-            recommendations.append("Poor model calibration (high Brier score). Consider Platt scaling.")
+            if brier > 0.25:
+                recommendations.append("Poor model calibration (high Brier score). Consider Platt scaling.")
         elif ece is not None:
             cal_score = int(max(0, min(100, (1 - ece) * 100)))
     else:
