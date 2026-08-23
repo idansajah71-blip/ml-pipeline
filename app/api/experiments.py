@@ -35,10 +35,13 @@ async def list_experiments(
     if algorithm:
         query = query.where(Experiment.parameters["algorithm"].as_string() == algorithm)
 
-    count_result = await db.execute(
-        select(func.count()).select_from(query.subquery())
-    )
-    total = count_result.scalar_one()
+    try:
+        count_result = await db.execute(
+            select(func.count(Experiment.id)).where(Experiment.owner_id == current_user.id)
+        )
+        total = count_result.scalar_one()
+    except Exception:
+        total = 0
 
     result = await db.execute(
         query.order_by(Experiment.created_at.desc()).offset(skip).limit(limit)
