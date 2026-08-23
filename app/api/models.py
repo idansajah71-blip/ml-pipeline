@@ -235,7 +235,10 @@ async def predict(
     pipeline = MLPipeline()
     try:
         import os
-        pipeline.load_artifacts(os.path.dirname(model.file_path))
+        bundle_dir = model.file_path
+        if not os.path.isdir(bundle_dir):
+            bundle_dir = os.path.dirname(model.file_path)
+        pipeline.load_artifacts(bundle_dir)
     except Exception as e:
         log_error(e, context=f"Failed to load model artifacts for model {model_id}")
         raise HTTPException(status_code=500, detail="Failed to load model. The model may be corrupted or missing.")
@@ -318,7 +321,10 @@ async def batch_predict(
     pipeline = MLPipeline()
     try:
         import os
-        pipeline.load_artifacts(os.path.dirname(model.file_path))
+        bundle_dir = model.file_path
+        if not os.path.isdir(bundle_dir):
+            bundle_dir = os.path.dirname(model.file_path)
+        pipeline.load_artifacts(bundle_dir)
     except Exception as e:
         log_error(e, context=f"Failed to load model artifacts for batch prediction on model {model_id}")
         raise HTTPException(status_code=500, detail="Failed to load model. The model may be corrupted or missing.")
@@ -886,7 +892,10 @@ async def explain_prediction(
         import os
 
         pipeline = MLPipeline()
-        pipeline.load_artifacts(os.path.dirname(model.file_path))
+        bundle_dir = model.file_path
+        if not os.path.isdir(bundle_dir):
+            bundle_dir = os.path.dirname(model.file_path)
+        pipeline.load_artifacts(bundle_dir)
 
         input_df = pipeline.processor.preprocess_input(
             explain_request.data, model.feature_names
