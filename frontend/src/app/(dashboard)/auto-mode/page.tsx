@@ -78,6 +78,7 @@ export default function AutoModePage() {
     try {
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('name', file.name.replace(/\.[^/.]+$/, ''));
       const uploadRes = await datasetsApi.upload(formData);
       const dataset = uploadRes.data || uploadRes;
 
