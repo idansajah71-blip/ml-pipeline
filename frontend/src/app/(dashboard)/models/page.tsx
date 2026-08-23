@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Plus, Trash2, Rocket, Brain, Loader2, Eye, Star, Zap, GitBranch, Blend, PieChart, BarChart } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import EmptyState from '@/components/EmptyState';
 import Pagination from '@/components/Pagination';
 import SearchInput from '@/components/SearchInput';
 import { CardSkeleton } from '@/components/Skeleton';
@@ -226,12 +227,12 @@ export default function ModelsPage() {
           ))}
         </div>
       ) : paginatedModels.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-16 dark:border-gray-600">
-          <Brain className="mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" />
-          <p className="text-gray-500 dark:text-gray-400">
-            {search ? 'No models match your search' : 'No models yet. Create your first model!'}
-          </p>
-        </div>
+        <EmptyState
+          icon={Brain}
+          title={search ? 'Tidak ada model yang cocok' : 'Belum ada model'}
+          description={search ? 'Coba kata kunci lain.' : 'Mulai training pertama Anda untuk membuat model.'}
+          action={search ? undefined : { label: 'Buka Training Wizard', href: '/training-wizard' }}
+        />
       ) : (
         <>
           {/* Pinned section label */}

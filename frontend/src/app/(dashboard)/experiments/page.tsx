@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { FlaskConical, ArrowRightLeft } from 'lucide-react';
 import StatusBadge from '@/components/StatusBadge';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import EmptyState from '@/components/EmptyState';
 import WorkspaceTabs from '@/components/WorkspaceTabs';
 import { useExperiments } from '@/lib/hooks';
 import { Experiment } from '@/types';
@@ -29,10 +30,12 @@ export default function ExperimentsPage() {
       {isLoading ? (
         <LoadingSpinner size="lg" className="mx-auto" />
       ) : experimentsList.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 py-16 dark:border-gray-600">
-          <FlaskConical className="mb-4 h-12 w-12 text-gray-300 dark:text-gray-600" />
-          <p className="text-gray-500 dark:text-gray-400">No experiments yet. Train a model to create an experiment!</p>
-        </div>
+        <EmptyState
+          icon={FlaskConical}
+          title="Belum ada eksperimen"
+          description="Hasil training akan muncul di sini. Mulai training untuk membuat eksperimen pertama."
+          action={{ label: 'Buka Training Wizard', href: '/training-wizard' }}
+        />
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="space-y-3 lg:col-span-1">

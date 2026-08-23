@@ -51,6 +51,7 @@ interface NavItem {
   href: string;
   icon: LucideIcon;
   tour?: string;
+  tooltip?: string;
 }
 
 interface NavGroup {
@@ -151,11 +152,13 @@ const navigation: NavEntry[] = [
         name: 'Deployments',
         href: '/serving',
         icon: Rocket,
+        tooltip: 'Mengaktifkan model agar bisa dipakai dari luar (production)',
       },
       {
         name: 'Monitoring',
         href: '/monitoring',
         icon: Activity,
+        tooltip: 'Memantau apakah data nyata mulai berbeda dari data training (drift)',
       },
     ],
   },
@@ -165,7 +168,7 @@ const navigation: NavEntry[] = [
     name: 'ML Tools',
     items: [
       { name: 'Train Model', href: '/training-wizard', icon: Wand2, tour: 'wizard' },
-      { name: 'Algorithm Guide', href: '/panduan-algoritma', icon: FileCheck },
+      { name: 'Algorithm Guide', href: '/panduan-algoritma', icon: FileCheck, tooltip: 'Panduan memilih algoritma ML yang tepat untuk data Anda' },
     ],
   },
 
@@ -182,8 +185,8 @@ const navigation: NavEntry[] = [
   {
     name: 'Integrations',
     items: [
-      { name: 'MLflow', href: '/mlflow', icon: LineChart },
-      { name: 'Feature Store', href: '/feature-store', icon: Layers },
+      { name: 'MLflow', href: '/mlflow', icon: LineChart, tooltip: 'Tools eksternal untuk mencatat dan membandingkan eksperimen ML' },
+      { name: 'Feature Store', href: '/feature-store', icon: Layers, tooltip: 'Tempat menyimpan fitur data yang sudah diproses agar bisa dipakai ulang' },
       { name: 'Webhooks', href: '/webhooks', icon: Bell },
     ],
   },
@@ -441,7 +444,7 @@ export default function Sidebar() {
                           )}
                         >
                           <item.icon className={clsx('h-4 w-4', active ? 'text-primary-600' : 'text-gray-400 dark:text-gray-500')} />
-                          <span>{item.name}</span>
+                          <span title={item.tooltip}>{item.name}</span>
                         </Link>
 
                         {/* Sub-navigation (shown when parent is active and has sub-pages) */}
