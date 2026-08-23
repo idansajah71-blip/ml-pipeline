@@ -52,6 +52,7 @@ async def upload_dataset(
     )
 
     dataset = await service.create_dataset(file, dataset_data, current_user.id)
+    await db.commit()
     return DatasetResponse.model_validate(dataset)
 
 
