@@ -368,8 +368,9 @@ class ArtifactManager:
         processor_path = os.path.join(bundle_dir, 'processor.joblib')
         metadata_path = os.path.join(bundle_dir, 'metadata.json')
 
-        model = joblib.load(model_path)
-        processor_data = joblib.load(processor_path)
+        from app.core.safe_joblib import safe_load
+        model = safe_load(model_path)
+        processor_data = safe_load(processor_path)
 
         with open(metadata_path, 'r') as f:
             metadata = json.load(f)

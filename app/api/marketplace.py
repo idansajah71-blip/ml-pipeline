@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import os
 import json
+import pickle
 import numpy as np
 from pathlib import Path
 import asyncio
@@ -91,7 +92,16 @@ def _load_platform_model(model_id: str):
     if not joblib_path.exists() or not meta_path.exists():
         return None
     from app.core.safe_joblib import safe_load
-    model = safe_load(str(joblib_path))
+    try:
+        model = safe_load(str(joblib_path))
+    except (AttributeError, ModuleNotFoundError, EOFError, pickle.UnpicklingError) as e:
+        import logging
+        logging.warning(f"Platform model {model_id} incompatible with current libraries: {e}")
+        return None
+    except Exception as e:
+        import logging
+        logging.warning(f"Failed to load platform model {model_id}: {e}")
+        return None
     with open(meta_path) as f:
         meta = json.load(f)
     _evict_cache_if_needed(_model_cache, get_settings().MARKETPLACE_MAX_MODEL_CACHE_SIZE)
@@ -125,10 +135,18 @@ def _load_user_model(file_path: str):
     if not os.path.exists(model_path):
         return None
     from app.core.safe_joblib import safe_load
-    model_data = safe_load(model_path)
+    try:
+        model_data = safe_load(model_path)
+    except (AttributeError, ModuleNotFoundError, EOFError, pickle.UnpicklingError) as e:
+        import logging
+        logging.warning(f"User model {model_path} incompatible: {e}")
+        return None
     processor = None
     if os.path.exists(processor_path):
-        processor = safe_load(processor_path)
+        try:
+            processor = safe_load(processor_path)
+        except (AttributeError, ModuleNotFoundError, EOFError, pickle.UnpicklingError):
+            processor = None
     metadata = {}
     if os.path.exists(metadata_path):
         with open(metadata_path, 'r') as f:

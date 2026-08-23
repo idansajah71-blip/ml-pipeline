@@ -1,1 +1,1 @@
-{"features": ["merek", "tahun", "jarak_tempuh", "bahan_bakar", "mesin_cc", "kondisi_ext", "kondisi_int", "pemilik"], "is_regression": true, "metrics": {"r2": 0.9881, "mae": 149.64, "rmse": 191.51}}
+{"features": ["merek", "tahun", "jarak_tempuh", "bahan_bakar", "mesin_cc", "kondisi_ext", "kondisi_int", "pemilik"], "is_regression": true, "metrics": {"r2": 0.9881, "mae": 149.7, "rmse": 191.52}}

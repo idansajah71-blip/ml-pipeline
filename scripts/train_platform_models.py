@@ -144,14 +144,7 @@ def train_p6():
     def decision(X):
         return (((X[:, 0] > 200) & (X[:, 0] < 230) & (X[:, 2] > 1000) & (X[:, 2] < 2500)).astype(int))
     X, y = gen_classification(N_SAMPLES, ranges, decision, noise=0.08)
-    train_and_save("platform-6", XGBClassifierCompat(), X, y, features, False)
-
-class XGBClassifierCompat:
-    """Wrapper to use GradientBoosting as XGBoost-like."""
-    def __init__(self):
-        self._m = GradientBoostingClassifier(n_estimators=100, random_state=42)
-    def fit(self, X, y): self._m.fit(X, y); return self
-    def predict(self, X): return self._m.predict(X)
+    train_and_save("platform-6", GradientBoostingClassifier(n_estimators=100, random_state=42), X, y, features, False)
 
 # ─── Platform 7: Prediksi Gaji ─────────────────────────────────────────────
 def train_p7():
