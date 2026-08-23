@@ -24,6 +24,7 @@ def get_user_id(user) -> str:
 
 def make_json_safe(obj: Any) -> Any:
     """Recursively convert numpy/pandas types to JSON-safe Python natives."""
+    import math
     if isinstance(obj, dict):
         return {k: make_json_safe(v) for k, v in obj.items()}
     if isinstance(obj, (list, tuple)):
@@ -31,9 +32,12 @@ def make_json_safe(obj: Any) -> Any:
     if isinstance(obj, (np.integer,)):
         return int(obj)
     if isinstance(obj, (np.floating,)):
-        return float(obj)
+        v = float(obj)
+        return None if math.isnan(v) or math.isinf(v) else v
     if isinstance(obj, np.bool_):
         return bool(obj)
     if isinstance(obj, np.ndarray):
         return obj.tolist()
+    if isinstance(obj, float):
+        return None if math.isnan(obj) or math.isinf(obj) else obj
     return obj
