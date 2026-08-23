@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -278,7 +278,103 @@ async def predict(
     return result
 
 
-@router.post("/{model_id}/predict/{prediction_id}/feedback", response_model=PredictionFeedbackResponse)
+@router.post("/{model_id}/predict-file")
+async def predict_from_file(
+    model_id: UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = ModelService(db)
+    model = await service.get_model(model_id)
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found")
+
+    if not model.file_path:
+        raise HTTPException(status_code=400, detail="Model belum di-training")
+
+    pipeline = MLPipeline()
+    try:
+        import os
+        bundle_dir = model.file_path
+        if not os.path.isdir(bundle_dir):
+            bundle_dir = os.path.dirname(model.file_path)
+        pipeline.load_artifacts(bundle_dir)
+    except Exception as e:
+        log_error(e, context=f"Failed to load model artifacts for predict-file {model_id}")
+        raise HTTPException(status_code=500, detail="Gagal memuat model. Model mungkin corrupt atau tidak ditemukan.")
+
+    try:
+        from app.ml.data_utils import load_dataframe
+        file_content = await file.read()
+        df = load_dataframe(file_content, file.filename)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Gagal membaca file: {str(e)}")
+
+    if df.empty:
+        raise HTTPException(status_code=400, detail="File kosong — tidak ada data untuk diprediksi.")
+
+    feature_names = model.feature_names or []
+    if not feature_names:
+        raise HTTPException(status_code=400, detail="Model tidak memiliki feature_names yang terdefinisi.")
+
+    # Smart column mapping: exact match → fuzzy → fill with 0
+    input_cols = set(df.columns)
+    model_cols = set(feature_names)
+    exact_match = input_cols & model_cols
+    missing_cols = model_cols - input_cols
+
+    mapping_report = {
+        'total_rows': len(df),
+        'exact_match': sorted(exact_match),
+        'missing_columns': sorted(missing_cols),
+        'extra_columns': sorted(input_cols - model_cols),
+    }
+
+    # Fill missing columns with 0
+    for col in missing_cols:
+        df[col] = 0
+
+    # Drop extra columns not in model
+    rows_data = df[feature_names].to_dict(orient='records')
+
+    start_time = time.time()
+    result = pipeline.predict(rows_data, feature_names)
+    latency_ms = int((time.time() - start_time) * 1000)
+
+    # Store predictions
+    if "predictions" in result:
+        stored_predictions = []
+        for pred in result["predictions"]:
+            idx = pred.get("index", 0)
+            input_row = rows_data[idx] if idx < len(rows_data) else {}
+            db_prediction = Prediction(
+                input_data=input_row,
+                prediction=pred.get("prediction", ""),
+                probability=pred.get("predicted_probability"),
+                confidence=pred.get("predicted_probability"),
+                latency_ms=latency_ms,
+                model_id=model_id,
+            )
+            db.add(db_prediction)
+            stored_predictions.append((pred, db_prediction))
+        await db.flush()
+
+        result_predictions = []
+        for pred, db_pred in stored_predictions:
+            result_predictions.append({
+                "id": str(db_pred.id),
+                "index": pred.get("index", 0),
+                "prediction": pred.get("prediction", ""),
+                "probability": pred.get("predicted_probability"),
+                "probabilities": pred.get("probabilities"),
+            })
+        result["predictions"] = result_predictions
+
+    result["mapping_report"] = mapping_report
+    result["model_version"] = model.version
+    result["latency_ms"] = latency_ms
+    return result
 async def feedback_prediction(
     model_id: UUID,
     prediction_id: UUID,
@@ -744,19 +840,25 @@ def _auto_detect_problem_type(series) -> tuple:
 def _auto_select_algorithm(problem_type: str, n_samples: int, n_features: int, missing_pct: float) -> tuple:
     """Auto-select the best algorithm. Returns (algorithm, reason)."""
     if problem_type == "classification":
-        if n_samples < 1000:
-            return "random_forest", "Dataset kecil → Random Forest (stabil & cepat)"
-        elif n_samples < 10000:
-            return "random_forest", "Dataset sedang → Random Forest (akurasi baik)"
+        if n_samples < 200:
+            return "random_forest", "Dataset sangat kecil -> Random Forest (anti overfitting)"
+        elif n_samples < 2000:
+            if n_features > 20:
+                return "gradient_boosting", "Banyak fitur -> Gradient Boosting (feature selection otomatis)"
+            return "random_forest", "Dataset kecil -> Random Forest (stabil & cepat)"
+        elif n_samples < 20000:
+            return "gradient_boosting", "Dataset sedang -> Gradient Boosting (akurasi baik)"
         else:
-            return "gradient_boosting", "Dataset besar → Gradient Boosting (performa maksimal)"
+            return "gradient_boosting", "Dataset besar -> Gradient Boosting (performa maksimal)"
     else:
-        if n_samples < 1000:
-            return "random_forest", "Dataset kecil → Random Forest (anti overfitting)"
-        elif n_samples < 10000:
-            return "gradient_boosting", "Dataset sedang → Gradient Boosting (akurasi tinggi)"
+        if n_samples < 200:
+            return "random_forest", "Dataset sangat kecil -> Random Forest (anti overfitting)"
+        elif n_samples < 2000:
+            return "random_forest", "Dataset kecil -> Random Forest (anti overfitting)"
+        elif n_samples < 20000:
+            return "gradient_boosting", "Dataset sedang -> Gradient Boosting (akurasi tinggi)"
         else:
-            return "gradient_boosting", "Dataset besar → Gradient Boosting (performa optimal)"
+            return "gradient_boosting", "Dataset besar -> Gradient Boosting (performa optimal)"
 
 
 @router.post("/auto-analyze", response_model=AutoAnalyzeResponse)

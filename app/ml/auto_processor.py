@@ -4,6 +4,7 @@ from typing import Tuple, Dict, Any, List, Optional
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder, OneHotEncoder
 from sklearn.impute import SimpleImputer
+from sklearn.feature_selection import VarianceThreshold, mutual_info_classif, mutual_info_regression
 import logging
 
 from app.ml.data_utils import load_dataframe
@@ -213,6 +214,90 @@ class AutoProcessor:
 
         return warnings
 
+    def _select_informative_features(
+        self, X: pd.DataFrame, y: pd.Series, problem_type: str
+    ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
+        """
+        Select informative features using 3 filters:
+        1. Drop near-constant columns (>95% same value)
+        2. Drop highly correlated features (r > 0.95) — keep higher-variance one
+        3. Mutual information ranking — keep top features by MI score
+        """
+        dropped = {}
+        initial_count = X.shape[1]
+        if initial_count <= 2:
+            return X, {'initial': initial_count, 'final': initial_count, 'dropped': {}}
+
+        # ── Filter 1: Drop near-constant numeric columns ──
+        near_constant = []
+        for col in X.select_dtypes(include=[np.number]).columns:
+            top_freq = X[col].value_counts(normalize=True).iloc[0] if len(X) > 0 else 1
+            if top_freq > 0.95:
+                near_constant.append(col)
+        if near_constant:
+            X = X.drop(columns=near_constant)
+            dropped['near_constant'] = near_constant
+
+        # ── Filter 2: Drop highly correlated features ──
+        numeric_cols = X.select_dtypes(include=[np.number]).columns.tolist()
+        if len(numeric_cols) > 1:
+            try:
+                corr = X[numeric_cols].corr().abs()
+                upper = corr.where(np.triu(np.ones(corr.shape), k=1).astype(bool))
+                # For each correlated pair, drop the one with lower variance
+                to_drop = set()
+                for col in upper.columns:
+                    high_corr = upper.index[upper[col] > 0.95].tolist()
+                    for partner in high_corr:
+                        if partner not in to_drop and col not in to_drop:
+                            # Drop the one with lower variance
+                            if X[col].var() < X[partner].var():
+                                to_drop.add(col)
+                            else:
+                                to_drop.add(partner)
+                if to_drop:
+                    X = X.drop(columns=list(to_drop))
+                    dropped['high_correlation'] = list(to_drop)
+            except Exception:
+                pass
+
+        # ── Filter 3: Mutual information ranking ──
+        remaining = list(X.columns)
+        if len(remaining) > 8:
+            X_mi = X.copy()
+            # Fill NaN for MI computation
+            for col in X_mi.select_dtypes(include=[np.number]).columns:
+                med = X_mi[col].median()
+                X_mi[col] = X_mi[col].fillna(med if not np.isnan(med) else 0)
+            for col in X_mi.select_dtypes(exclude=[np.number]).columns:
+                mode_val = X_mi[col].mode()
+                fill_val = mode_val.iloc[0] if not mode_val.empty else 'missing'
+                X_mi[col] = X_mi[col].fillna(fill_val).astype(str)
+                X_mi[col] = pd.Categorical(X_mi[col]).codes
+
+            try:
+                if problem_type == 'classification':
+                    mi_scores = mutual_info_classif(X_mi, y, random_state=42)
+                else:
+                    mi_scores = mutual_info_regression(X_mi, y, random_state=42)
+
+                mi_series = pd.Series(mi_scores, index=remaining)
+                # Keep top 80% or at least 3 features
+                n_keep = max(3, int(len(remaining) * 0.8))
+                if len(remaining) > n_keep:
+                    drop_mi = mi_series.nsmallest(len(remaining) - n_keep).index.tolist()
+                    X = X.drop(columns=drop_mi)
+                    dropped['low_mi'] = drop_mi
+            except Exception as e:
+                logger.warning(f"MI ranking failed: {e}")
+
+        metadata = {
+            'initial_features': initial_count,
+            'final_features': X.shape[1],
+            'dropped': dropped,
+        }
+        return X, metadata
+
     def auto_preprocess(
         self,
         df: pd.DataFrame,
@@ -236,6 +321,15 @@ class AutoProcessor:
 
         X = df.drop(columns=[target_column])
         y = df[target_column]
+
+        # Drop rows with NaN target
+        valid_mask = y.notna()
+        if valid_mask.sum() < len(y):
+            n_dropped = len(y) - valid_mask.sum()
+            X = X[valid_mask].reset_index(drop=True)
+            y = y[valid_mask].reset_index(drop=True)
+            warnings_list.append(f"Menghapus {n_dropped} baris dengan target kosong (NaN).")
+            metadata['rows_dropped_nan_target'] = n_dropped
 
         internal_cols = [col for col in X.columns if col.startswith("_") or col.lower().startswith("sheet")]
         if internal_cols:
@@ -283,6 +377,17 @@ class AutoProcessor:
             warnings_list.append(
                 f"Frequency-encoded {len(high_cardinality_cols)} high-cardinality columns: "
                 f"{', '.join(high_cardinality_cols[:5])}{'...' if len(high_cardinality_cols) > 5 else ''}"
+            )
+
+        # ── Smart Feature Selection ──
+        pre_selection_count = X.shape[1]
+        X, selection_meta = self._select_informative_features(X, y, problem_type)
+        metadata['feature_selection'] = selection_meta
+        if selection_meta['dropped']:
+            total_dropped = sum(len(v) for v in selection_meta['dropped'].values())
+            warnings_list.append(
+                f"Feature selection: {pre_selection_count} -> {X.shape[1]} fitur "
+                f"(membuang {total_dropped} fitur noise/informatif rendah)"
             )
 
         # Zero features guard
@@ -381,11 +486,17 @@ class AutoProcessor:
         return X_train, X_test, pd.Series(y_train), pd.Series(y_test), metadata
 
     def preprocess_input(self, data: List[Dict[str, Any]], feature_names: List[str]) -> pd.DataFrame:
-        """Preprocess input data for prediction."""
-        df = pd.DataFrame(data)
+        """Preprocess input data for prediction - fully robust, works with ANY input."""
+        try:
+            df = pd.DataFrame(data)
+        except Exception as e:
+            raise ValueError(f"Data tidak bisa dibaca: {str(e)}")
+
+        if df.empty:
+            raise ValueError("Input data kosong.")
 
         if self.numeric_imputer:
-            numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+            numeric_cols = [c for c in df.select_dtypes(include=[np.number]).columns if c in feature_names]
             if numeric_cols:
                 df[numeric_cols] = self.numeric_imputer.transform(df[numeric_cols])
 
@@ -394,15 +505,21 @@ class AutoProcessor:
             if available_cat_cols:
                 df[available_cat_cols] = self.categorical_imputer.transform(df[available_cat_cols])
 
+        # OHE — fill missing source columns with 'missing' first
         if 'features' in self.one_hot_encoders and self.one_hot_columns:
-            available_cat_cols = [c for c in self.one_hot_columns if c in df.columns]
-            if available_cat_cols:
+            missing_cat_cols = [c for c in self.one_hot_columns if c not in df.columns]
+            for c in missing_cat_cols:
+                df[c] = 'missing'
+            all_ohe_cols = self.one_hot_columns
+            if all_ohe_cols:
                 ohe = self.one_hot_encoders['features']
-                ohe_data = ohe.transform(df[available_cat_cols])
-                ohe_feature_names = ohe.get_feature_names_out(available_cat_cols).tolist()
-
+                try:
+                    ohe_data = ohe.transform(df[all_ohe_cols])
+                except Exception:
+                    ohe_data = ohe.transform(df[all_ohe_cols].fillna('missing'))
+                ohe_feature_names = ohe.get_feature_names_out(all_ohe_cols).tolist()
                 ohe_df = pd.DataFrame(ohe_data, columns=ohe_feature_names, index=df.index)
-                df = df.drop(columns=available_cat_cols)
+                df = df.drop(columns=all_ohe_cols, errors='ignore')
                 df = pd.concat([df, ohe_df], axis=1)
 
         for col in df.columns:
@@ -412,12 +529,19 @@ class AutoProcessor:
 
         for feat in feature_names:
             if feat not in df.columns:
-                df[feat] = np.nan
+                df[feat] = 0.0
 
-        df = df[feature_names]
+        df = df[feature_names].fillna(0)
 
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        if numeric_cols and hasattr(self.scaler, 'n_features_in_'):
-            df[numeric_cols] = self.scaler.transform(df[numeric_cols])
+        for col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+
+        if hasattr(self.scaler, 'n_features_in_'):
+            try:
+                scaled = self.scaler.transform(df.values)
+                df = pd.DataFrame(scaled, columns=list(df.columns), index=df.index)
+            except Exception:
+                scaled = self.scaler.transform(df.values)
+                df = pd.DataFrame(scaled, index=df.index)
 
         return df

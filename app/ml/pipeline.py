@@ -195,7 +195,7 @@ class MLPipeline:
 
     def predict(self, data: List[Dict[str, Any]], feature_names: List[str]) -> Dict[str, Any]:
         if self.trainer.model is None:
-            raise ValueError("No model loaded. Train or load a model first.")
+            raise ValueError("Model belum dimuat. Latih atau muat model terlebih dahulu.")
 
         start_time = time.time()
 
@@ -231,10 +231,26 @@ class MLPipeline:
                 'problem_type': problem_type,
             }
 
-        except Exception as e:
-            from app.core.error_utils import sanitize_error_message
+        except ValueError as e:
             return {
-                'error': sanitize_error_message(e),
+                'error': f"Input tidak valid: {str(e)}",
+                'latency_ms': int((time.time() - start_time) * 1000),
+            }
+        except KeyError as e:
+            return {
+                'error': f"Kolom {str(e)} tidak ditemukan dalam input.",
+                'latency_ms': int((time.time() - start_time) * 1000),
+            }
+        except Exception as e:
+            err_msg = str(e)
+            if 'shape' in err_msg.lower() or 'mismatch' in err_msg.lower():
+                err_msg = (
+                    f"Jumlah kolom input tidak sesuai dengan model. "
+                    f"Model expects {len(feature_names)} fitur: {feature_names[:5]}... "
+                    f"Input punya kolom: {list(data[0].keys())[:5] if data else []}"
+                )
+            return {
+                'error': f"Gagal memprediksi: {err_msg}",
                 'latency_ms': int((time.time() - start_time) * 1000),
             }
 

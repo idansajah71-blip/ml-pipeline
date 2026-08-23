@@ -132,6 +132,9 @@ export default function TryPredictPage() {
   const [predictionResults, setPredictionResults] = useState<any>(null);
   const [previousExperiments, setPreviousExperiments] = useState<Experiment[]>([]);
   const [loadingExperiments, setLoadingExperiments] = useState(false);
+  const [inputMode, setInputMode] = useState<'form' | 'file'>('form');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [mappingReport, setMappingReport] = useState<any>(null);
 
   const goToPhase = (next: Phase) => {
     transition(phase, next);
@@ -197,10 +200,32 @@ export default function TryPredictPage() {
     }
   };
 
+  const handleFileUpload = async () => {
+    if (!selectedModel || !uploadFile) return;
+    setPredicting(true);
+    setPredictionResults(null);
+    setMappingReport(null);
+    try {
+      const res = await models.predictFile(selectedModel.id, uploadFile);
+      setPredictionResults(res.data);
+      setMappingReport(res.data.mapping_report || null);
+      goToPhase('result');
+      const nPreds = res.data.predictions?.length || 0;
+      toast('success', `Prediksi berhasil! ${nPreds} baris diproses.`);
+    } catch (err: unknown) {
+      toast('error', formatApiError(err, 'Prediksi dari file gagal'));
+    } finally {
+      setPredicting(false);
+    }
+  };
+
   const resetAll = () => {
     setSelectedModel(null);
     setPredictionResults(null);
     setPreviousExperiments([]);
+    setInputMode('form');
+    setUploadFile(null);
+    setMappingReport(null);
   };
 
   const getConfidenceLabel = (prob?: number): { text: string; color: string } => {
@@ -399,45 +424,132 @@ export default function TryPredictPage() {
               </div>
             </div>
 
-            <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
-              <div className="flex gap-3">
-                <Lightbulb className="h-5 w-5 shrink-0 text-blue-500" />
-                <div className="text-sm text-blue-700 dark:text-blue-300">
-                  <p className="font-medium">Cara mengisi</p>
-                  <p className="mt-1">
-                    Masukkan nilai untuk kolom yang tersedia. Kolom identitas dan encoding tersembunyi diisi otomatis. Klik <strong>Isi Contoh</strong> untuk mengisi dengan data sampel, lalu tekan <strong>Jalankan Prediksi</strong>.
-                  </p>
-                </div>
-              </div>
+            {/* Input mode tabs */}
+            <div className="mt-5 flex gap-1 rounded-lg bg-gray-100 p-1 dark:bg-gray-700">
+              <button
+                type="button"
+                onClick={() => setInputMode('form')}
+                className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition ${
+                  inputMode === 'form'
+                    ? 'bg-white text-gray-900 shadow dark:bg-gray-600 dark:text-white'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                }`}
+              >
+                Input Manual
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputMode('file')}
+                className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition ${
+                  inputMode === 'file'
+                    ? 'bg-white text-gray-900 shadow dark:bg-gray-600 dark:text-white'
+                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400'
+                }`}
+              >
+                Upload File
+              </button>
             </div>
 
-            <div className="mt-5">
-              {(() => {
-                const allFeatures = selectedModel.feature_names || [];
-                const visibleFeatures = allFeatures.filter((f) => !isHiddenFeature(f));
-                const hasHidden = visibleFeatures.length < allFeatures.length;
-                const visibleSample = Object.fromEntries(
-                  visibleFeatures.map((f) => [f, getSampleForField(f) ?? ''])
-                );
-                return (
-                  <>
-                    {hasHidden && (
-                      <div className="mb-3 rounded-lg bg-gray-50 p-3 dark:bg-gray-700/50">
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {allFeatures.length - visibleFeatures.length} kolom identitas/encoding tersembunyi (diisi otomatis oleh sistem).
-                        </p>
+            {inputMode === 'form' ? (
+              <div className="mt-5">
+                <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
+                  <div className="flex gap-3">
+                    <Lightbulb className="h-5 w-5 shrink-0 text-blue-500" />
+                    <div className="text-sm text-blue-700 dark:text-blue-300">
+                      <p className="font-medium">Cara mengisi</p>
+                      <p className="mt-1">
+                        Masukkan nilai untuk kolom yang tersedia. Kolom identitas dan encoding tersembunyi diisi otomatis. Klik <strong>Isi Contoh</strong> untuk data sampel.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                {(() => {
+                  const allFeatures = selectedModel.feature_names || [];
+                  const visibleFeatures = allFeatures.filter((f) => !isHiddenFeature(f));
+                  const hasHidden = visibleFeatures.length < allFeatures.length;
+                  const visibleSample = Object.fromEntries(
+                    visibleFeatures.map((f) => [f, getSampleForField(f) ?? ''])
+                  );
+                  return (
+                    <>
+                      {hasHidden && (
+                        <div className="mt-3 rounded-lg bg-gray-50 p-3 dark:bg-gray-700/50">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {allFeatures.length - visibleFeatures.length} kolom identitas/encoding tersembunyi (diisi otomatis oleh sistem).
+                          </p>
+                        </div>
+                      )}
+                      <div className="mt-3">
+                        <SmartInputForm
+                          model={{ feature_names: visibleFeatures, target_column: selectedModel.target_column }}
+                          onSubmit={handlePredict}
+                          loading={predicting}
+                          sampleData={visibleSample}
+                        />
                       </div>
-                    )}
-                    <SmartInputForm
-                      model={{ feature_names: visibleFeatures, target_column: selectedModel.target_column }}
-                      onSubmit={handlePredict}
-                      loading={predicting}
-                      sampleData={visibleSample}
-                    />
-                  </>
-                );
-              })()}
-            </div>
+                    </>
+                  );
+                })()}
+              </div>
+            ) : (
+              <div className="mt-5 space-y-4">
+                <div className="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/20">
+                  <div className="flex gap-3">
+                    <Lightbulb className="h-5 w-5 shrink-0 text-blue-500" />
+                    <div className="text-sm text-blue-700 dark:text-blue-300">
+                      <p className="font-medium">Upload file untuk prediksi massal</p>
+                      <p className="mt-1">
+                        Upload file CSV atau Excel. Kolom yang cocok dengan fitur model akan digunakan otomatis. Kolom yang tidak ditemukan akan diisi 0.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border-2 border-dashed border-gray-300 bg-white p-6 text-center dark:border-gray-600 dark:bg-gray-800">
+                  <Database className="mx-auto mb-3 h-10 w-10 text-gray-300 dark:text-gray-600" />
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    {uploadFile ? uploadFile.name : 'Pilih file CSV atau Excel'}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-400">
+                    {uploadFile
+                      ? `${(uploadFile.size / 1024).toFixed(1)} KB`
+                      : 'Drag & drop atau klik untuk memilih'}
+                  </p>
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls,.json"
+                    className="mt-3 block w-full text-sm text-gray-500 file:mr-3 file:rounded-lg file:border-0 file:bg-primary-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-100 dark:file:bg-primary-900/50 dark:file:text-primary-300"
+                    onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                  />
+                </div>
+
+                {selectedModel.feature_names && (
+                  <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-700/50">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Model ini menggunakan <span className="font-medium">{selectedModel.feature_names.length}</span> fitur.
+                      Pastikan file memiliki kolom yang sesuai.
+                    </p>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  disabled={!uploadFile || predicting}
+                  onClick={handleFileUpload}
+                  className="w-full rounded-lg bg-primary-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {predicting ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Memproses...
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center gap-2">
+                      <Rocket className="h-4 w-4" /> Jalankan Prediksi dari File
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -462,6 +574,32 @@ export default function TryPredictPage() {
             </div>
           ) : (
             <>
+              {/* Mapping report from file upload */}
+              {mappingReport && (
+                <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 dark:border-blue-700 dark:bg-blue-900/20">
+                  <div className="flex gap-3">
+                    <Database className="mt-0.5 h-5 w-5 shrink-0 text-blue-500" />
+                    <div className="text-sm text-blue-700 dark:text-blue-300">
+                      <p className="font-semibold">Laporan File</p>
+                      <p className="mt-1">{mappingReport.total_rows} baris diproses</p>
+                      {mappingReport.exact_match?.length > 0 && (
+                        <p className="mt-0.5">Kolom cocok: {mappingReport.exact_match.join(', ')}</p>
+                      )}
+                      {mappingReport.missing_columns?.length > 0 && (
+                        <p className="mt-0.5 text-yellow-600 dark:text-yellow-400">
+                          Kolom tidak ditemukan (diisi 0): {mappingReport.missing_columns.join(', ')}
+                        </p>
+                      )}
+                      {mappingReport.extra_columns?.length > 0 && (
+                        <p className="mt-0.5 text-gray-500">
+                          Kolom diabaikan: {mappingReport.extra_columns.join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Human-readable summary */}
               <div className="rounded-xl border border-green-200 bg-green-50 p-6 dark:border-green-700 dark:bg-green-900/20">
                 <div className="flex gap-3">

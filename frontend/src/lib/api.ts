@@ -163,6 +163,13 @@ export const models = {
     api.post(`/models/${id}/predict`, data),
   batchPredict: (id: string, data: { data: Record<string, any>[] }) =>
     api.post(`/models/${id}/predict/batch`, data),
+  predictFile: (id: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post(`/models/${id}/predict-file`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
   feedbackPrediction: (id: string, predictionId: string, data: { correct: boolean; comment?: string }) =>
     api.post<PredictionFeedbackResponse>(`/models/${id}/predict/${predictionId}/feedback`, data),
   deploy: (id: string) => api.post(`/models/${id}/deploy`),

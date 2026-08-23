@@ -130,6 +130,13 @@ class DataProcessor:
         X = df.drop(columns=[target_column])
         y = df[target_column]
 
+        valid_mask = y.notna()
+        if valid_mask.sum() < len(y):
+            n_dropped = len(y) - valid_mask.sum()
+            X = X[valid_mask].reset_index(drop=True)
+            y = y[valid_mask].reset_index(drop=True)
+            warnings.warn(f"Dropped {n_dropped} rows with NaN target.")
+
         datetime_cols = [col for col in X.columns if pd.api.types.is_datetime64_any_dtype(X[col])]
         if datetime_cols:
             warnings.warn(f"Dropping datetime columns: {datetime_cols}")
@@ -232,19 +239,32 @@ class DataProcessor:
         return X_train, X_test, pd.Series(y_train), pd.Series(y_test), metadata
 
     def preprocess_input(self, data: List[Dict[str, Any]], feature_names: List[str]) -> pd.DataFrame:
-        df = pd.DataFrame(data)
+        try:
+            df = pd.DataFrame(data)
+        except Exception as e:
+            raise ValueError(f"Data tidak bisa dibaca: {str(e)}")
+
+        if df.empty:
+            raise ValueError("Input data kosong.")
 
         df = self._transform_imputation(df)
 
+        # OHE — fill missing source columns with 'missing' first
         if 'features' in self.one_hot_encoders and self.one_hot_columns:
             available_cat_cols = [c for c in self.one_hot_columns if c in df.columns]
-            if available_cat_cols:
+            missing_cat_cols = [c for c in self.one_hot_columns if c not in df.columns]
+            for c in missing_cat_cols:
+                df[c] = 'missing'
+            all_ohe_cols = self.one_hot_columns
+            if all_ohe_cols:
                 ohe = self.one_hot_encoders['features']
-                ohe_data = ohe.transform(df[available_cat_cols])
-                ohe_feature_names = ohe.get_feature_names_out(available_cat_cols).tolist()
-
+                try:
+                    ohe_data = ohe.transform(df[all_ohe_cols])
+                except Exception:
+                    ohe_data = ohe.transform(df[all_ohe_cols].fillna('missing'))
+                ohe_feature_names = ohe.get_feature_names_out(all_ohe_cols).tolist()
                 ohe_df = pd.DataFrame(ohe_data, columns=ohe_feature_names, index=df.index)
-                df = df.drop(columns=available_cat_cols)
+                df = df.drop(columns=all_ohe_cols, errors='ignore')
                 df = pd.concat([df, ohe_df], axis=1)
 
         for col in df.columns:
@@ -254,13 +274,20 @@ class DataProcessor:
 
         for feat in feature_names:
             if feat not in df.columns:
-                df[feat] = np.nan
+                df[feat] = 0.0
 
-        df = df[feature_names]
+        df = df[feature_names].fillna(0)
 
-        numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        if numeric_cols and hasattr(self.scaler, 'n_features_in_'):
-            df[numeric_cols] = self.scaler.transform(df[numeric_cols])
+        for col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+
+        if hasattr(self.scaler, 'n_features_in_'):
+            try:
+                scaled = self.scaler.transform(df.values)
+                df = pd.DataFrame(scaled, columns=list(df.columns), index=df.index)
+            except Exception:
+                scaled = self.scaler.transform(df.values)
+                df = pd.DataFrame(scaled, index=df.index)
 
         return df
 
