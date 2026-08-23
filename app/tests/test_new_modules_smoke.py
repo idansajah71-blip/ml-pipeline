@@ -1,14 +1,13 @@
-import pytest
 import numpy as np
 import pandas as pd
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 
 class TestMLflowTracker:
     """Smoke tests for MLflow experiment tracking module."""
 
     def test_import(self):
-        from app.ml.mlflow_tracker import MLflowTracker, get_mlflow_tracker
+        from app.ml.mlflow_tracker import MLflowTracker
         assert MLflowTracker is not None
 
     def test_tracker_init_without_mlflow(self):
@@ -51,7 +50,7 @@ class TestLIMEExplainer:
     """Smoke tests for LIME explainability module."""
 
     def test_import(self):
-        from app.ml.lime_explainer import LIMEExplainer, explain_with_lime
+        from app.ml.lime_explainer import LIMEExplainer
         assert LIMEExplainer is not None
 
     def test_explainer_init(self):
@@ -94,7 +93,7 @@ class TestModelMonitor:
     """Smoke tests for Evidently AI model monitoring module."""
 
     def test_import(self):
-        from app.ml.model_monitor import ModelMonitor, detect_drift, check_quality
+        from app.ml.model_monitor import ModelMonitor
         assert ModelMonitor is not None
 
     def test_monitor_init(self):
@@ -141,7 +140,7 @@ class TestDataValidation:
     """Smoke tests for Great Expectations data validation module."""
 
     def test_import(self):
-        from app.ml.data_validation import DataValidator, validate_data
+        from app.ml.data_validation import DataValidator
         assert DataValidator is not None
 
     def test_validator_init(self):
@@ -208,7 +207,6 @@ class TestModelBenchmark:
 
     def test_benchmark_classification(self):
         from app.ml.trainer import ModelTrainer
-        from sklearn.ensemble import RandomForestClassifier
 
         X_train = np.random.randn(100, 4)
         y_train = np.random.choice([0, 1, 2], size=100)

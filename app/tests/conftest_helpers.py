@@ -3,7 +3,7 @@ from httpx import AsyncClient, ASGITransport
 import pytest
 
 from app.main import app
-from app.core.database import async_session_factory, Base
+from app.core.database import async_session_factory
 from app.core.security import get_password_hash, create_access_token
 from app.models.user import User, UserRole
 

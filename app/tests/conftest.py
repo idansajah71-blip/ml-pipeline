@@ -8,9 +8,7 @@ Test configuration — self-contained, no manual DB setup required.
 """
 
 import os
-import sys
 import pytest
-import asyncio
 import logging
 from typing import AsyncGenerator
 from httpx import AsyncClient, ASGITransport
@@ -93,8 +91,7 @@ async def override_get_db():
 
 from app.main import app
 from app.core.database import Base, get_db
-from app.core.config import get_settings
-from app.models.user import User, UserRole
+from app.models.user import UserRole
 
 app.dependency_overrides[get_db] = override_get_db
 

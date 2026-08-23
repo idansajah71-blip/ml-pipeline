@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression, Ridge
 
 from app.ml.hyperparameter_tuner import HyperparameterTuner, tune_hyperparameters, optuna

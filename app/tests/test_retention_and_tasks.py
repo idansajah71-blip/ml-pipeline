@@ -1,4 +1,3 @@
-import pytest
 
 
 def test_retention_service_imports():

@@ -1,14 +1,11 @@
 import pytest
-import io
 import pandas as pd
-import numpy as np
 
 from app.ml.data_utils import (
     detect_csv_delimiter,
     validate_magic_bytes,
     _clean_dirty_data,
     _parse_currency_value,
-    _remove_total_columns,
     _clean_numeric_strings,
     extract_google_sheet_id,
     load_dataframe,

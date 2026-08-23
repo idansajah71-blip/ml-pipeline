@@ -1,7 +1,6 @@
 import pytest
 import pandas as pd
 import numpy as np
-import io
 import os
 import tempfile
 from app.ml.processor import DataProcessor

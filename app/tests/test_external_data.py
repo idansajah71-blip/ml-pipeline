@@ -1,6 +1,5 @@
 """Tests for external data search & import feature (Phase 10)."""
 import pytest
-import hashlib
 from unittest.mock import AsyncMock, MagicMock, patch
 from app.services.external_data.base_client import BaseExternalDataClient, SearchResultItem
 from app.services.external_data.source_registry import (

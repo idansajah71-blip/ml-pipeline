@@ -230,8 +230,8 @@ class TestArtifactIntegrity:
 
     def test_signature_verification(self):
         from app.ml.artifact_manager import (
-            ArtifactManager, sign_manifest, verify_signature,
-            generate_signing_keypair, set_signing_keys
+            sign_manifest, verify_signature, generate_signing_keypair,
+            set_signing_keys
         )
 
         manifest = {
@@ -484,7 +484,6 @@ class TestAPIServingConsistency:
 
         # 7. Predict via ServingPipeline directly (reload from disk)
         from app.ml.serving_pipeline import ServingPipeline
-        from app.core.database import get_db
         from app.models.model import MLModel
         from sqlalchemy import select as sa_select
 
